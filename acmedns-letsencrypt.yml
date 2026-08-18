@@ -1,0 +1,28 @@
+services:
+  certbot:
+    build:
+      context: acmedns-letsencrypt
+      dockerfile: Dockerfile
+    container_name: certbot-acme-dns
+    restart: unless-stopped
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - acmedns-client:/config/acmedns-client:ro
+      - ./config/domains.txt:/config/domains.txt:ro
+      - certbot-logs:/var/log/certbot
+    environment:
+      - ACMEDNS_URL=${ACMEDNS_URL:-http://auth.mizu.work}
+      - STORAGE_PATH=${STORAGE_PATH:-/config/acmedns-client/clientstorage.json}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
+      - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
+      - TZ=${TZ:-UTC}
+
+
+
+volumes:
+  letsencrypt:
+    name: letsencrypt # With `name:`  will create volume `letsencrypt` if not exist
+  acmedns-client:
+    external: true
+    name: acmedns-client
+  certbot-logs:
