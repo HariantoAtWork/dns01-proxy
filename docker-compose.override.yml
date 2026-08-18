@@ -1,0 +1,17 @@
+networks:
+  cloudflared:
+    external: true
+
+services:
+  acmedns-server:
+    networks:
+      - default
+      - cloudflared
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  acmedns-client:
+    networks:
+      - default
+      - cloudflared
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
