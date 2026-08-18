@@ -1,61 +1,52 @@
 # ACME DNS stack
 
-Self-hosted [acme-dns](https://github.com/joohoi/acme-dns) plus automated Let's Encrypt certificates. Three related services run from one `docker-compose.yml`.
+Three containers. One compose file. Certificates via DNS-01 without giving Let's Encrypt (or anyone) write access to your real DNS.
 
-## Why this exists
-
-Let's Encrypt never reads `clientstorage.json`. Official Certbot stores certificates and ACME accounts under `/etc/letsencrypt/` (`live/`, `archive/`, `renewal/`, `accounts/`). The JSON file in this stack is **acme-dns API credentials** — username, password, subdomain — so a DNS-01 hook can update TXT records. Let's Encrypt only queries public DNS for `_acme-challenge`.
-
-There is a Certbot DNS plugin for this: [`certbot-dns-acmedns`](https://pypi.org/project/certbot-dns-acmedns/) ([source](https://github.com/pan-net-security/certbot-dns-acmedns)). It is **not** an official Let's Encrypt plugin (those are `certbot-dns-cloudflare`, `certbot-dns-route53`, and so on). It is a third-party authenticator with a long name (`certbot-dns-acmedns:dns-acmedns`), a separate credentials INI, and a registration JSON it will **not** create for you.
-
-That JSON is the same shape used by [acme-dns-client](https://github.com/acme-dns/acme-dns-client) (`/etc/acmedns/clientstorage.json`), the [joohoi Certbot hook](https://github.com/joohoi/acme-dns-certbot-joohoi) (`acmedns.json`), and [cert-manager](https://cert-manager.io/docs/configuration/acme/dns01/acme-dns/).
-
-This stack skips the plugin. The custom `letsencrypt` image runs Certbot `--manual` with `acme-dns-auth.py`, reads `clientstorage.json` from the shared volume, talks to `acmedns-server` on the compose network, and loops over `domains.txt`. Same DNS-01 path, fitted to this compose layout instead of the plugin's INI + JSON split.
-
-The `acmedns-client` UI (`harianto/acme-clientstorage`) is there to edit that JSON without SSH.
+| Service | What it does |
+| --- | --- |
+| `acmedns-server` | [acme-dns](https://github.com/joohoi/acme-dns) — a tiny DNS server plus an HTTP API for TXT updates |
+| `acmedns-client` | A small UI I made (`harianto/acme-clientstorage`) so I can edit `clientstorage.json` in a browser |
+| `acmedns-letsencrypt` | Certbot in a loop. Custom hook, not the plugin |
 
 ```mermaid
 flowchart LR
-  LE[letsencrypt Certbot hook] -->|HTTP /update| API[acmedns-server :80]
+  LE[acmedns-letsencrypt] -->|HTTP /update| API[acmedns-server :80]
   LE -->|reads| CS[clientstorage.json]
   UI[acmedns-client] -->|reads/writes| CS
   PubDNS[Lets Encrypt] -->|DNS-01 query :53| API
-  LE -->|issues certs| Certs[letsencrypt volume]
-  API -->|optional TLS later| Certs
+  LE -->|writes certs| Certs[letsencrypt volume]
 ```
 
-| Service | Role |
-| --- | --- |
-| `acmedns-server` | Limited DNS server plus HTTP register/update API ([joohoi/acme-dns](https://github.com/joohoi/acme-dns)) |
-| `acmedns-client` | Web UI for `clientstorage.json` (`harianto/acme-clientstorage:latest`) |
-| `letsencrypt` | Custom Certbot image: auth hook, `domains.txt`, auto-renew — not the `certbot-dns-acmedns` plugin |
+## Why I didn't just use the plugin
 
-## Exposed ports
+There *is* a Certbot plugin: [`certbot-dns-acmedns`](https://pypi.org/project/certbot-dns-acmedns/). It is not from Let's Encrypt. Official plugins look like `certbot-dns-cloudflare`. This one is third-party, wants a credentials INI *and* a JSON file, and it will not register the acme-dns accounts for you.
+
+That JSON is the same idea as `clientstorage.json`. [acme-dns-client](https://github.com/acme-dns/acme-dns-client) calls it that. Joohoi's hook calls it `acmedns.json`. cert-manager uses the same shape. Let's Encrypt never touches any of it. They only look up `_acme-challenge` in public DNS. Certbot's own stuff lives under `/etc/letsencrypt/`.
+
+I got tired of the plugin. So `acmedns-letsencrypt` is just Certbot `--manual` with `acme-dns-auth.py`, reading the JSON from a shared volume, talking to `acmedns-server`, and walking `domains.txt`. Same challenge, less ceremony.
+
+## Ports
 
 ### `acmedns-server`
 
-| Container port | Protocol | Published on host | Purpose |
-| --- | --- | --- | --- |
-| `53` | TCP | **yes** — `53:53` | DNS (Let's Encrypt DNS-01 lookups) |
-| `53` | UDP | **yes** — `53:53/udp` | DNS (Let's Encrypt DNS-01 lookups) |
-| `80` | TCP | **no** | HTTP API (`/register`, `/update`, health). Reachable on the compose network as `http://acmedns-server` and via the `cloudflared` bridge |
-| `443` | TCP | **no** | Listed on the image (`EXPOSE 443`). Unused while `tls = "none"` in `config.cfg` |
+| Container | Host | Notes |
+| --- | --- | --- |
+| `53/tcp` | `53` | DNS. Let's Encrypt hits this. |
+| `53/udp` | `53` | Same. |
+| `80/tcp` | not published | Register/update API. Compose DNS name `http://acmedns-server`, or cloudflared. |
+| `443/tcp` | not published | Image exposes it. Unused while `tls = "none"`. |
 
-Do not publish host `:80` or `:443` for this service. The API is meant to stay on the Docker / Cloudflare tunnel network.
+Leave `:80` and `:443` off the host. DNS has to be public; the API does not.
 
 ### `acmedns-client`
 
-| Container port | Protocol | Published on host | Purpose |
-| --- | --- | --- | --- |
-| `3000` | TCP | **yes** — `82:3000` | Clientstorage web UI at `http://localhost:82` |
+| Container | Host | Notes |
+| --- | --- | --- |
+| `3000/tcp` | `82` | UI at `http://localhost:82`. Also on cloudflared if you want a hostname. |
 
-Also attached to `cloudflared`, so the UI can be served through a tunnel hostname instead of (or as well as) host port 82.
+### `acmedns-letsencrypt`
 
-### `letsencrypt`
-
-| Container port | Protocol | Published on host | Purpose |
-| --- | --- | --- | --- |
-| — | — | **none** | Certbot talks outbound to Let's Encrypt and to `http://acmedns-server`. No inbound ports |
+Nothing published. It only talks out: Let's Encrypt, and `http://acmedns-server`.
 
 ## Quick start
 
@@ -66,57 +57,52 @@ cp build/acmedns-server/config.cfg.example data/acmedns-server/config/config.cfg
 cp build/acmedns-letsencrypt/domains.txt.example data/acmedns-letsencrypt/domains.txt
 ```
 
-1. Edit `data/acmedns-server/config/config.cfg` — set `domain`, `nsname`, `nsadmin`, and the public `A` record IP.
-2. Edit `data/acmedns-letsencrypt/domains.txt` — one domain per line; optional wildcard as the second column. Lines starting with `#` or `;` are comments.
-3. Edit `.env` — set `LETSENCRYPT_EMAIL` and review the other variables (see below).
-4. Point `_acme-challenge.<domain>` CNAMEs at the `fulldomain` values from `clientstorage.json`.
-5. Ensure the `cloudflared` Docker network exists (used by `docker-compose.override.yml`).
-6. Start:
+1. `config.cfg` — your auth hostname, NS, admin, public IP.
+2. `domains.txt` — one domain per line, optional `*.domain` next to it. `#` and `;` start comments.
+3. `.env` — at least `LETSENCRYPT_EMAIL`.
+4. CNAME `_acme-challenge.<domain>` to the `fulldomain` in `clientstorage.json`.
+5. You need the `cloudflared` Docker network (see `docker-compose.override.yml`).
+6. `docker compose up -d --build`
 
-```bash
-docker compose up -d --build
-```
+## Config
 
-## Configuration
-
-| Path | Notes |
+| File | |
 | --- | --- |
-| `.env` | All Compose environment variables. Gitignored; copy from `.env.example` |
-| `data/acmedns-server/config/config.cfg` | acme-dns listen address, zone, and API (`tls = "none"`, API port `80` in the example) |
-| `data/acmedns-letsencrypt/domains.txt` | Certificate names for Certbot |
-| `clientstorage.json` (named volume `acmedns-client`) | acme-dns accounts, not Let's Encrypt data |
+| `.env` | Copy from `.env.example`. Gitignored. |
+| `data/acmedns-server/config/config.cfg` | Listen address, zone, API. Example has `tls = "none"` on port 80. |
+| `data/acmedns-letsencrypt/domains.txt` | What Certbot should issue. |
+| `clientstorage.json` (volume `acmedns-client`) | acme-dns logins. Not Let's Encrypt. |
 
-### Environment variables
+### Environment (`.env` → `acmedns-letsencrypt`)
 
-Used by the `letsencrypt` service (`docker-compose.yml` interpolates these from `.env`):
-
-| Variable | Example | Purpose |
+| Variable | Example | |
 | --- | --- | --- |
-| `ACMEDNS_URL` | `http://acmedns-server` | acme-dns HTTP API for new registrations. Existing `clientstorage.json` accounts may still use their own `server_url` |
-| `STORAGE_PATH` | `/config/acmedns-client/clientstorage.json` | Path to `clientstorage.json` inside the letsencrypt container |
-| `LETSENCRYPT_EMAIL` | `admin@example.com` | Contact email for Let's Encrypt |
-| `RENEW_INTERVAL` | `12` | Hours between Certbot renewal checks |
-| `TZ` | `UTC` | Container timezone |
+| `ACMEDNS_URL` | `http://acmedns-server` | API for new registrations. Old JSON entries may still have their own `server_url`. |
+| `STORAGE_PATH` | `/config/acmedns-client/clientstorage.json` | Where the hook looks for the JSON. |
+| `LETSENCRYPT_EMAIL` | `admin@example.com` | Let's Encrypt contact. |
+| `RENEW_INTERVAL` | `12` | Hours between renew checks. |
+| `TZ` | `UTC` | Clock. |
 
-`acmedns-server` and `acmedns-client` have no Compose environment variables; the server is configured via `config.cfg`.
+The other two services have no env in compose. Server is all `config.cfg`.
 
 ## Volumes
 
-| Volume | Used by | Path in container |
+| Volume | Who | Inside the container |
 | --- | --- | --- |
-| `letsencrypt` (named) | `letsencrypt` (rw), `acmedns-server` (ro) | `/etc/letsencrypt` |
-| `acmedns-client` (named) | `acmedns-client` (rw), `letsencrypt` (ro) | `/app/data` and `/config/acmedns-client` |
-| `letsencrypt-logs` (named) | `letsencrypt` | `/var/log/certbot` |
+| `letsencrypt` | `acmedns-letsencrypt` rw, `acmedns-server` ro | `/etc/letsencrypt` |
+| `acmedns-client` | `acmedns-client` rw, `acmedns-letsencrypt` ro | `/app/data` and `/config/acmedns-client` |
+| `letsencrypt-logs` | `acmedns-letsencrypt` | `/var/log/certbot` |
 | `./data/acmedns-server/config` | `acmedns-server` | `/etc/acme-dns` (ro) |
-| `./data/acmedns-server/data` | `acmedns-server` | `/var/lib/acme-dns` (sqlite) |
-| `./data/acmedns-letsencrypt/domains.txt` | `letsencrypt` | `/config/domains.txt` (ro) |
+| `./data/acmedns-server/data` | `acmedns-server` | `/var/lib/acme-dns` |
+| `./data/acmedns-letsencrypt/domains.txt` | `acmedns-letsencrypt` | `/config/domains.txt` (ro) |
 
-Other stacks can mount the named volumes with `external: true` if they need the same certificates or client storage.
+If another stack needs the same certs or JSON, mark these volumes `external: true` over there.
 
 ## Networks
 
-- **default** (`acmedns-stack_default`) — all three services. Certbot uses this to reach `http://acmedns-server`.
-- **cloudflared** (external) — `acmedns-server` and `acmedns-client` only, via `docker-compose.override.yml`. DNS port 53 is not tunneled.
+Default compose network: all three. Certbot reaches the server as `http://acmedns-server`.
+
+`cloudflared` (external): server and client only. Port 53 stays on the host, not the tunnel.
 
 ## Layout
 
@@ -124,7 +110,7 @@ Other stacks can mount the named volumes with `external: true` if they need the 
 docker-compose.yml
 docker-compose.override.yml
 .env.example
-build/acmedns-server/          # Dockerfile + config.cfg.example
-build/acmedns-letsencrypt/     # custom Certbot hook (not certbot-dns-acmedns)
-data/                          # gitignored runtime config
+build/acmedns-server/
+build/acmedns-letsencrypt/
+data/                      # gitignored
 ```
