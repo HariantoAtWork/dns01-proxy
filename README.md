@@ -2,8 +2,6 @@
 
 Self-hosted [acme-dns](https://github.com/joohoi/acme-dns) plus automated Let's Encrypt certificates. Three related services run from one `docker-compose.yml`.
 
-`.original/` is a gitignored snapshot of the old per-folder server layouts. Do not run those compose files from here.
-
 ## Why this exists
 
 Let's Encrypt never reads `clientstorage.json`. Official Certbot stores certificates and ACME accounts under `/etc/letsencrypt/` (`live/`, `archive/`, `renewal/`, `accounts/`). The JSON file in this stack is **acme-dns API credentials** — username, password, subdomain — so a DNS-01 hook can update TXT records. Let's Encrypt only queries public DNS for `_acme-challenge`.
