@@ -1,5 +1,4 @@
 /.original/
-docker-compose.yml
-docker-compose.override.yml
 /data/
 /config/
+.env

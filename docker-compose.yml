@@ -1,0 +1,55 @@
+services:
+  acmedns-server:
+    build:
+      context: build/acmedns-server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "53:53"
+      - "53:53/udp"
+    volumes:
+      - ./data/acmedns-server/config:/etc/acme-dns:ro
+      - ./data/acmedns-server/data:/var/lib/acme-dns
+      - letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - default
+
+  acmedns-client:
+    image: harianto/acme-clientstorage:latest
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "82:3000"
+    volumes:
+      - acmedns-client:/app/data:rw
+    networks:
+      - default
+
+  letsencrypt:
+    build:
+      context: build/acmedns-letsencrypt
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - letsencrypt-logs:/var/log/certbot
+      - acmedns-client:/config/acmedns-client:ro
+      - ./data/acmedns-letsencrypt/domains.txt:/config/domains.txt:ro
+    environment:
+      - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
+      - STORAGE_PATH=${STORAGE_PATH:-/config/acmedns-client/clientstorage.json}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
+      - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
+      - TZ=${TZ:-UTC}
+    depends_on:
+      - acmedns-server
+    networks:
+      - default
+
+volumes:
+  letsencrypt:
+    name: letsencrypt
+  acmedns-client:
+    name: acmedns-client
+  letsencrypt-logs:
+    name: letsencrypt-logs

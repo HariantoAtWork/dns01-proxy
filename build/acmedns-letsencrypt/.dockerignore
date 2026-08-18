@@ -1,0 +1,21 @@
+# Git files
+.git
+.gitignore
+
+# Documentation
+README.md
+CHANGELOG.md
+QUICKSTART.md
+
+# Environment files
+.env
+.env.example
+
+# Logs
+*.log
+
+# Example domain list (mounted at runtime from data/)
+domains.txt.example
+
+# Keep build directory
+!build/

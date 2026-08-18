@@ -36,8 +36,8 @@ echo ""
 
 # Generate certificates for all domains on first run
 while IFS= read -r line || [ -n "$line" ]; do
-    # Skip empty lines
-    [[ -z "$line" ]] && continue
+    # Skip empty lines and whole-line comments (# or ;)
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*[#;] ]] && continue
     
     # Parse domain and wildcard
     read -r domain wildcard <<< "$line"
