@@ -6,7 +6,7 @@ echo "Running at: $(date)"
 echo ""
 
 # Load environment variables
-export ACMEDNS_URL="${ACMEDNS_URL:-http://auth.mizu.work}"
+export ACMEDNS_URL="${ACMEDNS_URL:-https://auth.acme-dns.io}"
 export STORAGE_PATH="${STORAGE_PATH:-/config/clientstorage.json}"
 
 # Attempt to renew all certificates
