@@ -3,6 +3,7 @@ services:
     build:
       context: build/acmedns-server
       dockerfile: Dockerfile
+    container_name: acmedns-server
     restart: unless-stopped
     ports:
       - "53:53"
@@ -17,6 +18,7 @@ services:
   acmedns-client:
     image: harianto/acme-clientstorage:latest
     platform: linux/amd64
+    container_name: acmedns-client
     restart: unless-stopped
     ports:
       - "82:3000"
@@ -25,10 +27,11 @@ services:
     networks:
       - default
 
-  letsencrypt:
+  acmedns-letsencrypt:
     build:
       context: build/acmedns-letsencrypt
       dockerfile: Dockerfile
+    container_name: acmedns-letsencrypt
     restart: unless-stopped
     volumes:
       - letsencrypt:/etc/letsencrypt
