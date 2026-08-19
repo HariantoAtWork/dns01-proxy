@@ -7,7 +7,7 @@ services:
         ACMEDNS_REPO: ${ACMEDNS_REPO:-https://github.com/acme-dns/acme-dns.git}
         ACMEDNS_REF: ${ACMEDNS_REF:-master}
         ACMEDNS_APPLY_PATCH: ${ACMEDNS_APPLY_PATCH:-1}
-    image: harianto/acmedns-server
+    image: harianto/acmedns-server:latest
     container_name: acmedns-server
     restart: unless-stopped
     ports:
@@ -24,7 +24,7 @@ services:
     build:
       context: build/acmedns-client
       dockerfile: Dockerfile
-    image: harianto/acmedns-client
+    image: harianto/acmedns-client:latest
     container_name: acmedns-client
     restart: unless-stopped
     ports:
@@ -56,7 +56,7 @@ services:
     build:
       context: build/acmedns-letsencrypt
       dockerfile: Dockerfile
-    image: harianto/acmedns-letsencrypt
+    image: harianto/acmedns-letsencrypt:latest
     container_name: acmedns-letsencrypt
     restart: unless-stopped
     volumes:
