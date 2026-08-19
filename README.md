@@ -94,7 +94,7 @@ If an old compose file already bind-mounted a missing `domains.txt`, Docker may 
 
 Set `ADMINISTRATOR_PASSWORD` in `.env` to lock the Nuxt UI and its APIs behind username `admin`. Leave it empty for open access.
 
-`NUXT_APPLICATIONS_DATA_ROOT` is the parent data directory for the Nuxt client (server-only). Compose defaults it to `/app/data` on the `acmedns-client` volume. Live JSON stays at `/app/data/clientstorage.json`. Backups are written to `/app/data/acmedns-client/backups`. Leave the env empty locally and the app uses the live storage directory.
+`NUXT_APPLICATIONS_DATA_ROOT` is the parent data directory for the Nuxt client (server-only). Compose defaults it to `/app/config` on the `acmedns-client` volume. Live JSON stays at `/app/config/clientstorage.json`. Backups are written to `/app/config/acmedns-client/backups`. Leave the env empty locally and the app uses the live storage directory.
 
 The Backup page can dump the whole `clientstorage.json` or one hostname, list those files, restore (with overwrite confirm), and delete copies. Restore of a domain merges that hostname; a full restore replaces the live file.
 
@@ -103,7 +103,7 @@ The Backup page can dump the whole `clientstorage.json` or one hostname, list th
 | Volume | Who | Inside the container |
 | --- | --- | --- |
 | `letsencrypt` | `acmedns-letsencrypt` rw, `acmedns-server` ro | `/etc/letsencrypt` |
-| `acmedns-client` | `acmedns-client` rw, `acmedns-letsencrypt` ro | `/app/data` and `/config/acmedns-client` |
+| `acmedns-client` | `acmedns-client` rw, `acmedns-letsencrypt` ro | `/app/config` and `/config/acmedns-client` |
 | `letsencrypt-logs` | `acmedns-letsencrypt` | `/var/log/certbot` |
 | `./data/acmedns-server/config` | `acmedns-server` | `/etc/acme-dns` — `config.cfg` is created here if missing |
 | `./data/acmedns-server/data` | `acmedns-server` | `/var/lib/acme-dns` |

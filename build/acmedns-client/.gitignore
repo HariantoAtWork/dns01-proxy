@@ -23,8 +23,10 @@ logs
 .env.*
 !.env.example
 
-# Local clientstorage
+# Data files
 data/
+# Local clientstorage
+config/
 
 # Agent skill copies (not part of the app)
 .agents/
