@@ -5,6 +5,14 @@
       This UI writes <span class="font-mono text-ink">clientstorage.json</span>. Certbot in this stack reads that file and talks to acme-dns. Let's Encrypt only looks up the public CNAME.
     </p>
 
+    <h2 class="mt-10 text-xl font-semibold">Public internet</h2>
+    <p class="mt-3 text-muted">
+      Home lists the public IPv4 and IPv6 addresses the internet sees for this host and this browser.
+      Host addresses are this container's outbound path; use those for the acme-dns A/AAAA glue.
+      If IPv6 only appears under this browser, Docker is probably IPv4-only.
+      If two echo services disagree, you may have more than one WAN; port 53 must land on the address that actually answers.
+    </p>
+
     <h2 class="mt-10 text-xl font-semibold">Register a domain</h2>
     <ol class="mt-3 list-decimal space-y-2 pl-5 text-muted">
       <li>Open Register and enter the hostname you want a certificate for.</li>
