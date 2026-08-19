@@ -94,6 +94,10 @@ If an old compose file already bind-mounted a missing `domains.txt`, Docker may 
 
 Set `ADMINISTRATOR_PASSWORD` in `.env` to lock the Nuxt UI and its APIs behind username `admin`. Leave it empty for open access.
 
+`NUXT_APPLICATIONS_DATA_ROOT` is the parent data directory for the Nuxt client (server-only). Compose defaults it to `/app/data` on the `acmedns-client` volume. Live JSON stays at `/app/data/clientstorage.json`. Backups are written to `/app/data/acmedns-client/backups`. Leave the env empty locally and the app uses the live storage directory.
+
+The Backup page can dump the whole `clientstorage.json` or one hostname, list those files, restore (with overwrite confirm), and delete copies. Restore of a domain merges that hostname; a full restore replaces the live file.
+
 ## Volumes
 
 | Volume | Who | Inside the container |

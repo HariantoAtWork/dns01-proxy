@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhQuestion as Question, PhPlus as Plus, PhHouse as House, PhSignOut as SignOut } from '@phosphor-icons/vue'
+import { PhQuestion as Question, PhPlus as Plus, PhHouse as House, PhSignOut as SignOut, PhArchive as Archive } from '@phosphor-icons/vue'
 
 const route = useRoute()
 const { restrictMode, authenticated, logout } = useAuth()
@@ -7,6 +7,7 @@ const { restrictMode, authenticated, logout } = useAuth()
 const links = [
   { to: '/', label: 'Home', icon: House, exact: true },
   { to: '/register', label: 'Register', icon: Plus, exact: false },
+  { to: '/backup', label: 'Backup', icon: Archive, exact: false },
   { to: '/help', label: 'Help', icon: Question, exact: false },
 ] as const
 

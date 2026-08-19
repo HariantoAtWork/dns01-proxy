@@ -19,6 +19,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     clientstorageData: 'data/clientstorage.json',
+    applicationsDataRoot: 'data',
     acmednsUrl: 'http://acmedns-server',
     administratorPassword: '',
     public: {
