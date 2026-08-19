@@ -1,4 +1,5 @@
 import type { AcmeDnsCredentials } from '#shared/types/clientstorage'
+import { fulldomainForAccount } from '#shared/utils/fulldomain'
 
 export function resolveAcmeDnsBase(requestedUrl?: string) {
   const config = useRuntimeConfig()
@@ -27,7 +28,7 @@ export async function registerAcmeDnsAccount(serverUrl: string) {
     }
 
     return {
-      fulldomain: payload.fulldomain,
+      fulldomain: fulldomainForAccount(payload.subdomain, base, payload.fulldomain),
       subdomain: payload.subdomain,
       username: payload.username,
       password: payload.password,
