@@ -24,6 +24,15 @@ services:
       - "82:3000"
     volumes:
       - acmedns-client:/app/data:rw
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+          set -e
+          if [ ! -s /app/data/clientstorage.json ]; then
+            echo '{}' > /app/data/clientstorage.json
+          fi
+          exec docker-entrypoint.sh node server/index.mjs
     networks:
       - default
 
@@ -36,7 +45,7 @@ services:
     volumes:
       - letsencrypt:/etc/letsencrypt
       - letsencrypt-logs:/var/log/certbot
-      - acmedns-client:/config/acmedns-client
+      - acmedns-client:/config/acmedns-client:ro
       - ./data/acmedns-letsencrypt:/config/host
     environment:
       - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
@@ -46,6 +55,7 @@ services:
       - TZ=${TZ:-UTC}
     depends_on:
       - acmedns-server
+      - acmedns-client
     networks:
       - default
 
