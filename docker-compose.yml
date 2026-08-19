@@ -25,9 +25,10 @@ services:
       - "82:3000"
     volumes:
       - acmedns-client:/app/config:rw
+      - acmedns-client-data:/app/data:rw
     environment:
       - CLIENTSTORAGE_DATA=/app/config/clientstorage.json
-      - NUXT_APPLICATIONS_DATA_ROOT=${NUXT_APPLICATIONS_DATA_ROOT:-/app/config}
+      - NUXT_APPLICATIONS_DATA_ROOT=${NUXT_APPLICATIONS_DATA_ROOT:-/app/data}
       - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
@@ -36,8 +37,10 @@ services:
       - -c
       - |
           set -e
-          if [ ! -s /app/config/clientstorage.json ]; then
-            echo '{}' > /app/config/clientstorage.json
+          file="$${CLIENTSTORAGE_DATA:?CLIENTSTORAGE_DATA is required}"
+          mkdir -p "$$(dirname "$$file")"
+          if [ ! -s "$$file" ]; then
+            echo '{}' > "$$file"
           fi
           exec bun .output/server/index.mjs
     networks:
@@ -71,5 +74,7 @@ volumes:
     name: letsencrypt
   acmedns-client:
     name: acmedns-client
+  acmedns-client-data:
+    name: acmedns-client-data
   letsencrypt-logs:
     name: letsencrypt-logs
