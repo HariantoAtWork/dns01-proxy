@@ -12,6 +12,7 @@ nsname = "auth.example.org"
 # admin email address, where @ is substituted with .
 nsadmin = "admin.example.org"
 # predefined records served in addition to the TXT
+# (A/NS/SOA for the auth zone — not the ACME TXT slot count)
 records = [
     # domain pointing to the public IP of your acme-dns server
     "auth.example.org. A 198.51.100.1",
@@ -22,10 +23,10 @@ records = [
 debug = false
 
 [database]
-# Database engine to use, sqlite3 or postgres
-engine = "sqlite3"
-# Connection string, filename for sqlite3 and postgres://$username:$password@$host/$db_name for postgres
-# Please note that the default Docker image uses path /var/lib/acme-dns/acme-dns.db for sqlite3
+# Database engine to use, sqlite or postgres (sqlite3 is still accepted)
+engine = "sqlite"
+# Connection string, filename for sqlite and postgres://$username:$password@$host/$db_name for postgres
+# Please note that the default Docker image uses path /var/lib/acme-dns/acme-dns.db for sqlite
 connection = "/var/lib/acme-dns/acme-dns.db"
 # connection = "postgres://user:password@localhost/acmedns_db"
 

@@ -7,6 +7,7 @@ This directory contains files that are copied into the Docker image during the b
 - **`acme-dns-auth.py`** - Python hook script for acme-dns DNS-01 challenge
   - Handles communication with acme-dns server(s)
   - Updates TXT records for domain validation
+  - Looks up `clientstorage.json` by hostname, then parent hostnames
   - Supports `clientstorage.json` format with `server_url` field
   - Can work with multiple acme-dns servers in the same file:
     - Self-hosted: `http://auth.mizu.work`
@@ -14,7 +15,7 @@ This directory contains files that are copied into the Docker image during the b
 
 - **`entrypoint.sh`** - Container entrypoint script
   - Validates configuration files on startup
-  - Generates certificates for all domains in `domains.txt` if they don't exist
+  - Issues one certificate per `domains.txt` line (all names on that line)
   - Sets up cron job for automatic renewal
   - Starts cron daemon in foreground
 

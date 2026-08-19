@@ -25,6 +25,8 @@ That JSON is the same idea as `clientstorage.json`. [acme-dns-client](https://gi
 
 I got tired of the plugin. So `acmedns-letsencrypt` is just Certbot `--manual` with `acme-dns-auth.py`, reading the JSON from a shared volume, talking to `acmedns-server`, and walking `domains.txt`. Same challenge, less ceremony.
 
+Upstream acme-dns only keeps two TXT records per account, enough for `example.com` plus `*.example.com`. Grouped SAN certs need more. This stack patches the server to 100 rolling TXT slots (Let's Encrypt's name cap) and pads existing accounts on start. The hook walks parent hostnames, so a nested name can reuse the apex account if its `_acme-challenge` CNAME points at the same fulldomain.
+
 ## Ports
 
 ### `acmedns-server`
@@ -66,7 +68,7 @@ Edit those, then restart. `domains.txt` ships as comments only so Certbot does n
 If an old compose file already bind-mounted a missing `domains.txt`, Docker may have created a *directory* with that name. Remove it (`rm -rf data/acmedns-letsencrypt/domains.txt`) and start again.
 
 1. `config.cfg` — your auth hostname, NS, admin, public IP.
-2. `domains.txt` — one domain per line, optional `*.domain` next to it. `#` and `;` start comments.
+2. `domains.txt` — one certificate per line. Space- or comma-separated names. Group related names on one line (`mdstn.com *.mdstn.com oib.mdstn.com *.oib.mdstn.com`) for one order and one PEM. `#` and `;` start comments.
 3. `.env` — at least `LETSENCRYPT_EMAIL`.
 4. CNAME `_acme-challenge.<domain>` to the `fulldomain` in `clientstorage.json`.
 5. You need the `cloudflared` Docker network (see `docker-compose.override.yml`).

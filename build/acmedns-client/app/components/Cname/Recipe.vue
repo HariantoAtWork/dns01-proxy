@@ -20,6 +20,7 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
         <h2 class="text-base font-semibold tracking-tight">CNAME to publish</h2>
         <p class="mt-1 max-w-[65ch] text-sm text-muted">
           Put this on the real DNS for {{ domain }}. Let's Encrypt follows it to acme-dns. Click a line to copy it.
+          Nested names need their own <span class="font-mono">_acme-challenge.&lt;host&gt;</span> CNAME; reuse this fulldomain when they share the certificate.
         </p>
       </div>
       <button
