@@ -1,27 +1,17 @@
-# Domain list for Let's Encrypt certificate generation
+# Domain list for Let's Encrypt
 #
 # Format:
 #   domain.com [*.domain.com]
 #
 # - One domain per line
-# - Optional wildcard domain as second column (separated by space)
-# - Lines starting with # or ; are comments and will be ignored
+# - Optional wildcard as the second column
+# - Lines starting with # or ; are comments
 # - Empty lines are ignored
 #
-# Copy this file to data/acmedns-letsencrypt/domains.txt and edit it.
-#
-# Examples:
+# This file is written on first start if it is missing.
+# Uncomment your domains (or add them), then restart the container.
 
-# Domain without wildcard
-example.com
-
-# Domain with wildcard (generates certificate for both example.com and *.example.com)
-yourdomain.com *.yourdomain.com
-
-; Temporarily disabled with a semicolon
-; paused.example.com *.paused.example.com
-
-# Multiple domains
-api.example.com
-blog.example.com *.blog.example.com
-shop.example.com
+# example.com
+# yourdomain.com *.yourdomain.com
+# api.example.com
+# blog.example.com *.blog.example.com

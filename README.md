@@ -52,17 +52,23 @@ Nothing published. It only talks out: Let's Encrypt, and `http://acmedns-server`
 
 ```bash
 cp .env.example .env
-mkdir -p data/acmedns-server/config data/acmedns-server/data data/acmedns-letsencrypt
-cp build/acmedns-server/config.cfg.example data/acmedns-server/config/config.cfg
-cp build/acmedns-letsencrypt/domains.txt.example data/acmedns-letsencrypt/domains.txt
+docker compose up -d --build
 ```
+
+Docker creates `data/` for you. On first start the containers write:
+
+- `data/acmedns-server/config/config.cfg`
+- `data/acmedns-letsencrypt/domains.txt`
+
+Edit those, then restart. `domains.txt` ships as comments only so Certbot does not try `example.com` by accident.
+
+If an old compose file already bind-mounted a missing `domains.txt`, Docker may have created a *directory* with that name. Remove it (`rm -rf data/acmedns-letsencrypt/domains.txt`) and start again.
 
 1. `config.cfg` — your auth hostname, NS, admin, public IP.
 2. `domains.txt` — one domain per line, optional `*.domain` next to it. `#` and `;` start comments.
 3. `.env` — at least `LETSENCRYPT_EMAIL`.
 4. CNAME `_acme-challenge.<domain>` to the `fulldomain` in `clientstorage.json`.
 5. You need the `cloudflared` Docker network (see `docker-compose.override.yml`).
-6. `docker compose up -d --build`
 
 ## Config
 
@@ -92,9 +98,9 @@ The other two services have no env in compose. Server is all `config.cfg`.
 | `letsencrypt` | `acmedns-letsencrypt` rw, `acmedns-server` ro | `/etc/letsencrypt` |
 | `acmedns-client` | `acmedns-client` rw, `acmedns-letsencrypt` ro | `/app/data` and `/config/acmedns-client` |
 | `letsencrypt-logs` | `acmedns-letsencrypt` | `/var/log/certbot` |
-| `./data/acmedns-server/config` | `acmedns-server` | `/etc/acme-dns` (ro) |
+| `./data/acmedns-server/config` | `acmedns-server` | `/etc/acme-dns` — `config.cfg` is created here if missing |
 | `./data/acmedns-server/data` | `acmedns-server` | `/var/lib/acme-dns` |
-| `./data/acmedns-letsencrypt/domains.txt` | `acmedns-letsencrypt` | `/config/domains.txt` (ro) |
+| `./data/acmedns-letsencrypt` | `acmedns-letsencrypt` | `/config/host` — `domains.txt` is created here if missing |
 
 If another stack needs the same certs or JSON, mark these volumes `external: true` over there.
 

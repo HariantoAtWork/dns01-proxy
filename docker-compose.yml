@@ -9,7 +9,7 @@ services:
       - "53:53"
       - "53:53/udp"
     volumes:
-      - ./data/acmedns-server/config:/etc/acme-dns:ro
+      - ./data/acmedns-server/config:/etc/acme-dns
       - ./data/acmedns-server/data:/var/lib/acme-dns
       - letsencrypt:/etc/letsencrypt:ro
     networks:
@@ -37,7 +37,7 @@ services:
       - letsencrypt:/etc/letsencrypt
       - letsencrypt-logs:/var/log/certbot
       - acmedns-client:/config/acmedns-client:ro
-      - ./data/acmedns-letsencrypt/domains.txt:/config/domains.txt:ro
+      - ./data/acmedns-letsencrypt:/config/host
     environment:
       - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - STORAGE_PATH=${STORAGE_PATH:-/config/acmedns-client/clientstorage.json}

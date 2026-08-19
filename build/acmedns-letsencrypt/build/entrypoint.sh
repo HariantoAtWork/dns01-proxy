@@ -17,17 +17,27 @@ echo "  - LETSENCRYPT_EMAIL: $LETSENCRYPT_EMAIL"
 echo "  - RENEW_INTERVAL: Every ${RENEW_INTERVAL} hours"
 echo ""
 
+HOST_DIR=/config/host
+DOMAINS_FILE="$HOST_DIR/domains.txt"
+mkdir -p "$HOST_DIR"
+
+if [ -d "$DOMAINS_FILE" ]; then
+    echo "ERROR: $DOMAINS_FILE is a directory."
+    echo "Docker does that when you bind-mount a missing file."
+    echo "Remove data/acmedns-letsencrypt/domains.txt on the host and restart."
+    exit 1
+fi
+
+if [ ! -s "$DOMAINS_FILE" ]; then
+    echo "No domains.txt on the volume. Writing a starter file."
+    cp /defaults/domains.txt "$DOMAINS_FILE"
+    echo "Edit data/acmedns-letsencrypt/domains.txt, then restart."
+fi
+
 # Check if clientstorage.json exists
 if [ ! -f "$STORAGE_PATH" ]; then
     echo "ERROR: clientstorage.json not found at $STORAGE_PATH"
     echo "Please mount your clientstorage.json file to /config/clientstorage.json"
-    exit 1
-fi
-
-# Check if domains.txt exists
-if [ ! -f /config/domains.txt ]; then
-    echo "ERROR: domains.txt not found at /config/domains.txt"
-    echo "Please mount your domains.txt file to /config/domains.txt"
     exit 1
 fi
 
@@ -76,7 +86,7 @@ while IFS= read -r line || [ -n "$line" ]; do
         fi
     fi
     echo ""
-done < /config/domains.txt
+done < "$DOMAINS_FILE"
 
 echo "=== Setting up Auto-Renewal Loop ==="
 echo "Renewal will run every ${RENEW_INTERVAL} hours"

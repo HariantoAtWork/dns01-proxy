@@ -14,8 +14,8 @@ QUICKSTART.md
 # Logs
 *.log
 
-# Example domain list (mounted at runtime from data/)
-domains.txt.example
+# Example domain list is copied into the image as /defaults/domains.txt
+# Runtime file is written to the mounted data/ directory on first start
 
 # Keep build directory
 !build/
