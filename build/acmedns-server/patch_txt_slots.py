@@ -9,7 +9,10 @@ from pathlib import Path
 TXT_RECORD_SLOTS = 100
 
 LIMIT_OLD = "SELECT Value FROM txt WHERE Subdomain=$1 LIMIT 2"
-LIMIT_NEW = f"SELECT Value FROM txt WHERE Subdomain=$1 LIMIT {TXT_RECORD_SLOTS}"
+LIMIT_NEW = (
+    f"SELECT Value FROM txt WHERE Subdomain=$1 AND Value != '' "
+    f"ORDER BY LastUpdate DESC LIMIT {TXT_RECORD_SLOTS}"
+)
 
 INSERT_OLD = """// NewTXTValuesInTransaction creates two rows for subdomain to the txt table
 func (d *acmednsdb) NewTXTValuesInTransaction(tx *sql.Tx, subdomain string) error {

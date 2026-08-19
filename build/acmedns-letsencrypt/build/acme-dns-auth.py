@@ -50,16 +50,11 @@ def apex_name(domain):
 
 
 def storage_candidates(domain):
-    """Exact key, apex after one `*.` prefix, then parent hostnames."""
+    """Exact storage keys: wildcard name if present, then the hostname without `*.`."""
     keys = []
     if domain.startswith("*."):
         keys.append(domain)
-    apex = apex_name(domain)
-    keys.append(apex)
-
-    labels = apex.split(".")
-    for index in range(1, len(labels) - 1):
-        keys.append(".".join(labels[index:]))
+    keys.append(apex_name(domain))
 
     seen = set()
     unique = []
@@ -93,15 +88,17 @@ def main():
         candidates = ", ".join(storage_candidates(domain))
         print(
             f"No acme-dns account for {domain}. Looked for: {candidates}. "
-            "Register the apex (or this hostname) in acmedns-client, and CNAME "
+            "Register that hostname in acmedns-client (nested wildcards need their own row, "
+            f"e.g. oib.example.com for *.oib.example.com), and CNAME "
             f"_acme-challenge.{apex_name(domain)} to that fulldomain."
         )
         sys.exit(1)
 
     if storage_key not in (domain, apex_name(domain)):
-        print(f"Using parent account {storage_key} for {domain}")
+        print(f"Using stored key {storage_key} for {domain}")
 
-    print(f"Updating TXT record for {domain}")
+    server_url = account.get("server_url", ACMEDNS_URL)
+    print(f"Updating TXT record for {domain} via {server_url}")
     AcmeDnsClient(ACMEDNS_URL).update_txt_record(account, validation)
     print(f"Successfully updated TXT record for {domain}")
 
