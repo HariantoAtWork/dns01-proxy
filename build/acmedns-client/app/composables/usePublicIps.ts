@@ -75,9 +75,10 @@ export function usePublicIps() {
   const browserPending = ref(false)
   const refreshing = ref(false)
 
-  const { data, error, status, refresh } = useFetch<PublicNetworkResult>('/api/network/public', {
+  const { data, error, status, refresh, execute } = useFetch<PublicNetworkResult>('/api/network/public', {
     key: 'public-network',
     lazy: true,
+    immediate: false,
     watch: false,
     query: {
       refresh: computed(() => forceRefresh.value ? '1' : ''),
@@ -116,6 +117,13 @@ export function usePublicIps() {
     }
   }
 
+  async function load() {
+    if (addresses.value.length) {
+      return
+    }
+    await Promise.all([execute(), probeBrowser()])
+  }
+
   async function reload() {
     refreshing.value = true
     forceRefresh.value = true
@@ -126,10 +134,6 @@ export function usePublicIps() {
       refreshing.value = false
     }
   }
-
-  onMounted(() => {
-    void probeBrowser()
-  })
 
   const loading = computed(() => {
     if (addresses.value.length) {
@@ -143,6 +147,7 @@ export function usePublicIps() {
     error,
     status,
     refresh: reload,
+    load,
     host,
     visit,
     addresses,

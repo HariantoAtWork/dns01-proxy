@@ -46,6 +46,7 @@ async function signOut() {
             <component :is="link.icon" :size="16" weight="regular" aria-hidden="true" />
             {{ link.label }}
           </NuxtLink>
+          <NetworkPublicIps />
         </nav>
         <div
           v-if="restrictMode && authenticated"
