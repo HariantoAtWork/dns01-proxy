@@ -4,6 +4,7 @@ How public DNS, port 53, and this stack fit together. The [README](../README.md)
 
 ## Pages
 
+- [Test this stack on the Synology](Test-on-Synology.md) — DMZ owns public 53; Mac Compose cannot prove DNS-01
 - [Public DNS and port 53](Public-DNS-and-port-53.md) — why Let's Encrypt must reach this box on 53
 - [Hostnames do not split ports](Hostnames-do-not-split-ports.md) — A records, glue, email as an analogy
 - [DMZ, Synology, and Mac](DMZ-Synology-and-Mac.md) — where `84.86.220.240:53` actually lands

@@ -32,3 +32,5 @@ Certificates issued **on the Synology** can succeed without this Mac stack:
 - a DNS or acme-dns process **on the Synology** that owns public 53
 
 So: Mac DNS-01 fails until 53 reaches the Mac (or you move Compose to the NAS). Synology certs working does **not** prove `dns.uti.email` is serving acme-dns.
+
+Operator rule for this house: [test certificate issuance on the Synology](Test-on-Synology.md).
