@@ -5,7 +5,7 @@ useHead({ title: 'Backup' })
 
 const route = useRoute()
 const { entries, refresh: refreshStorage } = useClientStorage()
-const { items, directory, error, status, refresh, createBackup, restoreBackup, deleteBackup } = useBackups()
+const { items, directory, storagePath, error, status, refresh, createBackup, restoreBackup, deleteBackup } = useBackups()
 const toasts = useToasts()
 
 const domains = computed(() => entries.value.map(entry => entry.domain))
@@ -140,8 +140,9 @@ async function confirmDelete() {
       <p class="max-w-[65ch] text-muted">
         Operator copies of <span class="font-mono text-ink">clientstorage.json</span>.
         Full dumps replace the live file. Domain dumps merge one hostname.
-        Files sit under <span class="font-mono text-ink">acmedns-client/backups</span>
-        inside the data root — not next to random paths.
+        You can also download or upload the live <span class="font-mono text-ink">CLIENTSTORAGE_DATA</span> file.
+        Server copies sit under <span class="font-mono text-ink">acmedns-client/backups</span>
+        inside the data root.
       </p>
       <p v-if="directory" class="font-mono text-xs text-muted">
         {{ directory }}
@@ -154,6 +155,13 @@ async function confirmDelete() {
       :pending
       @full="backupFull"
       @domain="backupDomain"
+    />
+
+    <BackupTransfer
+      :storage-path="storagePath"
+      :pending
+      @busy="pending = $event"
+      @restored="refreshStorage"
     />
 
     <section class="flex flex-col gap-3">

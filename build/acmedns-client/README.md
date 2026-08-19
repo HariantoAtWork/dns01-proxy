@@ -18,7 +18,7 @@ UI: http://localhost:3000
 
 Storage defaults to `config/clientstorage.json`.
 
-Set `NUXT_APPLICATIONS_DATA_ROOT` for the parent data directory (server-only). Backups are written to `{NUXT_APPLICATIONS_DATA_ROOT}/acmedns-client/backups` (created if missing). Leave it empty to use the live storage directory (`data/` locally). Live JSON stays at `CLIENTSTORAGE_DATA`.
+Set `NUXT_APPLICATIONS_DATA_ROOT` for the parent data directory (server-only). Backups are written to `{NUXT_APPLICATIONS_DATA_ROOT}/acmedns-client/backups` (created if missing). Leave it empty to use the live storage directory (`data/` locally). Live JSON stays at `CLIENTSTORAGE_DATA`. The Backup page can also download that live file or upload a `clientstorage.json` to replace it.
 
 Set `ADMINISTRATOR_PASSWORD` to lock the UI and APIs behind username `admin`. Leave it empty (the default) for open access.
 

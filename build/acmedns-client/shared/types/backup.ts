@@ -12,6 +12,7 @@ export interface BackupListItem {
 
 export interface BackupListResponse {
   directory: string
+  storagePath: string
   items: BackupListItem[]
 }
 

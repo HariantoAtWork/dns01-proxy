@@ -264,13 +264,13 @@ export async function restoreBackup(filename: string, overwrite: boolean, event?
   }
 
   if (kind === 'full') {
-    return restoreFull(parsed, overwrite)
+    return restoreLiveStorage(parsed, overwrite)
   }
 
   return restoreDomain(parsed, overwrite)
 }
 
-async function restoreFull(parsed: unknown, overwrite: boolean) {
+export async function restoreLiveStorage(parsed: unknown, overwrite: boolean) {
   if (!isStorageMap(parsed)) {
     throw createError({
       statusCode: 400,
@@ -289,10 +289,10 @@ async function restoreFull(parsed: unknown, overwrite: boolean) {
   }
 
   await writeStorage(parsed)
-  console.info('Restored full clientstorage backup')
+  console.info('Replaced live clientstorage.json')
   return {
     success: true as const,
-    message: 'Live storage replaced from full backup',
+    message: 'Live storage replaced',
   }
 }
 

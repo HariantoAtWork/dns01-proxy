@@ -23,6 +23,12 @@ export interface StorageWriteBody {
 export interface StorageMutationResult {
   success: boolean
   message: string
+  needsOverwrite?: boolean
+}
+
+export interface StorageFileBody {
+  storage: ClientStorageMap
+  overwrite?: boolean
 }
 
 export interface DnsRecordGroup {
