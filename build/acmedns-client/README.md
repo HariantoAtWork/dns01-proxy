@@ -16,7 +16,7 @@ UI: http://localhost:3000
 
 `ACMEDNS_URL` is called from the Nuxt server, not the browser. Inside Docker that is `http://acmedns-server`. On the host, set it to a reachable acme-dns API.
 
-Storage defaults to `data/clientstorage.json`.
+Storage defaults to `config/clientstorage.json`.
 
 Set `NUXT_APPLICATIONS_DATA_ROOT` for the parent data directory (server-only). Backups are written to `{NUXT_APPLICATIONS_DATA_ROOT}/acmedns-client/backups` (created if missing). Leave it empty to use the live storage directory (`data/` locally). Live JSON stays at `CLIENTSTORAGE_DATA`.
 
