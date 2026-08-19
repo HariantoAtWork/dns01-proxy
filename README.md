@@ -130,12 +130,15 @@ Default compose network: all three. Certbot reaches the server as `http://acmedn
 
 `cloudflared` (external): server and client only. Port 53 stays on the host, not the tunnel.
 
+Why DNS-01 needs public 53, why hostnames do not split that port, and why the tunnel cannot carry Let's Encrypt lookups: [`.wiki/Home.md`](.wiki/Home.md).
+
 ## Layout
 
 ```
 docker-compose.yml
 docker-compose.override.yml
 .env.example
+.wiki/                     # public DNS, port 53, DMZ, cloudflared
 build/acmedns-server/
 build/acmedns-client/
 build/acmedns-letsencrypt/
