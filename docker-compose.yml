@@ -3,6 +3,10 @@ services:
     build:
       context: build/acmedns-server
       dockerfile: Dockerfile
+      args:
+        ACMEDNS_REPO: ${ACMEDNS_REPO:-https://github.com/acme-dns/acme-dns.git}
+        ACMEDNS_REF: ${ACMEDNS_REF:-master}
+        ACMEDNS_APPLY_PATCH: ${ACMEDNS_APPLY_PATCH:-1}
     container_name: acmedns-server
     restart: unless-stopped
     ports:
