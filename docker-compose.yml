@@ -24,10 +24,10 @@ services:
     ports:
       - "82:3000"
     volumes:
-      - acmedns-client:/app/data:rw
+      - acmedns-client:/app/config:rw
     environment:
-      - CLIENTSTORAGE_DATA=/app/data/clientstorage.json
-      - NUXT_APPLICATIONS_DATA_ROOT=${NUXT_APPLICATIONS_DATA_ROOT:-/app/data}
+      - CLIENTSTORAGE_DATA=/app/config/clientstorage.json
+      - NUXT_APPLICATIONS_DATA_ROOT=${NUXT_APPLICATIONS_DATA_ROOT:-/app/config}
       - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
@@ -36,8 +36,8 @@ services:
       - -c
       - |
           set -e
-          if [ ! -s /app/data/clientstorage.json ]; then
-            echo '{}' > /app/data/clientstorage.json
+          if [ ! -s /app/config/clientstorage.json ]; then
+            echo '{}' > /app/config/clientstorage.json
           fi
           exec bun .output/server/index.mjs
     networks:

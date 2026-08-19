@@ -24,4 +24,4 @@ Set `ADMINISTRATOR_PASSWORD` to lock the UI and APIs behind username `admin`. Le
 
 ## Stack
 
-Parent compose builds this image and serves it on http://localhost:82. Volume `acmedns-client` is `/app/data`. Compose sets `NUXT_APPLICATIONS_DATA_ROOT=/app/data`, so backups persist at `/app/data/acmedns-client/backups`.
+Parent compose builds this image and serves it on http://localhost:82. Volume `acmedns-client` is `/app/config`. Compose sets `NUXT_APPLICATIONS_DATA_ROOT=/app/config`, so backups persist at `/app/config/acmedns-client/backups`.
