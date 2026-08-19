@@ -1,0 +1,6 @@
+- [Home](Home)
+- [Public DNS and port 53](Public-DNS-and-port-53)
+- [Hostnames do not split ports](Hostnames-do-not-split-ports)
+- [DMZ, Synology, and Mac](DMZ-Synology-and-Mac)
+- [Cloudflared and DNS](Cloudflared-and-DNS)
+- [Certificate checklist](Certificate-checklist)
