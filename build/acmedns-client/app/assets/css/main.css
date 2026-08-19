@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #dfe8e2;
+  --panel: #f3f7f4;
+  --ink: #1a2320;
+  --muted: #3f524a;
+  --rule: #b7c4bc;
+  --signal: #c45c12;
+  --signal-ink: #fff8f1;
+  --danger: #8f2d14;
+  --secret: #3d4f48;
+  --focus: #c45c12;
+  --shadow: color-mix(in srgb, #1a2320 14%, transparent);
+  --z-nav: 10;
+  --z-toast: 30;
+  --z-dialog: 40;
+  --radius-panel: 6px;
+  --radius-input: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #151c19;
+    --panel: #1e2824;
+    --ink: #e4ece7;
+    --muted: #9aada4;
+    --rule: #2f3d37;
+    --signal: #e07a28;
+    --signal-ink: #1a120c;
+    --danger: #e07055;
+    --secret: #c5d4cc;
+    --focus: #e07a28;
+    --shadow: color-mix(in srgb, #000 45%, transparent);
+  }
+}
+
+@theme inline {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-signal: var(--signal);
+  --color-signal-ink: var(--signal-ink);
+  --color-danger: var(--danger);
+  --color-secret: var(--secret);
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(1200px 500px at 0% -10%, color-mix(in srgb, var(--signal) 9%, transparent), transparent 55%),
+    var(--paper);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
