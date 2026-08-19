@@ -34,19 +34,23 @@ if [ ! -s "$DOMAINS_FILE" ]; then
     echo "Edit data/acmedns-letsencrypt/domains.txt, then restart."
 fi
 
-STORAGE_DIR="$(dirname "$STORAGE_PATH")"
-mkdir -p "$STORAGE_DIR"
-
 if [ -d "$STORAGE_PATH" ]; then
     echo "ERROR: $STORAGE_PATH is a directory."
     echo "Remove that path on the volume and restart."
     exit 1
 fi
 
+# Read-only mount: acmedns-client seeds clientstorage.json
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ -s "$STORAGE_PATH" ] && break
+    echo "Waiting for clientstorage.json..."
+    sleep 1
+done
+
 if [ ! -s "$STORAGE_PATH" ]; then
-    echo "No clientstorage.json yet. Writing an empty {}."
-    cp /defaults/clientstorage.json "$STORAGE_PATH"
-    echo "Add accounts in the acmedns-client UI, or let the hook register them on first issue."
+    echo "ERROR: clientstorage.json not found at $STORAGE_PATH"
+    echo "This mount is read-only. Start acmedns-client so it can create the file."
+    exit 1
 fi
 
 echo "=== Initial Certificate Generation ==="
