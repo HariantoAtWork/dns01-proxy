@@ -4,6 +4,8 @@ Nuxt 4 UI for `clientstorage.json`. Registers acme-dns accounts, prints the CNAM
 
 ## Local
 
+Requires Bun 1.4.0 (`bun --version`). Docker uses the official 1.4.0 canary images until `oven/bun:1.4.0` is published.
+
 ```bash
 cp .env.example .env
 bun install
