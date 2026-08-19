@@ -18,6 +18,8 @@ UI: http://localhost:3000
 
 Storage defaults to `data/clientstorage.json`.
 
+Set `ADMINISTRATOR_PASSWORD` to lock the UI and APIs behind username `admin`. Leave it empty (the default) for open access.
+
 ## Stack
 
 Parent compose builds this image and serves it on http://localhost:82. Volume `acmedns-client` is `/app/data`.

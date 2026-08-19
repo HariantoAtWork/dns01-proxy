@@ -20,8 +20,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     clientstorageData: 'data/clientstorage.json',
     acmednsUrl: 'http://acmedns-server',
+    administratorPassword: '',
     public: {
       defaultAcmednsUrl: 'http://acmedns-server',
+      restrictMode: false,
     },
   },
   app: {
