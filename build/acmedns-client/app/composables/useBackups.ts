@@ -11,6 +11,7 @@ export function useBackups() {
 
   const items = computed(() => data.value?.items ?? [])
   const directory = computed(() => data.value?.directory ?? '')
+  const storagePath = computed(() => data.value?.storagePath ?? '')
 
   async function mutate(request: () => Promise<BackupMutationResult>) {
     const result = await request()
@@ -54,6 +55,7 @@ export function useBackups() {
     data,
     items,
     directory,
+    storagePath,
     error,
     status,
     refresh,

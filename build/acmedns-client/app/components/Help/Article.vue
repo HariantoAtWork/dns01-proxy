@@ -39,6 +39,9 @@
     <p class="mt-3 text-muted">
       Open Backup to copy the live file or one hostname into
       <span class="font-mono text-ink">{data root}/acmedns-client/backups</span>.
+      You can also download the live <span class="font-mono text-ink">CLIENTSTORAGE_DATA</span>
+      file, or upload a <span class="font-mono text-ink">clientstorage.json</span> to replace it
+      (you will confirm if live storage already has hostnames).
       Full restore replaces <span class="font-mono text-ink">clientstorage.json</span>.
       Domain restore merges that hostname and asks before overwrite.
       Deleting a backup only removes the copy, not the live store.
