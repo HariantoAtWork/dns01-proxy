@@ -1,0 +1,19 @@
+# Overlay for Hub publishes. Merge after docker-compose.build.yml.
+# Multi-arch cannot be loaded into the local Docker engine, so local
+# `docker:build` stays on docker-compose.build.yml only.
+services:
+  acmedns-server:
+    build:
+      platforms:
+        - linux/amd64
+        - linux/arm64
+  acmedns-client:
+    build:
+      platforms:
+        - linux/amd64
+        - linux/arm64
+  acmedns-letsencrypt:
+    build:
+      platforms:
+        - linux/amd64
+        - linux/arm64
