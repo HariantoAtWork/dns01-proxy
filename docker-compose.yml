@@ -29,6 +29,7 @@ services:
       - CLIENTSTORAGE_DATA=/app/data/clientstorage.json
       - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
+      - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
     entrypoint:
       - /bin/sh
       - -c

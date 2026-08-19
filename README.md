@@ -92,6 +92,8 @@ If an old compose file already bind-mounted a missing `domains.txt`, Docker may 
 
 `acmedns-client` also reads `ACMEDNS_URL` (and `NUXT_PUBLIC_DEFAULT_ACMEDNS_URL`) so Nitro can reach the API. Server is all `config.cfg`.
 
+Set `ADMINISTRATOR_PASSWORD` in `.env` to lock the Nuxt UI and its APIs behind username `admin`. Leave it empty for open access.
+
 ## Volumes
 
 | Volume | Who | Inside the container |
