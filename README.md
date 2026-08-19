@@ -5,7 +5,7 @@ Three containers. One compose file. Certificates via DNS-01 without giving Let's
 | Service | What it does |
 | --- | --- |
 | `acmedns-server` | [acme-dns](https://github.com/joohoi/acme-dns) — a tiny DNS server plus an HTTP API for TXT updates |
-| `acmedns-client` | A small UI I made (`harianto/acme-clientstorage`) so I can edit `clientstorage.json` in a browser |
+| `acmedns-client` | Nuxt 4 UI in `build/acmedns-client`. Edits `clientstorage.json` in the browser |
 | `acmedns-letsencrypt` | Certbot in a loop. Custom hook, not the plugin |
 
 ```mermaid
@@ -90,7 +90,7 @@ If an old compose file already bind-mounted a missing `domains.txt`, Docker may 
 | `RENEW_INTERVAL` | `12` | Hours between renew checks. |
 | `TZ` | `UTC` | Clock. |
 
-The other two services have no env in compose. Server is all `config.cfg`.
+`acmedns-client` also reads `ACMEDNS_URL` (and `NUXT_PUBLIC_DEFAULT_ACMEDNS_URL`) so Nitro can reach the API. Server is all `config.cfg`.
 
 ## Volumes
 
@@ -118,6 +118,7 @@ docker-compose.yml
 docker-compose.override.yml
 .env.example
 build/acmedns-server/
+build/acmedns-client/
 build/acmedns-letsencrypt/
 data/                      # gitignored
 ```

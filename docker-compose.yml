@@ -16,14 +16,19 @@ services:
       - default
 
   acmedns-client:
-    image: harianto/acme-clientstorage:latest
-    platform: linux/amd64
+    build:
+      context: build/acmedns-client
+      dockerfile: Dockerfile
     container_name: acmedns-client
     restart: unless-stopped
     ports:
       - "82:3000"
     volumes:
       - acmedns-client:/app/data:rw
+    environment:
+      - CLIENTSTORAGE_DATA=/app/data/clientstorage.json
+      - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
+      - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
     entrypoint:
       - /bin/sh
       - -c
@@ -32,7 +37,7 @@ services:
           if [ ! -s /app/data/clientstorage.json ]; then
             echo '{}' > /app/data/clientstorage.json
           fi
-          exec docker-entrypoint.sh node server/index.mjs
+          exec bun .output/server/index.mjs
     networks:
       - default
 

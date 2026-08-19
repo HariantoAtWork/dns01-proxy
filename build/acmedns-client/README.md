@@ -1,75 +1,21 @@
-# Nuxt Minimal Starter
+# ACME DNS client
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Nuxt 4 UI for `clientstorage.json`. Registers acme-dns accounts, prints the CNAME, checks public DNS, and stores the login that Certbot reads.
 
-## Setup
-
-Make sure to install dependencies:
+## Local
 
 ```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
+cp .env.example .env
 bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
 bun run dev
 ```
 
-## Production
+UI: http://localhost:3000
 
-Build the application for production:
+`ACMEDNS_URL` is called from the Nuxt server, not the browser. Inside Docker that is `http://acmedns-server`. On the host, set it to a reachable acme-dns API.
 
-```bash
-# npm
-npm run build
+Storage defaults to `data/clientstorage.json`.
 
-# pnpm
-pnpm build
+## Stack
 
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Parent compose builds this image and serves it on http://localhost:82. Volume `acmedns-client` is `/app/data`.
