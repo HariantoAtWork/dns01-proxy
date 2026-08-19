@@ -1,4 +1,5 @@
 import type { AcmeDnsCredentials, ClientStorageMap, DomainEntry, StorageMutationResult } from '#shared/types/clientstorage'
+import { fulldomainForAccount } from '#shared/utils/fulldomain'
 
 export function useClientStorage() {
   const { data, error, status, refresh } = useFetch<ClientStorageMap>('/api/clientstorage', {
@@ -11,7 +12,13 @@ export function useClientStorage() {
     }
 
     return Object.entries(data.value)
-      .map(([domain, details]) => ({ domain, details }))
+      .map(([domain, details]) => ({
+        domain,
+        details: {
+          ...details,
+          fulldomain: fulldomainForAccount(details.subdomain, details.server_url, details.fulldomain),
+        },
+      }))
       .sort((left, right) => left.domain.localeCompare(right.domain))
   })
 
