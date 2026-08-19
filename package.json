@@ -1,0 +1,9 @@
+{
+  "name": "acmedns-stack",
+  "private": true,
+  "scripts": {
+    "docker:build": "docker compose -f docker-compose.build.yml -f docker-compose.override.yml build",
+    "docker:push": "docker compose -f docker-compose.build.yml -f docker-compose.override.yml push",
+    "docker:build-push": "docker compose -f docker-compose.build.yml -f docker-compose.override.yml build --push"
+  }
+}
