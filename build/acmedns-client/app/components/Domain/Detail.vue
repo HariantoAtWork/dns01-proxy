@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhCheckCircle as CheckCircle, PhTrash as Trash } from '@phosphor-icons/vue'
+import { PhCheckCircle as CheckCircle, PhTrash as Trash, PhArchive as Archive } from '@phosphor-icons/vue'
 import type { DomainEntry } from '#shared/types/clientstorage'
 
 const { entry } = defineProps<{
@@ -60,6 +60,13 @@ watch(status, (value) => {
           <CheckCircle :size="16" weight="regular" />
           Validate CNAME
         </button>
+        <NuxtLink
+          :to="{ path: '/backup', query: { domain: entry.domain } }"
+          class="inline-flex items-center gap-2 rounded-[6px] border border-rule px-3 py-2 text-sm text-ink no-underline hover:bg-panel"
+        >
+          <Archive :size="16" weight="regular" />
+          Backup
+        </NuxtLink>
         <button
           type="button"
           class="inline-flex items-center gap-2 rounded-[6px] border border-danger px-3 py-2 text-sm text-danger hover:bg-panel"

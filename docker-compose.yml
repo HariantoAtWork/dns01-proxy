@@ -27,6 +27,7 @@ services:
       - acmedns-client:/app/data:rw
     environment:
       - CLIENTSTORAGE_DATA=/app/data/clientstorage.json
+      - NUXT_APPLICATIONS_DATA_ROOT=${NUXT_APPLICATIONS_DATA_ROOT:-/app/data}
       - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}

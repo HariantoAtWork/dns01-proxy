@@ -30,6 +30,15 @@
       Home lists domains. Open one to copy the CNAME, reveal username and password, check the CNAME again, test <span class="font-mono text-ink">/update</span>, or delete the JSON entry. Deleting here does not delete the acme-dns account on the server.
     </p>
 
+    <h2 class="mt-10 text-xl font-semibold">Backup and restore</h2>
+    <p class="mt-3 text-muted">
+      Open Backup to copy the live file or one hostname into
+      <span class="font-mono text-ink">{data root}/acmedns-client/backups</span>.
+      Full restore replaces <span class="font-mono text-ink">clientstorage.json</span>.
+      Domain restore merges that hostname and asks before overwrite.
+      Deleting a backup only removes the copy, not the live store.
+    </p>
+
     <h2 class="mt-10 text-xl font-semibold">Keep the secrets</h2>
     <p class="mt-3 text-muted">
       Username and password are the acme-dns API login. If they leave this file, you cannot fetch them back. Copy with care. The volume is shared with Certbot as read-only.

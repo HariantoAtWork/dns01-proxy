@@ -18,8 +18,10 @@ UI: http://localhost:3000
 
 Storage defaults to `data/clientstorage.json`.
 
+Set `NUXT_APPLICATIONS_DATA_ROOT` for the parent data directory (server-only). Backups are written to `{NUXT_APPLICATIONS_DATA_ROOT}/acmedns-client/backups` (created if missing). Leave it empty to use the live storage directory (`data/` locally). Live JSON stays at `CLIENTSTORAGE_DATA`.
+
 Set `ADMINISTRATOR_PASSWORD` to lock the UI and APIs behind username `admin`. Leave it empty (the default) for open access.
 
 ## Stack
 
-Parent compose builds this image and serves it on http://localhost:82. Volume `acmedns-client` is `/app/data`.
+Parent compose builds this image and serves it on http://localhost:82. Volume `acmedns-client` is `/app/data`. Compose sets `NUXT_APPLICATIONS_DATA_ROOT=/app/data`, so backups persist at `/app/data/acmedns-client/backups`.
