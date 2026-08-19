@@ -1,11 +1,13 @@
 FROM golang:alpine AS builder
 LABEL maintainer="joona@kuori.org"
 
-RUN apk add --update gcc musl-dev git
+RUN apk add --update gcc musl-dev git python3
 
 ENV GOPATH /tmp/buildcache
-RUN git clone https://github.com/joohoi/acme-dns /tmp/acme-dns
+COPY patch_txt_slots.py /tmp/patch_txt_slots.py
+RUN git clone --depth 1 https://github.com/acme-dns/acme-dns /tmp/acme-dns
 WORKDIR /tmp/acme-dns
+RUN python3 /tmp/patch_txt_slots.py pkg/database/db.go
 RUN CGO_ENABLED=1 CGO_CFLAGS="-D_LARGEFILE64_SOURCE" go build
 FROM alpine:latest
 

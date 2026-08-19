@@ -19,6 +19,11 @@
     <p class="mt-3 text-muted">
       Name is always <span class="font-mono text-ink">_acme-challenge</span> plus your domain. Type is CNAME. Value is the fulldomain from registration.
     </p>
+    <p class="mt-3 text-muted">
+      Apex and <span class="font-mono text-ink">*.example.com</span> share that one CNAME. A nested name such as
+      <span class="font-mono text-ink">oib.example.com</span> needs
+      <span class="font-mono text-ink">_acme-challenge.oib.example.com</span> as well. Point it at the same fulldomain if those names sit on one grouped certificate.
+    </p>
 
     <h2 class="mt-10 text-xl font-semibold">Validation</h2>
     <p class="mt-3 text-muted">

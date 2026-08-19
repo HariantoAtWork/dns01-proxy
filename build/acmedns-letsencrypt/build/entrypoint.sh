@@ -53,51 +53,82 @@ if [ ! -s "$STORAGE_PATH" ]; then
     exit 1
 fi
 
+is_valid_name() {
+    local name="$1"
+    local stars apex
+    stars="${name//[^*]/}"
+    if [ "${#stars}" -gt 1 ]; then
+        echo "  ✗ Invalid name $name (more than one wildcard)"
+        return 1
+    fi
+    if [ "${name#\*.}" != "$name" ]; then
+        apex="${name#\*.}"
+    else
+        apex="$name"
+    fi
+    if [[ ! "$apex" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]]; then
+        echo "  ✗ Invalid domain $name"
+        return 1
+    fi
+    return 0
+}
+
+issue_certificate() {
+    local cert_name="$1"
+    shift
+    local -a names=("$@")
+    local -a dash_d=()
+    local name
+
+    echo "Checking certificate for: $cert_name (${names[*]})"
+
+    for name in "${names[@]}"; do
+        dash_d+=(-d "$name")
+    done
+
+    echo "  → Issuing or expanding certificate $cert_name"
+    certbot certonly \
+        --manual \
+        --manual-auth-hook /config/acme-dns-auth.py \
+        --preferred-challenges dns \
+        --agree-tos \
+        --no-eff-email \
+        --non-interactive \
+        --expand \
+        --cert-name "$cert_name" \
+        -m "$LETSENCRYPT_EMAIL" \
+        "${dash_d[@]}" || echo "  ✗ Failed to generate certificate for $cert_name"
+}
+
 echo "=== Initial Certificate Generation ==="
 echo ""
 
-# Generate certificates for all domains on first run
 while IFS= read -r line || [ -n "$line" ]; do
-    # Skip empty lines and whole-line comments (# or ;)
     comment_re='^[[:space:]]*[#;]'
     [[ -z "$line" || "$line" =~ $comment_re ]] && continue
-    
-    # Parse domain and wildcard
-    read -r domain wildcard <<< "$line"
-    
-    echo "Checking certificate for: $domain"
-    
-    # Check if certificate already exists and is valid
-    if certbot certificates -d "$domain" 2>/dev/null | grep -q "Certificate Name: $domain"; then
-        echo "  ✓ Certificate already exists for $domain"
-    else
-        echo "  → Generating new certificate for $domain"
-        
-        if [ -n "$wildcard" ]; then
-            # Generate certificate for both domain and wildcard
-            certbot certonly \
-                --manual \
-                --manual-auth-hook /config/acme-dns-auth.py \
-                --preferred-challenges dns \
-                --agree-tos \
-                --no-eff-email \
-                --non-interactive \
-                -m "$LETSENCRYPT_EMAIL" \
-                -d "$domain" \
-                -d "$wildcard" || echo "  ✗ Failed to generate certificate for $domain"
-        else
-            # Generate certificate for domain only
-            certbot certonly \
-                --manual \
-                --manual-auth-hook /config/acme-dns-auth.py \
-                --preferred-challenges dns \
-                --agree-tos \
-                --no-eff-email \
-                --non-interactive \
-                -m "$LETSENCRYPT_EMAIL" \
-                -d "$domain" || echo "  ✗ Failed to generate certificate for $domain"
-        fi
+
+    line="${line%%#*}"
+    line="${line//,/ }"
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+
+    read -r -a names <<< "$line"
+    if [ "${#names[@]}" -eq 0 ]; then
+        continue
     fi
+
+    valid=()
+    for name in "${names[@]}"; do
+        if is_valid_name "$name"; then
+            valid+=("$name")
+        fi
+    done
+    if [ "${#valid[@]}" -eq 0 ]; then
+        continue
+    fi
+
+    first="${valid[0]}"
+    cert_name="${first#\*.}"
+    issue_certificate "$cert_name" "${valid[@]}"
     echo ""
 done < "$DOMAINS_FILE"
 
@@ -129,4 +160,3 @@ while true; do
     # Sleep until next check
     sleep ${SLEEP_SECONDS}
 done
-

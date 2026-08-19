@@ -1,10 +1,12 @@
 # Domain list for Let's Encrypt
 #
 # Format:
-#   domain.com [*.domain.com]
+#   name [name ...]
 #
-# - One domain per line
-# - Optional wildcard as the second column
+# - One certificate per line
+# - Names are separated by spaces or commas
+# - Group related names on one line: one ACME order, one renew, one PEM
+# - Each wildcard must be its own name (*.example.com). *.*.example.com is invalid
 # - Lines starting with # or ; are comments
 # - Empty lines are ignored
 #
@@ -13,5 +15,6 @@
 
 # example.com
 # yourdomain.com *.yourdomain.com
+# mdstn.com *.mdstn.com oib.mdstn.com *.oib.mdstn.com
 # api.example.com
 # blog.example.com *.blog.example.com
