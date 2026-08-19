@@ -1,4 +1,5 @@
 - [Home](Home)
+- [Test this stack on the Synology](Test-on-Synology)
 - [Public DNS and port 53](Public-DNS-and-port-53)
 - [Hostnames do not split ports](Hostnames-do-not-split-ports)
 - [DMZ, Synology, and Mac](DMZ-Synology-and-Mac)

@@ -7,7 +7,7 @@ For a name such as `mdstn.com` / `*.mdstn.com`:
    `CNAME _acme-challenge.mdstn.com` → the `fulldomain` in `clientstorage.json`.  
    NXDOMAIN on `_acme-challenge.mdstn.com` means this record is missing or wrong. Opening 53 on the auth server does not create it.
 3. At Cloudflare/registrar for `uti.email`: NS/A glue for `dns.uti.email` to the public IP, **grey cloud**. Must match `domain` / `records` in `config.cfg`.
-4. Firewall/router: **UDP+TCP 53** to the host that actually runs `acmedns-server` (not “whatever has Docker on the LAN” if DMZ points elsewhere).
+4. Firewall/router: **UDP+TCP 53** to the host that actually runs `acmedns-server`. With DMZ on the Synology, that means **run Compose on the NAS** (see [Test this stack on the Synology](Test-on-Synology.md)), not on a Mac that never receives public 53.
 5. `domains.txt` lists the names. Restart `acmedns-letsencrypt` after storage and CNAMEs are in place.
 
 Hook message `No acme-dns account for …` means the **container’s** `clientstorage.json` (the shared volume, not a stray copy on disk) has no matching key. That is separate from port 53.

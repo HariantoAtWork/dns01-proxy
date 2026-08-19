@@ -50,6 +50,8 @@ Copy the current patch into the fork first (`python3 build/acmedns-server/patch_
 
 Leave `:80` and `:443` off the host. DNS has to be public; the API does not.
 
+This house’s router DMZ is the Synology, so public `:53` never reaches a Mac. **Test real Let's Encrypt issuance on the NAS**, not on a laptop. The UI and the Certbot hook can still look fine on the Mac; DNS-01 will not. See [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md).
+
 ### `acmedns-client`
 
 | Container | Host | Notes |
@@ -130,7 +132,7 @@ Default compose network: all three. Certbot reaches the server as `http://acmedn
 
 `cloudflared` (external): server and client only. Port 53 stays on the host, not the tunnel.
 
-Why DNS-01 needs public 53, why hostnames do not split that port, and why the tunnel cannot carry Let's Encrypt lookups: [`.wiki/Home.md`](.wiki/Home.md).
+Why DNS-01 needs public 53, why hostnames do not split that port, and why the tunnel cannot carry Let's Encrypt lookups: [`.wiki/Home.md`](.wiki/Home.md). Where to run Compose while DMZ points at the NAS: [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md).
 
 ## Layout
 
