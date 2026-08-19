@@ -59,6 +59,7 @@ Docker creates `data/` for you. On first start the containers write:
 
 - `data/acmedns-server/config/config.cfg`
 - `data/acmedns-letsencrypt/domains.txt`
+- `clientstorage.json` on the `acmedns-client` volume (`{}` if it was empty)
 
 Edit those, then restart. `domains.txt` ships as comments only so Certbot does not try `example.com` by accident.
 
@@ -96,7 +97,7 @@ The other two services have no env in compose. Server is all `config.cfg`.
 | Volume | Who | Inside the container |
 | --- | --- | --- |
 | `letsencrypt` | `acmedns-letsencrypt` rw, `acmedns-server` ro | `/etc/letsencrypt` |
-| `acmedns-client` | `acmedns-client` rw, `acmedns-letsencrypt` ro | `/app/data` and `/config/acmedns-client` |
+| `acmedns-client` | `acmedns-client` rw, `acmedns-letsencrypt` rw | `/app/data` and `/config/acmedns-client` — `clientstorage.json` is created here if missing |
 | `letsencrypt-logs` | `acmedns-letsencrypt` | `/var/log/certbot` |
 | `./data/acmedns-server/config` | `acmedns-server` | `/etc/acme-dns` — `config.cfg` is created here if missing |
 | `./data/acmedns-server/data` | `acmedns-server` | `/var/lib/acme-dns` |

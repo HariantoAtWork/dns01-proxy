@@ -18,6 +18,7 @@ COPY build/acme-dns-auth.py /config/acme-dns-auth.py
 COPY build/entrypoint.sh /scripts/entrypoint.sh
 COPY build/renew.sh /scripts/renew.sh
 COPY domains.txt.example /defaults/domains.txt
+COPY clientstorage.json.example /defaults/clientstorage.json
 
 # Make scripts executable
 RUN chmod +x /config/acme-dns-auth.py \

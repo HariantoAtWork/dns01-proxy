@@ -36,7 +36,7 @@ services:
     volumes:
       - letsencrypt:/etc/letsencrypt
       - letsencrypt-logs:/var/log/certbot
-      - acmedns-client:/config/acmedns-client:ro
+      - acmedns-client:/config/acmedns-client
       - ./data/acmedns-letsencrypt:/config/host
     environment:
       - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
