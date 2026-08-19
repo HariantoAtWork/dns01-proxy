@@ -4,7 +4,7 @@ Three containers. One compose file. Certificates via DNS-01 without giving Let's
 
 | Service | What it does |
 | --- | --- |
-| `acmedns-server` | [acme-dns](https://github.com/joohoi/acme-dns) — a tiny DNS server plus an HTTP API for TXT updates |
+| `acmedns-server` | [acme-dns](https://github.com/acme-dns/acme-dns) — a tiny DNS server plus an HTTP API for TXT updates |
 | `acmedns-client` | Nuxt 4 UI in `build/acmedns-client`. Edits `clientstorage.json` in the browser |
 | `acmedns-letsencrypt` | Certbot in a loop. Custom hook, not the plugin |
 
@@ -25,7 +25,17 @@ That JSON is the same idea as `clientstorage.json`. [acme-dns-client](https://gi
 
 I got tired of the plugin. So `acmedns-letsencrypt` is just Certbot `--manual` with `acme-dns-auth.py`, reading the JSON from a shared volume, talking to `acmedns-server`, and walking `domains.txt`. Same challenge, less ceremony.
 
-Upstream acme-dns only keeps two TXT records per account, enough for `example.com` plus `*.example.com`. Grouped SAN certs need more. This stack patches the server to 100 rolling TXT slots (Let's Encrypt's name cap) and pads existing accounts on start. The hook walks parent hostnames, so a nested name can reuse the apex account if its `_acme-challenge` CNAME points at the same fulldomain.
+Upstream acme-dns only keeps two TXT records per account, enough for `example.com` plus `*.example.com`. Grouped SAN certs need more. This stack clones [acme-dns/acme-dns](https://github.com/acme-dns/acme-dns) at build time and runs `patch_txt_slots.py` so each account keeps 100 rolling TXT slots (Let's Encrypt's name cap). Existing accounts are padded on start. The hook walks parent hostnames, so a nested name can reuse the apex account if its `_acme-challenge` CNAME points at the same fulldomain.
+
+That patch matches exact strings in `pkg/database/db.go`. When upstream moves that file, the build fails on purpose. The durable fix is a fork with the 100-slot change committed, then in `.env`:
+
+```
+ACMEDNS_REPO=https://github.com/you/acme-dns.git
+ACMEDNS_REF=master
+ACMEDNS_APPLY_PATCH=0
+```
+
+Copy the current patch into the fork first (`python3 build/acmedns-server/patch_txt_slots.py pkg/database/db.go`), commit, then turn the patcher off.
 
 ## Ports
 
