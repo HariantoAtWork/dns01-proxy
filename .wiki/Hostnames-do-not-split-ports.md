@@ -1,6 +1,6 @@
 # Hostnames do not split ports
 
-A hostname is a label. Packets still go to an **IP and port**. The router’s DMZ and port forwards never see `auth.uti.email` vs `dns.uti.email`.
+A hostname is a label. Packets still go to an **IP and port**. The router’s DMZ and port forwards never see `auth.uti.email` vs `auth.uti.email`.
 
 ## Record types
 
@@ -13,22 +13,22 @@ A hostname is a label. Packets still go to an **IP and port**. The router’s DM
 `config.cfg` already uses a hostname for NS:
 
 ```
-dns.uti.email. A 84.86.220.240
-dns.uti.email. NS dns.uti.email.
+auth.uti.email. A 84.86.220.240
+auth.uti.email. NS auth.uti.email.
 ```
 
-`NS dns.uti.email` says “ask the machine named `dns.uti.email`”. That name still needs an A (or AAAA), or nobody knows where to send UDP/53.
+`NS auth.uti.email` says “ask the machine named `auth.uti.email`”. That name still needs an A (or AAAA), or nobody knows where to send UDP/53.
 
 ## Why the nameserver cannot be only a CNAME
 
-If `dns.uti.email` were only a CNAME to another name, resolvers would have to look *that* name up in order to find the nameserver they need for the lookup. For a self-hosted NS that loop fails. The parent zone therefore publishes **glue**: `dns.uti.email → 84.86.220.240`.
+If `auth.uti.email` were only a CNAME to another name, resolvers would have to look *that* name up in order to find the nameserver they need for the lookup. For a self-hosted NS that loop fails. The parent zone therefore publishes **glue**: `auth.uti.email → 84.86.220.240`.
 
 If the public IP changes, you update that **one** A (and the glue at Cloudflare). You do not rewrite every `_acme-challenge` CNAME.
 
 ## Where hostnames *are* used
 
-- Challenge: `_acme-challenge.mdstn.com` CNAME → `….dns.uti.email`
-- HTTP API / UI: `https://dns.uti.email` via cloudflared is fine. That is HTTP, not DNS.
+- Challenge: `_acme-challenge.mdstn.com` CNAME → `….auth.uti.email`; nested names (`oib`, `admin`, `otherinbox`) CNAME to `_acme-challenge.mdstn.com`
+- HTTP API / UI: `https://auth.uti.email` via cloudflared is fine. That is HTTP, not DNS.
 
 ## Same as email ports
 

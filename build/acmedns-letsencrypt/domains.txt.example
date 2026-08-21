@@ -4,17 +4,28 @@
 #   name [name ...]
 #
 # - One certificate per line
-# - Names are separated by spaces or commas
+# - Names are separated by spaces or commas; order on the line does not matter
 # - Group related names on one line: one ACME order, one renew, one PEM
+# - Register only the line apex (e.g. mdstn.com) in acmedns-client; nested
+#   wildcards reuse that account via parent-walk in the Certbot hook
+# - Nested wildcards imply parent wildcards on the cert automatically, e.g.
+#     *.label.parent.example.com  also adds  *.parent.example.com
+#     *.fail.label.parent.example.com  also adds  *.parent and *.label.parent
+# - Write *.example.com on the line if you want that apex wildcard on the cert
 # - Each wildcard must be its own name (*.example.com). *.*.example.com is invalid
+# - After editing this file, restart acmedns-letsencrypt (renew loop alone is not enough)
 # - Lines starting with # or ; are comments
 # - Empty lines are ignored
 #
+# CNAME (proven for mdstn.com): _acme-challenge.<apex> → fulldomain; nested
+#   zones CNAME to _acme-challenge.<apex> (do not repeat the UUID on every row).
+# auth.acme-dns.io: still usable; two TXT slots per account (apex + one wildcard).
+#
 # This file is written on first start if it is missing.
-# Uncomment your domains (or add them), then restart the container.
 
 # example.com
 # yourdomain.com *.yourdomain.com
-# mdstn.com *.mdstn.com oib.mdstn.com *.oib.mdstn.com
+# mdstn.com *.mdstn.com *.oib.mdstn.com *.otherinbox.mdstn.com *.admin.mdstn.com
+# mdstn.com *.mdstn.com *.fail.label.parent.mdstn.com
 # api.example.com
 # blog.example.com *.blog.example.com

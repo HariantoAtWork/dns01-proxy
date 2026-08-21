@@ -13,7 +13,7 @@ Internet → 84.86.220.240:53 → router DMZ → Synology:53
 
 `acmedns-server` can listen on the Mac’s `:53` all day. Let's Encrypt still queries the Synology.
 
-`auth.uti.email` and `dns.uti.email` can both resolve to the same IP. For **websites**, the Synology reverse proxy can send each name to a different app (HTTP `Host` / SNI). For **DNS**, both names are still `84.86.220.240:53`, so both go to the Synology.
+`auth.uti.email` and `auth.uti.email` can both resolve to the same IP. For **websites**, the Synology reverse proxy can send each name to a different app (HTTP `Host` / SNI). For **DNS**, both names are still `84.86.220.240:53`, so both go to the Synology.
 
 ## What actually works
 
@@ -31,6 +31,6 @@ Certificates issued **on the Synology** can succeed without this Mac stack:
 - Cloudflare DNS API (no local `:53`)
 - a DNS or acme-dns process **on the Synology** that owns public 53
 
-So: Mac DNS-01 fails until 53 reaches the Mac (or you move Compose to the NAS). Synology certs working does **not** prove `dns.uti.email` is serving acme-dns.
+So: Mac DNS-01 fails until 53 reaches the Mac (or you move Compose to the NAS). Synology certs working does **not** prove `auth.uti.email` is serving acme-dns.
 
 Operator rule for this house: [test certificate issuance on the Synology](Test-on-Synology.md).

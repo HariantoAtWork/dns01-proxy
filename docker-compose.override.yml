@@ -1,17 +1,30 @@
 networks:
   cloudflared:
     external: true
+  tsdproxy:
+    external: true
+  
 
 services:
   acmedns-server:
     networks:
       - default
       - cloudflared
+      - tsdproxy
+    labels:
+      tsdproxy.enable: "true"
+      tsdproxy.name: "acmedns-server"
+
     extra_hosts:
       - "host.docker.internal:host-gateway"
   acmedns-client:
     networks:
       - default
       - cloudflared
+      - tsdproxy
+    labels:
+      tsdproxy.enable: "true"
+      tsdproxy.name: "acmedns-client"
+      tsdproxy.container_port: "3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"

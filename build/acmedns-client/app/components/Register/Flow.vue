@@ -132,7 +132,7 @@ function reset() {
     <header>
       <h1 class="text-3xl font-semibold tracking-tight">Register domain</h1>
       <p class="mt-2 max-w-[65ch] text-muted">
-        Creates an acme-dns account, then stores the login in clientstorage.json for Certbot.
+        Two fields, then Register. Nested CNAME examples live in the drawer under the button.
       </p>
     </header>
 
@@ -146,7 +146,8 @@ function reset() {
     />
 
     <template v-else-if="pendingData">
-      <CnameRecipe :domain="domain.trim()" :fulldomain="pendingData.fulldomain" />
+      <CnameRecipe compact :domain="domain.trim()" :fulldomain="pendingData.fulldomain" />
+      <CnameNestedDrawer :domain="domain.trim()" :fulldomain="pendingData.fulldomain" />
 
       <DnsProgress
         v-if="step === 'poll'"

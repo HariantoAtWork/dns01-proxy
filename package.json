@@ -4,6 +4,6 @@
   "scripts": {
     "docker:build": "docker compose -f docker-compose.build.yml -f docker-compose.override.yml build",
     "docker:push": "docker compose -f docker-compose.build.yml -f docker-compose.build-push.yml -f docker-compose.override.yml build --push",
-    "docker:build-push": "docker compose -f docker-compose.build.yml -f docker-compose.build-push.yml -f docker-compose.override.yml build --push"
+    "docker:build-push": "docker compose -f docker-compose.build.yml -f docker-compose.build-push.yml -f docker-compose.override.yml build --push --no-cache"
   }
 }

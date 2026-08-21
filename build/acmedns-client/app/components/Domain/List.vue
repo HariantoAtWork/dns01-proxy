@@ -12,7 +12,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <nav aria-label="Stored domains" class="border-r border-rule md:min-h-[28rem]">
+  <nav aria-label="Stored domains">
     <ul class="divide-y divide-rule">
       <li v-for="entry in entries" :key="entry.domain">
         <button

@@ -75,7 +75,7 @@ function visitHint(item: VisitIpAddress) {
   <div>
     <button
       type="button"
-      class="inline-flex items-center gap-2 rounded-[6px] px-3 py-2 text-sm text-muted transition-colors hover:bg-panel hover:text-ink"
+      class="inline-flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm text-muted transition-colors hover:bg-panel hover:text-ink md:px-3 md:py-2"
       :class="open && 'bg-panel text-ink'"
       :aria-expanded="open"
       :aria-pressed="open"

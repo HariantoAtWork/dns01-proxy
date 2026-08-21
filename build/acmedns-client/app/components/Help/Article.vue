@@ -15,27 +15,40 @@
 
     <h2 class="mt-10 text-xl font-semibold">Register a domain</h2>
     <ol class="mt-3 list-decimal space-y-2 pl-5 text-muted">
-      <li>Open Register and enter the hostname you want a certificate for.</li>
-      <li>Keep the server URL as <span class="font-mono text-ink">http://acmedns-server</span> when this app runs in the compose stack, or point it at a public acme-dns.</li>
+      <li>Open Register and enter the <strong>line apex</strong> (e.g. <span class="font-mono text-ink">mdstn.com</span>) — not each nested wildcard.</li>
+      <li>Keep the server URL as <span class="font-mono text-ink">http://acmedns-server</span> when this app runs in the compose stack, or <span class="font-mono text-ink">http://auth.uti.email</span> from the NAS. <span class="font-mono text-ink">https://auth.acme-dns.io</span> still works, but that public service only keeps two TXT slots per account (<span class="font-mono text-ink">mdstn.com *.mdstn.com</span>). Nested wildcards on one UUID need this stack’s 100-slot server.</li>
       <li>Register creates a new acme-dns account (username, password, fulldomain).</li>
       <li>Publish the CNAME on the real DNS, then Validate or Skip.</li>
       <li>Save. Without a save, the new account is not in the JSON file.</li>
     </ol>
 
+    <h2 class="mt-10 text-xl font-semibold">Grouped and nested wildcards</h2>
+    <p class="mt-3 text-muted">
+      Put all names on one <span class="font-mono text-ink">domains.txt</span> line — order does not matter. Certbot expands nested wildcards and adds implied parent wildcards on the certificate. The hook reuses the apex registration for nested SANs — you do not register <span class="font-mono text-ink">*.oib.example.com</span> separately. That grouping needs this stack’s 100-slot server. On <span class="font-mono text-ink">auth.acme-dns.io</span> stay at one apex plus one wildcard per account.
+    </p>
+
     <h2 class="mt-10 text-xl font-semibold">CNAME shape</h2>
-    <pre class="mt-3 overflow-x-auto border border-rule bg-panel p-4 font-mono text-sm">_acme-challenge.example.com. IN CNAME &lt;fulldomain&gt;.</pre>
     <p class="mt-3 text-muted">
-      Name is always <span class="font-mono text-ink">_acme-challenge</span> plus your domain. Type is CNAME. Value is the fulldomain from registration.
+      Every row is <span class="font-mono text-ink">_acme-challenge.&lt;host&gt;</span> CNAME a target.
+      Apex and <span class="font-mono text-ink">*.example.com</span> share one name.
+      Nested wildcards chain to that name. Proven for <span class="font-mono text-ink">mdstn.com</span>:
     </p>
-    <p class="mt-3 text-muted">
-      Apex and <span class="font-mono text-ink">*.example.com</span> share that one CNAME. A nested name such as
-      <span class="font-mono text-ink">oib.example.com</span> needs
-      <span class="font-mono text-ink">_acme-challenge.oib.example.com</span> as well. Point it at the same fulldomain if those names sit on one grouped certificate.
-    </p>
+    <CnameRecipe
+      class="mt-4"
+      embedded
+      domain="mdstn.com"
+      fulldomain="87eb4f67-8cbb-4477-805d-4c2c6ca0caa3.auth.uti.email"
+    />
 
     <h2 class="mt-10 text-xl font-semibold">Validation</h2>
     <p class="mt-3 text-muted">
-      The app asks public resolvers (Cloudflare, Google, and one more) every 15 seconds, up to 20 tries. You can skip and save anyway if you know the record is coming.
+      <strong class="font-medium text-ink">Validate CNAME</strong> asks public resolvers every 15 seconds (up to 20 tries) whether
+      <span class="font-mono text-ink">_acme-challenge.&lt;domain&gt;</span> points at your fulldomain. You can skip and save anyway if you know the record is coming.
+    </p>
+    <p class="mt-3 text-muted">
+      <strong class="font-medium text-ink">Verify fulldomain</strong> checks that the UUID name itself exists on public DNS (not NXDOMAIN) and that
+      <span class="font-mono text-ink">server_url</span> matches the fulldomain host. Use this when Let's Encrypt fails with NXDOMAIN on the CNAME target —
+      that usually means the account was registered on the wrong acme-dns server.
     </p>
 
     <h2 class="mt-10 text-xl font-semibold">Stored fields</h2>

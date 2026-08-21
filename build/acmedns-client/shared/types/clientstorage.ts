@@ -36,8 +36,13 @@ export interface DnsRecordGroup {
   data: string[]
 }
 
+/** How the resolver treated an empty answer set. */
+export type DnsLookupKind = 'ok' | 'nxdomain' | 'nodata' | 'timeout'
+
 export interface DnsQueryResult {
   success: boolean
   data?: DnsRecordGroup[]
   message?: string
+  /** Present when success is true; `nxdomain` means the name does not exist. */
+  lookup?: DnsLookupKind
 }

@@ -25,17 +25,11 @@ That JSON is the same idea as `clientstorage.json`. [acme-dns-client](https://gi
 
 I got tired of the plugin. So `acmedns-letsencrypt` is just Certbot `--manual` with `acme-dns-auth.py`, reading the JSON from a shared volume, talking to `acmedns-server`, and walking `domains.txt`. Same challenge, less ceremony.
 
-Upstream acme-dns only keeps two TXT records per account, enough for `example.com` plus `*.example.com`. Grouped SAN certs need more. This stack clones [acme-dns/acme-dns](https://github.com/acme-dns/acme-dns) at build time and runs `patch_txt_slots.py` so each account keeps 100 rolling TXT slots (Let's Encrypt's name cap). Existing accounts are padded on start. The hook walks parent hostnames, so a nested name can reuse the apex account if its `_acme-challenge` CNAME points at the same fulldomain.
+Upstream acme-dns only keeps two TXT records per account, enough for `example.com` plus `*.example.com`. Grouped SAN certs need more. This stack vendors acme-dns in `build/acmedns-server` with **100 rolling TXT slots** per account (Let's Encrypt's name cap). Existing accounts are padded on start. Rebuild `acmedns-server` from this tree when issuing many SANs on one account.
 
-That patch matches exact strings in `pkg/database/db.go`. When upstream moves that file, the build fails on purpose. The durable fix is a fork with the 100-slot change committed, then in `.env`:
+The public service [auth.acme-dns.io](https://auth.acme-dns.io) is still usable. It is stock acme-dns, so **one account = two tokens**: `mdstn.com *.mdstn.com` works; adding `*.oib.mdstn.com` on that same UUID does not. Extra nested names need their own acme-dns.io account and their own CNAME (no chain to the apex UUID). In this stack, if `ACMEDNS_URL` is your server, the Certbot hook **skips** `auth.acme-dns.io` rows in `clientstorage.json` and walks to a local apex account — mix the two only if you know which Certbot is talking.
 
-```
-ACMEDNS_REPO=https://github.com/you/acme-dns.git
-ACMEDNS_REF=master
-ACMEDNS_APPLY_PATCH=0
-```
-
-Copy the current patch into the fork first (`python3 build/acmedns-server/patch_txt_slots.py pkg/database/db.go`), commit, then turn the patcher off.
+`acmedns-letsencrypt` expands each `domains.txt` line before Certbot runs: nested wildcards imply parent wildcards on the cert (e.g. `*.fail.label.parent.example.com` also requests `*.parent.example.com`). Line order does not matter — the shortest apex becomes the Certbot cert-name, and SANs are logged apex-first. The auth hook walks parent hostnames in `clientstorage.json`, so one registration for the line apex (e.g. `mdstn.com`) covers nested names when `_acme-challenge` CNAMEs chain to the same acme-dns account.
 
 ## Ports
 
@@ -50,7 +44,7 @@ Copy the current patch into the fork first (`python3 build/acmedns-server/patch_
 
 Leave `:80` and `:443` off the host. DNS has to be public; the API does not.
 
-This house’s router DMZ is the Synology, so public `:53` never reaches a Mac. **Test real Let's Encrypt issuance on the NAS**, not on a laptop. The UI and the Certbot hook can still look fine on the Mac; DNS-01 will not. See [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md).
+This house’s router DMZ is the Synology, so public `:53` never reaches a Mac. **Test real Let's Encrypt issuance on the NAS**, not on a laptop. The UI and the Certbot hook can still look fine on the Mac; DNS-01 will not. See [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md). The values that actually issued on the NAS: [`.wiki/Working-Synology-setup.md`](.wiki/Working-Synology-setup.md).
 
 ### `acmedns-client`
 
@@ -80,9 +74,9 @@ Edit those, then restart. `domains.txt` ships as comments only so Certbot does n
 If an old compose file already bind-mounted a missing `domains.txt`, Docker may have created a *directory* with that name. Remove it (`rm -rf data/acmedns-letsencrypt/domains.txt`) and start again.
 
 1. `config.cfg` — your auth hostname, NS, admin, public IP.
-2. `domains.txt` — one certificate per line. Space- or comma-separated names. Group related names on one line (`mdstn.com *.mdstn.com oib.mdstn.com *.oib.mdstn.com`) for one order and one PEM. `#` and `;` start comments.
-3. `.env` — at least `LETSENCRYPT_EMAIL`.
-4. CNAME `_acme-challenge.<domain>` to the `fulldomain` in `clientstorage.json`.
+2. `domains.txt` — one certificate per line. Space- or comma-separated names; order on the line does not matter. Register only the line apex in acmedns-client. Nested `*.zone.example.com` entries imply parent wildcards automatically; restart `acmedns-letsencrypt` after edits. Example: `mdstn.com *.mdstn.com *.oib.mdstn.com *.admin.mdstn.com`. `#` and `;` start comments.
+3. `.env` — at least `LETSENCRYPT_EMAIL`. For grouped SAN certs, rebuild `acmedns-server` from this tree (100 TXT slots, pad on start).
+4. CNAME `_acme-challenge.<apex>` → `fulldomain` in `clientstorage.json`. Nested zones CNAME to `_acme-challenge.<apex>` (proven for `mdstn.com`: `oib` / `otherinbox` / `admin` chain to the apex challenge). See [`.wiki/Working-Synology-setup.md`](.wiki/Working-Synology-setup.md).
 5. You need the `cloudflared` Docker network (see `docker-compose.override.yml`).
 
 ## Config
@@ -132,7 +126,7 @@ Default compose network: all three. Certbot reaches the server as `http://acmedn
 
 `cloudflared` (external): server and client only. Port 53 stays on the host, not the tunnel.
 
-Why DNS-01 needs public 53, why hostnames do not split that port, and why the tunnel cannot carry Let's Encrypt lookups: [`.wiki/Home.md`](.wiki/Home.md). Where to run Compose while DMZ points at the NAS: [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md).
+Why DNS-01 needs public 53, why hostnames do not split that port, and why the tunnel cannot carry Let's Encrypt lookups: [`.wiki/Home.md`](.wiki/Home.md). Where to run Compose while DMZ points at the NAS: [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md). Working NAS runbook (Cloudflare, reverse proxy, `config.cfg`): [`.wiki/Working-Synology-setup.md`](.wiki/Working-Synology-setup.md).
 
 ## Layout
 

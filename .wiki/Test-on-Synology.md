@@ -11,7 +11,7 @@ Details: [DMZ, Synology, and Mac](DMZ-Synology-and-Mac.md), [Public DNS and port
 | Check | On the Mac |
 | --- | --- |
 | Nuxt UI, register a hostname, `clientstorage.json` | Yes |
-| Certbot hook `Successfully updated TXT record` via `https://dns.uti.email` / cloudflared | Yes — that is HTTP |
+| Certbot hook `Successfully updated TXT record` via `https://auth.uti.email` / cloudflared | Yes — that is HTTP |
 | Let’s Encrypt `NXDOMAIN` / failed DNS-01 | Expected — public 53 is not this container |
 
 Do not treat a green hook plus a red Certbot log as an app bug. The update path and the validator path are different.
@@ -22,12 +22,12 @@ The three services in `docker-compose.yml`, with **53/tcp and 53/udp** published
 
 Also required, or issuance still fails on the NAS:
 
-- Grey-cloud **A** for `dns.uti.email` → `84.86.220.240` (not Cloudflare proxy IPs)
-- **NS** delegation for `dns.uti.email` so it is a zone, not only a website name
-- `_acme-challenge.<domain>` **CNAME** to the `fulldomain` in storage
+- Grey-cloud **A** for `auth.uti.email` → `84.86.220.240` (not Cloudflare proxy IPs)
+- **NS** delegation for `auth.uti.email` so it is a zone, not only a website name
+- `_acme-challenge.<apex>` **CNAME** to the `fulldomain` in storage; nested zones CNAME to `_acme-challenge.<apex>` (see [Working Synology setup](Working-Synology-setup.md))
 - Nothing else bound to 53 on the Synology (DNS Server package, another DNS container)
 
-See [Certificate checklist](Certificate-checklist.md).
+See [Certificate checklist](Certificate-checklist.md). Once it is working, keep the concrete NAS values in [Working Synology setup](Working-Synology-setup.md).
 
 ## What not to do
 
@@ -42,8 +42,8 @@ Same git checkout (or copy) of this repo. Same `.env`, `config.cfg`, `domains.tx
 After it is up, from **outside** the LAN (cellular):
 
 ```bash
-dig A dns.uti.email
-dig @84.86.220.240 SOA dns.uti.email
+dig A auth.uti.email
+dig @84.86.220.240 SOA auth.uti.email
 ```
 
 The A record should be `84.86.220.240` (grey cloud). The SOA query should look like acme-dns, not NXDOMAIN from another daemon.

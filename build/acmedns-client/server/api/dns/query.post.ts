@@ -8,8 +8,8 @@ export default defineEventHandler(async (event): Promise<DnsQueryResult> => {
   }
 
   try {
-    const records = await dnsQuery(body.name, body.type || 'CNAME')
-    return { success: true, data: records }
+    const { records, lookup } = await dnsQuery(body.name, body.type || 'CNAME')
+    return { success: true, data: records, lookup }
   }
   catch (error) {
     return {

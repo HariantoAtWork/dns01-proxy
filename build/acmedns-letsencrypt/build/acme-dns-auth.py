@@ -8,8 +8,11 @@ Supports both standard format and clientstorage.json format
 import json
 import os
 import sys
+
 import requests
 from urllib.parse import urljoin
+
+from domains import apex_name, find_account, storage_candidates
 
 ACMEDNS_URL = os.environ.get("ACMEDNS_URL", "https://auth.acme-dns.io")
 STORAGE_PATH = os.environ.get("STORAGE_PATH", "/config/clientstorage.json")
@@ -21,8 +24,6 @@ class AcmeDnsClient:
 
     def update_txt_record(self, account, txt):
         """Update the TXT record for the account"""
-        # Get the server URL from account if available, otherwise use default
-        # This allows mixing different acme-dns servers in the same clientstorage.json
         server_url = account.get("server_url", self.acmedns_url)
 
         update = {"subdomain": account["subdomain"], "txt": txt}
@@ -43,36 +44,6 @@ def load_storage():
     return {}
 
 
-def apex_name(domain):
-    if domain.startswith("*."):
-        return domain[2:]
-    return domain
-
-
-def storage_candidates(domain):
-    """Exact storage keys: wildcard name if present, then the hostname without `*.`."""
-    keys = []
-    if domain.startswith("*."):
-        keys.append(domain)
-    keys.append(apex_name(domain))
-
-    seen = set()
-    unique = []
-    for key in keys:
-        if key and key not in seen:
-            seen.add(key)
-            unique.append(key)
-    return unique
-
-
-def find_account(storage, domain):
-    for key in storage_candidates(domain):
-        account = storage.get(key)
-        if account:
-            return key, account
-    return None, None
-
-
 def main():
     domain = os.environ.get("CERTBOT_DOMAIN")
     validation = os.environ.get("CERTBOT_VALIDATION")
@@ -82,15 +53,31 @@ def main():
         sys.exit(1)
 
     storage = load_storage()
-    storage_key, account = find_account(storage, domain)
+    skipped: list[str] = []
+    storage_key, account = find_account(
+        storage, domain, prefer_url=ACMEDNS_URL, skipped=skipped
+    )
+
+    for key in skipped:
+        print(
+            f"Skipping stored key {key} "
+            f"(server_url is not this stack's ACMEDNS_URL {ACMEDNS_URL})"
+        )
 
     if account is None:
         candidates = ", ".join(storage_candidates(domain))
+        extra = ""
+        if skipped:
+            extra = (
+                f" Skipped {', '.join(skipped)} because those rows point at "
+                "another acme-dns (often https://auth.acme-dns.io). "
+                "Register the line apex against this stack and CNAME to that fulldomain."
+            )
         print(
-            f"No acme-dns account for {domain}. Looked for: {candidates}. "
-            "Register that hostname in acmedns-client (nested wildcards need their own row, "
-            f"e.g. oib.example.com for *.oib.example.com), and CNAME "
-            f"_acme-challenge.{apex_name(domain)} to that fulldomain."
+            f"No acme-dns account for {domain}. Looked for: {candidates}.{extra} "
+            "Register the line apex in acmedns-client (e.g. mdstn.com for nested "
+            f"wildcards on that zone), and CNAME _acme-challenge.{apex_name(domain)} "
+            "to that fulldomain (nested zones can chain to the apex challenge name)."
         )
         sys.exit(1)
 

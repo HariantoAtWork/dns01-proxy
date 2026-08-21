@@ -15,12 +15,14 @@ RUN mkdir -p /config /scripts /var/log/certbot /defaults
 
 # Copy scripts from build directory
 COPY build/acme-dns-auth.py /config/acme-dns-auth.py
+COPY build/domains.py /config/domains.py
 COPY build/entrypoint.sh /scripts/entrypoint.sh
 COPY build/renew.sh /scripts/renew.sh
 COPY domains.txt.example /defaults/domains.txt
 
 # Make scripts executable
 RUN chmod +x /config/acme-dns-auth.py \
+    /config/domains.py \
     /scripts/entrypoint.sh \
     /scripts/renew.sh
 
