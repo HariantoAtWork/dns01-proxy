@@ -13,7 +13,7 @@ useHead({
       Skip to content
     </a>
     <UiAppNav />
-    <main id="main" class="mx-auto w-full max-w-[1200px] px-4 py-4 md:px-6 md:py-8">
+    <main id="main" class="mx-auto w-full max-w-[1200px] px-1 py-1 md:px-6 md:py-8">
       <slot />
     </main>
     <UiToastStack />

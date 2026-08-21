@@ -47,7 +47,7 @@ const chainFulldomain = computed(() => {
     :open="open || undefined"
   >
     <summary
-      class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink marker:content-none [&::-webkit-details-marker]:hidden"
+      class="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1 text-sm font-medium text-ink marker:content-none md:gap-3 md:px-4 md:py-3 [&::-webkit-details-marker]:hidden"
     >
       <span>{{ title }}</span>
       <CaretDown
@@ -58,7 +58,7 @@ const chainFulldomain = computed(() => {
       />
     </summary>
 
-    <div class="space-y-4 border-t border-rule px-4 py-4">
+    <div class="space-y-3 border-t border-rule px-1 py-1 md:space-y-4 md:px-4 md:py-4">
       <p class="max-w-[65ch] text-sm text-muted">
         Type a nested path (e.g. <span class="font-mono text-ink">oib</span> or
         <span class="font-mono text-ink">child.parent.grandparent</span>).
