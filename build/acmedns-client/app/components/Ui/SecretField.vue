@@ -23,46 +23,47 @@ const display = computed(() => {
   }
   return value ? '•'.repeat(Math.min(value.length, 24)) : ''
 })
+
+const inputPadClass = computed(() => (secret ? 'pr-16' : 'pr-10'))
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
-    <div class="flex items-baseline justify-between gap-3">
-      <label :for="id" class="text-sm font-medium text-ink">{{ label }}</label>
-      <span v-if="hint" class="text-xs text-muted">{{ hint }}</span>
-    </div>
-    <div class="flex items-stretch gap-2">
+  <UiField :label :hint :for="id">
+    <div
+      class="ui-input-shell relative flex items-center border border-rule bg-paper"
+      style="border-radius: var(--radius-input)"
+    >
       <input
         :id
-        class="min-w-0 flex-1 border border-rule bg-paper px-3 py-2 font-mono text-sm text-ink"
-        style="border-radius: var(--radius-input)"
+        class="ui-input min-w-0 w-full border-0 bg-transparent px-3 py-2 font-mono text-sm text-ink outline-none"
+        :class="inputPadClass"
         :value="display"
         readonly
         :type="secret && !revealed ? 'password' : 'text'"
         autocomplete="off"
         spellcheck="false"
       >
-      <button
-        v-if="secret"
-        type="button"
-        class="inline-flex items-center gap-1 border border-rule px-2 text-sm text-muted hover:text-ink"
-        style="border-radius: var(--radius-input)"
-        :aria-pressed="revealed"
-        @click="revealed = !revealed"
-      >
-        <EyeSlash v-if="revealed" :size="16" weight="regular" />
-        <Eye v-else :size="16" weight="regular" />
-        <span class="sr-only">{{ revealed ? 'Hide' : 'Reveal' }} {{ label }}</span>
-      </button>
-      <button
-        type="button"
-        class="inline-flex items-center gap-1 border border-rule px-2 text-sm text-muted hover:text-ink"
-        style="border-radius: var(--radius-input)"
-        @click="copyText(value, label)"
-      >
-        <Copy :size="16" weight="regular" />
-        <span class="sr-only">Copy {{ label }}</span>
-      </button>
+      <div class="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-1">
+        <button
+          v-if="secret"
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-muted hover:bg-panel hover:text-ink"
+          :aria-pressed="revealed"
+          :aria-label="revealed ? `Hide ${label}` : `Reveal ${label}`"
+          @click="revealed = !revealed"
+        >
+          <EyeSlash v-if="revealed" :size="16" weight="regular" aria-hidden="true" />
+          <Eye v-else :size="16" weight="regular" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-muted hover:bg-panel hover:text-ink"
+          :aria-label="`Copy ${label}`"
+          @click="copyText(value, label)"
+        >
+          <Copy :size="16" weight="regular" aria-hidden="true" />
+        </button>
+      </div>
     </div>
-  </div>
+  </UiField>
 </template>

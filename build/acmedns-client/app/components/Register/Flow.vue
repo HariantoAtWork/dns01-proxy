@@ -159,23 +159,15 @@ function reset() {
       />
 
       <div v-else-if="step === 'cname'" class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="rounded-[6px] bg-signal px-4 py-2 text-sm text-signal-ink"
-          @click="startValidation"
-        >
+        <UiButton @click="startValidation">
           Validate
-        </button>
-        <button
-          type="button"
-          class="rounded-[6px] border border-rule px-4 py-2 text-sm"
-          @click="skipValidation"
-        >
+        </UiButton>
+        <UiButton variant="ghost" @click="skipValidation">
           Skip
-        </button>
+        </UiButton>
       </div>
 
-      <section v-if="step === 'save'" class="flex flex-col gap-4 border border-rule bg-panel p-4" style="border-radius: var(--radius-panel)">
+      <UiPanel v-if="step === 'save'" class="flex flex-col gap-4">
         <h2 class="font-semibold">Save domain data?</h2>
         <p class="text-sm text-muted">
           acme-dns will not show this username and password again. Save them now, or they are gone.
@@ -183,22 +175,14 @@ function reset() {
         <UiSecretField label="Username" :value="pendingData.username" />
         <UiSecretField label="Password" :value="pendingData.password" />
         <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="rounded-[6px] bg-signal px-4 py-2 text-sm text-signal-ink"
-            @click="persist(true)"
-          >
+          <UiButton @click="persist(true)">
             Save
-          </button>
-          <button
-            type="button"
-            class="rounded-[6px] border border-rule px-4 py-2 text-sm"
-            @click="persist(false)"
-          >
+          </UiButton>
+          <UiButton variant="ghost" @click="persist(false)">
             Discard
-          </button>
+          </UiButton>
         </div>
-      </section>
+      </UiPanel>
     </template>
 
     <UiConfirmDialog
