@@ -42,7 +42,7 @@ async function submit() {
 </script>
 
 <template>
-  <section class="border border-rule bg-panel p-6 shadow-[0_12px_32px_var(--shadow)]" style="border-radius: var(--radius-panel)">
+  <UiPanel class="shadow-[0_12px_32px_var(--shadow)]">
     <p class="font-mono text-xs tracking-[0.18em] text-signal uppercase">Restricted access</p>
     <h1 class="mt-2 text-2xl font-semibold tracking-tight">Sign in</h1>
     <p class="mt-2 text-sm text-muted">
@@ -51,40 +51,28 @@ async function submit() {
     </p>
 
     <form class="mt-6 flex flex-col gap-4" @submit.prevent="submit">
-      <div class="flex flex-col gap-2">
-        <label :for="usernameId" class="text-sm font-medium">Username</label>
-        <input
+      <UiField label="Username" :for="usernameId">
+        <UiInput
           :id="usernameId"
           v-model="username"
-          class="border border-rule bg-paper px-3 py-2 font-mono text-sm"
-          style="border-radius: var(--radius-input)"
+          mono
           autocomplete="username"
-          spellcheck="false"
           name="username"
-        >
-      </div>
-      <div class="flex flex-col gap-2">
-        <label :for="passwordId" class="text-sm font-medium">Password</label>
-        <input
+          spellcheck="false"
+        />
+      </UiField>
+      <UiField label="Password" :for="passwordId" :error="error">
+        <UiPasswordInput
           :id="passwordId"
           v-model="password"
-          type="password"
-          class="border bg-paper px-3 py-2 font-mono text-sm"
-          :class="error ? 'border-danger' : 'border-rule'"
-          style="border-radius: var(--radius-input)"
+          :invalid="Boolean(error)"
           autocomplete="current-password"
           name="password"
-          :aria-invalid="Boolean(error)"
-        >
-      </div>
-      <p v-if="error" class="text-sm text-danger" role="alert">{{ error }}</p>
-      <button
-        type="submit"
-        class="rounded-[6px] bg-signal px-4 py-2 text-sm text-signal-ink disabled:opacity-50 hover:brightness-105 active:scale-[0.98]"
-        :disabled="pending"
-      >
+        />
+      </UiField>
+      <UiButton type="submit" :disabled="pending">
         {{ pending ? 'Signing in…' : 'Sign in' }}
-      </button>
+      </UiButton>
     </form>
-  </section>
+  </UiPanel>
 </template>

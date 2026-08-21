@@ -42,28 +42,23 @@ async function publish() {
 </script>
 
 <template>
-  <details class="border border-rule bg-panel p-4" style="border-radius: var(--radius-panel)">
-    <summary class="cursor-pointer font-medium">Test TXT update</summary>
-    <p class="mt-2 max-w-[65ch] text-sm text-muted">
+  <UiDisclosure title="Test TXT update">
+    <p class="max-w-[65ch] text-sm text-muted">
       Posts to the acme-dns <span class="font-mono">/update</span> API with this account. Certbot does the same during issuance. Use it to prove the stored username and password still work.
     </p>
-    <form class="mt-4 flex flex-col gap-2" @submit.prevent="publish">
-      <label for="txt-value" class="text-sm font-medium">TXT value</label>
-      <input
-        id="txt-value"
-        v-model="txt"
-        class="border border-rule bg-paper px-3 py-2 font-mono text-sm"
-        style="border-radius: var(--radius-input)"
-        autocomplete="off"
-        spellcheck="false"
-      >
-      <button
-        type="submit"
-        class="self-start rounded-[6px] bg-signal px-3 py-2 text-sm text-signal-ink disabled:opacity-50"
-        :disabled="pending"
-      >
+    <form class="flex flex-col gap-2" @submit.prevent="publish">
+      <UiField label="TXT value" for="txt-value">
+        <UiInput
+          id="txt-value"
+          v-model="txt"
+          mono
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </UiField>
+      <UiButton type="submit" class="self-start" :disabled="pending">
         {{ pending ? 'Publishing' : 'Publish TXT' }}
-      </button>
+      </UiButton>
     </form>
-  </details>
+  </UiDisclosure>
 </template>

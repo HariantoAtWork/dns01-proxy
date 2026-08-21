@@ -16,23 +16,18 @@ const emit = defineEmits<{
 
 <template>
   <div class="grid gap-4 md:grid-cols-2">
-    <section class="flex flex-col gap-3 border border-rule bg-panel p-4" style="border-radius: var(--radius-panel)">
+    <UiPanel class="flex flex-col gap-3">
       <h2 class="text-base font-semibold">Full dump</h2>
       <p class="text-sm text-muted">
         Copy the live <span class="font-mono text-ink">clientstorage.json</span> into the backup folder. Restore replaces the whole file.
       </p>
-      <button
-        type="button"
-        class="mt-auto inline-flex w-fit items-center gap-2 rounded-[6px] bg-signal px-3 py-2 text-sm text-signal-ink disabled:opacity-50 active:scale-[0.98]"
-        :disabled="pending"
-        @click="emit('full')"
-      >
+      <UiButton class="mt-auto w-fit" :disabled="pending" @click="emit('full')">
         <Archive :size="16" weight="regular" aria-hidden="true" />
         Backup all hostnames
-      </button>
-    </section>
+      </UiButton>
+    </UiPanel>
 
-    <section class="flex flex-col gap-3 border border-rule bg-panel p-4" style="border-radius: var(--radius-panel)">
+    <UiPanel class="flex flex-col gap-3">
       <h2 class="text-base font-semibold">One hostname</h2>
       <p class="text-sm text-muted">
         Write one stored credentials object. Restore merges that hostname back; you will confirm if it already exists.
@@ -42,7 +37,7 @@ const emit = defineEmits<{
         <select
           id="backup-domain"
           v-model="selectedDomain"
-          class="border border-rule bg-paper px-3 py-2 font-mono text-sm font-normal"
+          class="ui-input border border-rule bg-paper px-3 py-2 font-mono text-sm font-normal"
           style="border-radius: var(--radius-input)"
           :disabled="pending || !domains.length"
         >
@@ -54,15 +49,10 @@ const emit = defineEmits<{
           </option>
         </select>
       </label>
-      <button
-        type="button"
-        class="inline-flex w-fit items-center gap-2 rounded-[6px] border border-rule px-3 py-2 text-sm hover:bg-paper disabled:opacity-50 active:scale-[0.98]"
-        :disabled="pending || !selectedDomain"
-        @click="emit('domain')"
-      >
+      <UiButton variant="ghost" class="w-fit" :disabled="pending || !selectedDomain" @click="emit('domain')">
         <FloppyDisk :size="16" weight="regular" aria-hidden="true" />
         Backup this hostname
-      </button>
-    </section>
+      </UiButton>
+    </UiPanel>
   </div>
 </template>

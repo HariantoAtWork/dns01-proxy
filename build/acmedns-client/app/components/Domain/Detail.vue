@@ -75,38 +75,25 @@ watch(status, (value) => {
         <p class="mt-1 font-mono text-sm text-muted">{{ entry.details.server_url }}</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-[6px] bg-signal px-3 py-2 text-sm text-signal-ink active:scale-[0.98]"
-          @click="validate"
-        >
+        <UiButton @click="validate">
           <CheckCircle :size="16" weight="regular" />
           Validate CNAME
-        </button>
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-[6px] border border-rule px-3 py-2 text-sm text-ink hover:bg-panel disabled:opacity-50 active:scale-[0.98]"
-          :disabled="fulldomainPending"
-          @click="verifyFulldomain"
-        >
+        </UiButton>
+        <UiButton variant="ghost" :disabled="fulldomainPending" @click="verifyFulldomain">
           <Globe :size="16" weight="regular" />
           {{ fulldomainPending ? 'Checking…' : 'Verify fulldomain' }}
-        </button>
-        <NuxtLink
-          :to="{ path: '/backup', query: { domain: entry.domain } }"
-          class="inline-flex items-center gap-2 rounded-[6px] border border-rule px-3 py-2 text-sm text-ink no-underline hover:bg-panel"
+        </UiButton>
+        <UiButton
+          variant="ghost"
+          :to="`/backup?domain=${encodeURIComponent(entry.domain)}`"
         >
           <Archive :size="16" weight="regular" />
           Backup
-        </NuxtLink>
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-[6px] border border-danger px-3 py-2 text-sm text-danger hover:bg-panel"
-          @click="confirmOpen = true"
-        >
+        </UiButton>
+        <UiButton variant="danger" @click="confirmOpen = true">
           <Trash :size="16" weight="regular" />
           Delete
-        </button>
+        </UiButton>
       </div>
     </header>
 

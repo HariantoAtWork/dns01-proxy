@@ -56,20 +56,12 @@ function onConfirm() {
         <slot />
       </div>
       <div class="flex justify-end gap-2">
-        <button
-          type="button"
-          class="rounded-[6px] border border-rule px-3 py-2 text-sm hover:bg-paper"
-          @click="onCancel"
-        >
+        <UiButton type="button" variant="ghost" @click="onCancel">
           {{ cancelLabel }}
-        </button>
-        <button
-          type="submit"
-          class="rounded-[6px] px-3 py-2 text-sm active:scale-[0.98]"
-          :class="danger ? 'bg-danger text-signal-ink' : 'bg-signal text-signal-ink'"
-        >
+        </UiButton>
+        <UiButton type="submit" :variant="danger ? 'danger' : 'signal'">
           {{ confirmLabel }}
-        </button>
+        </UiButton>
       </div>
     </form>
   </dialog>

@@ -133,7 +133,7 @@ function cancelUpload() {
 </script>
 
 <template>
-  <section class="flex flex-col gap-3 border border-rule bg-panel p-4" style="border-radius: var(--radius-panel)">
+  <UiPanel class="flex flex-col gap-3">
     <h2 class="text-base font-semibold">Live file</h2>
     <p class="text-sm text-muted">
       Download or replace the live <span class="font-mono text-ink">CLIENTSTORAGE_DATA</span> file.
@@ -143,24 +143,14 @@ function cancelUpload() {
       {{ storagePath }}
     </p>
     <div class="mt-auto flex flex-wrap gap-2">
-      <button
-        type="button"
-        class="inline-flex w-fit items-center gap-2 rounded-[6px] bg-signal px-3 py-2 text-sm text-signal-ink disabled:opacity-50 active:scale-[0.98]"
-        :disabled="pending"
-        @click="downloadLive"
-      >
+      <UiButton :disabled="pending" @click="downloadLive">
         <Download :size="16" weight="regular" aria-hidden="true" />
         Download clientstorage.json
-      </button>
-      <button
-        type="button"
-        class="inline-flex w-fit items-center gap-2 rounded-[6px] border border-rule px-3 py-2 text-sm hover:bg-paper disabled:opacity-50 active:scale-[0.98]"
-        :disabled="pending"
-        @click="openPicker"
-      >
+      </UiButton>
+      <UiButton variant="ghost" :disabled="pending" @click="openPicker">
         <Upload :size="16" weight="regular" aria-hidden="true" />
         Upload clientstorage.json
-      </button>
+      </UiButton>
       <input
         ref="file-input"
         type="file"
@@ -182,5 +172,5 @@ function cancelUpload() {
     >
       This overwrites the live clientstorage.json, including every stored hostname.
     </UiConfirmDialog>
-  </section>
+  </UiPanel>
 </template>

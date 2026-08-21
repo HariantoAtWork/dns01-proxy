@@ -67,25 +67,14 @@ function restoreHint(item: BackupListItem) {
           </td>
           <td class="px-3 py-3 align-top">
             <div class="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 rounded-[6px] bg-signal px-2 py-1 text-xs text-signal-ink disabled:opacity-50"
-                :disabled="Boolean(busyFile)"
-                :title="restoreHint(item)"
-                @click="emit('restore', item)"
-              >
+              <UiButton size="sm" :disabled="Boolean(busyFile)" :title="restoreHint(item)" @click="emit('restore', item)">
                 <Restore :size="14" weight="regular" aria-hidden="true" />
                 Restore
-              </button>
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 rounded-[6px] border border-danger px-2 py-1 text-xs text-danger hover:bg-paper disabled:opacity-50"
-                :disabled="Boolean(busyFile)"
-                @click="emit('remove', item)"
-              >
+              </UiButton>
+              <UiButton size="sm" variant="danger" :disabled="Boolean(busyFile)" @click="emit('remove', item)">
                 <Trash :size="14" weight="regular" aria-hidden="true" />
                 Delete
-              </button>
+              </UiButton>
             </div>
           </td>
         </tr>
