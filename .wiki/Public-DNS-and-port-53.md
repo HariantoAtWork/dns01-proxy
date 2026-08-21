@@ -1,13 +1,14 @@
 # Public DNS and port 53
 
-acme-dns is a small **authoritative** DNS server for one zone (here `dns.uti.email`). Let's Encrypt follows a CNAME from your real domain into that zone, then queries **this** server for the TXT token.
+acme-dns is a small **authoritative** DNS server for one zone (here `auth.uti.email`). Let's Encrypt follows a CNAME from your real domain into that zone, then queries **this** server for the TXT token.
 
 ## What must be on the public internet
 
 1. At the real DNS for the certificate name (Cloudflare, registrar, …):  
    `CNAME _acme-challenge.mdstn.com` → the `fulldomain` in `clientstorage.json`  
-   (for example `7aa8b528-….dns.uti.email`).
-2. Parent zone for `uti.email`: NS/A **glue** so resolvers know where `dns.uti.email` lives.
+   (for example `87eb4f67-….auth.uti.email`).  
+   Nested names chain to that apex challenge (`_acme-challenge.oib.mdstn.com` → `_acme-challenge.mdstn.com`). Proven records: [Working Synology setup](Working-Synology-setup.md).
+2. Parent zone for `uti.email`: NS/A **glue** so resolvers know where `auth.uti.email` lives.
 3. That A record (and `config.cfg` `records`) point at the public IP that answers **UDP/53 and TCP/53** with acme-dns.
 
 NS records have **no port field**. Public DNS is always port 53. You cannot publish “DNS on 5353”. You can NAT `public:53` → `lan:53`; the internet still sees IP + 53.

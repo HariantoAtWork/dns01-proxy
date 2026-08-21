@@ -12,7 +12,7 @@
   --secret: #3d4f48;
   --focus: #c45c12;
   --shadow: color-mix(in srgb, #1a2320 14%, transparent);
-  --z-nav: 10;
+  --z-nav: 20;
   --z-toast: 30;
   --z-dialog: 40;
   --radius-panel: 6px;

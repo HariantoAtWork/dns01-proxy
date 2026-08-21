@@ -1,0 +1,7 @@
+acme-dns
+acme-dns.db
+acme-dns.log
+.vagrant
+coverage.out
+.idea/
+dist/

@@ -69,9 +69,6 @@ const serverError = computed(() => {
         spellcheck="false"
         :aria-invalid="Boolean(serverError)"
       >
-      <p class="text-sm text-muted">
-        The Nuxt server calls this URL, so <span class="font-mono">http://acmedns-server</span> works inside Docker.
-      </p>
       <p v-if="serverError" class="text-sm text-danger">{{ serverError }}</p>
     </div>
     <button

@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { PhCheckCircle as CheckCircle, PhTrash as Trash, PhArchive as Archive } from '@phosphor-icons/vue'
+import {
+  PhCheckCircle as CheckCircle,
+  PhGlobe as Globe,
+  PhTrash as Trash,
+  PhArchive as Archive,
+} from '@phosphor-icons/vue'
 import type { DomainEntry } from '#shared/types/clientstorage'
 
 const { entry } = defineProps<{
@@ -13,10 +18,18 @@ const emit = defineEmits<{
 const toasts = useToasts()
 const { deleteDomain } = useClientStorage()
 const { status, attempts, totalAttempts, message, start, cancel, reset } = useDnsValidation()
+const {
+  status: fulldomainStatus,
+  message: fulldomainMessage,
+  pending: fulldomainPending,
+  run: checkFulldomain,
+  reset: resetFulldomain,
+} = useFulldomainCheck()
 const confirmOpen = ref(false)
 
 watch(() => entry.domain, () => {
   reset()
+  resetFulldomain()
 })
 
 async function remove() {
@@ -34,6 +47,16 @@ function validate() {
   start(entry.domain, entry.details.fulldomain)
 }
 
+async function verifyFulldomain() {
+  await checkFulldomain(entry.details)
+  if (fulldomainStatus.value === 'ok') {
+    toasts.ok(fulldomainMessage.value)
+  }
+  else if (fulldomainStatus.value === 'error') {
+    toasts.error(fulldomainMessage.value)
+  }
+}
+
 watch(status, (value) => {
   if (value === 'ok') {
     toasts.ok('DNS record validated successfully')
@@ -47,7 +70,7 @@ watch(status, (value) => {
 <template>
   <article class="flex flex-col gap-5">
     <header class="flex flex-wrap items-start justify-between gap-3">
-      <div>
+      <div class="min-w-0">
         <h1 class="text-2xl font-semibold tracking-tight">{{ entry.domain }}</h1>
         <p class="mt-1 font-mono text-sm text-muted">{{ entry.details.server_url }}</p>
       </div>
@@ -59,6 +82,15 @@ watch(status, (value) => {
         >
           <CheckCircle :size="16" weight="regular" />
           Validate CNAME
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-[6px] border border-rule px-3 py-2 text-sm text-ink hover:bg-panel disabled:opacity-50 active:scale-[0.98]"
+          :disabled="fulldomainPending"
+          @click="verifyFulldomain"
+        >
+          <Globe :size="16" weight="regular" />
+          {{ fulldomainPending ? 'Checking…' : 'Verify fulldomain' }}
         </button>
         <NuxtLink
           :to="{ path: '/backup', query: { domain: entry.domain } }"
@@ -78,7 +110,8 @@ watch(status, (value) => {
       </div>
     </header>
 
-    <CnameRecipe :domain="entry.domain" :fulldomain="entry.details.fulldomain" />
+    <CnameRecipe compact :domain="entry.domain" :fulldomain="entry.details.fulldomain" />
+    <CnameNestedDrawer :domain="entry.domain" :fulldomain="entry.details.fulldomain" />
 
     <DnsProgress
       v-if="status === 'running'"
@@ -94,6 +127,19 @@ watch(status, (value) => {
       class="text-sm text-ink"
     >
       {{ message }}
+    </p>
+
+    <p
+      v-if="fulldomainStatus === 'ok'"
+      class="text-sm text-ink"
+    >
+      {{ fulldomainMessage }}
+    </p>
+    <p
+      v-else-if="fulldomainStatus === 'error'"
+      class="max-w-[65ch] text-sm text-danger"
+    >
+      {{ fulldomainMessage }}
     </p>
 
     <section class="flex flex-col gap-4">

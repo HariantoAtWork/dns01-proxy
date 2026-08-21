@@ -1,5 +1,5 @@
 import { Resolver } from 'node:dns/promises'
-import type { DnsRecordGroup } from '#shared/types/clientstorage'
+import type { DnsLookupKind, DnsRecordGroup } from '#shared/types/clientstorage'
 
 const RESOLVERS = ['75.2.6.34', '1.1.1.1', '1.0.0.1', '8.8.8.8', '8.8.4.4']
 const QUERY_TIMEOUT_MS = 2000
@@ -21,12 +21,26 @@ function withTimeout<T>(promise: Promise<T>, label: string) {
   ])
 }
 
-function emptyLookup(error: unknown) {
-  const code = (error as NodeJS.ErrnoException).code
-  return code === 'ENODATA' || code === 'ENOTFOUND' || code === 'ETIMEOUT'
+export interface DnsQueryOutcome {
+  records: DnsRecordGroup[]
+  lookup: DnsLookupKind
 }
 
-export async function dnsQuery(name: string, type = 'CNAME'): Promise<DnsRecordGroup[]> {
+function classifyEmpty(error: unknown): DnsLookupKind | null {
+  const code = (error as NodeJS.ErrnoException).code
+  if (code === 'ENOTFOUND') {
+    return 'nxdomain'
+  }
+  if (code === 'ENODATA') {
+    return 'nodata'
+  }
+  if (code === 'ETIMEOUT') {
+    return 'timeout'
+  }
+  return null
+}
+
+export async function dnsQuery(name: string, type = 'CNAME'): Promise<DnsQueryOutcome> {
   const resolver = new Resolver()
   const serverAddress = nextResolver()
   resolver.setServers([serverAddress])
@@ -37,19 +51,23 @@ export async function dnsQuery(name: string, type = 'CNAME'): Promise<DnsRecordG
   try {
     if (recordType === 'CNAME') {
       const answers = await withTimeout(resolver.resolveCname(name), serverAddress)
-      return [{ name, data: answers }]
+      return { records: [{ name, data: answers }], lookup: 'ok' }
     }
 
     if (recordType === 'TXT') {
       const answers = await withTimeout(resolver.resolveTxt(name), serverAddress)
-      return [{ name, data: answers.map(chunks => chunks.join('')) }]
+      return {
+        records: [{ name, data: answers.map(chunks => chunks.join('')) }],
+        lookup: 'ok',
+      }
     }
 
     throw new Error(`Unsupported record type ${recordType}`)
   }
   catch (error) {
-    if (emptyLookup(error)) {
-      return []
+    const kind = classifyEmpty(error)
+    if (kind) {
+      return { records: [], lookup: kind }
     }
     throw error
   }

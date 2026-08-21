@@ -126,9 +126,13 @@ while IFS= read -r line || [ -n "$line" ]; do
         continue
     fi
 
-    first="${valid[0]}"
-    cert_name="${first#\*.}"
-    issue_certificate "$cert_name" "${valid[@]}"
+    cert_name=$(python3 /config/domains.py cert-name "${valid[@]}")
+    mapfile -t expanded < <(python3 /config/domains.py expand "${valid[@]}")
+    if [ "${#expanded[@]}" -eq 0 ]; then
+        expanded=("${valid[@]}")
+    fi
+    echo "  → SANs: ${expanded[*]}"
+    issue_certificate "$cert_name" "${expanded[@]}"
     echo ""
 done < "$DOMAINS_FILE"
 

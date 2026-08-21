@@ -4,32 +4,33 @@ This directory contains files that are copied into the Docker image during the b
 
 ## Files
 
+- **`domains.py`** - Shared domain logic for wildcard expansion and storage lookup
+  - `expand_line()` — adds implied parent wildcards, then canonicalises SAN order
+  - `line_apex()` / `cert-name` — shortest apex on the line (order does not matter)
+  - `storage_candidates()` / `find_account()` — parent-walk in `clientstorage.json`; skips auth.acme-dns.io rows when `ACMEDNS_URL` is this stack
+  - CLI: `python3 /config/domains.py expand|cert-name name …`
+
+- **`domains_test.py`** - Unit tests for `domains.py` (`python3 domains_test.py`)
+
 - **`acme-dns-auth.py`** - Python hook script for acme-dns DNS-01 challenge
   - Handles communication with acme-dns server(s)
   - Updates TXT records for domain validation
-  - Looks up `clientstorage.json` by hostname, then parent hostnames
+  - Uses parent-walk lookup from `domains.py`
   - Supports `clientstorage.json` format with `server_url` field
-  - Can work with multiple acme-dns servers in the same file:
-    - Self-hosted: `http://auth.mizu.work`
-    - Public service: `https://auth.acme-dns.io`
 
 - **`entrypoint.sh`** - Container entrypoint script
   - Validates configuration files on startup
-  - Issues one certificate per `domains.txt` line (all names on that line)
-  - Sets up cron job for automatic renewal
-  - Starts cron daemon in foreground
+  - Expands each `domains.txt` line, then issues one certificate per line
+  - Sets up renewal loop (`RENEW_INTERVAL`)
 
 - **`renew.sh`** - Certificate renewal script
-  - Executed by cron every N hours (configured via `RENEW_INTERVAL`)
-  - Checks all certificates and renews those within 30 days of expiry
-  - Logs renewal attempts to `/var/log/certbot/renew.log`
+  - Renews existing certificates within 30 days of expiry
+  - Uses the same auth hook as initial issuance
 
 ## Notes
 
 - These files are copied into the Docker image at build time
-- Do not modify these files directly in a running container
 - After modifying any file in this directory, rebuild the image:
   ```bash
-  docker-compose up -d --build
+  docker compose up -d --build acmedns-letsencrypt
   ```
-
