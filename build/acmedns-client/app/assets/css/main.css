@@ -77,3 +77,42 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Tighter controls on small screens (~40px tall actions/fields). */
+@media (max-width: 767px) {
+  html {
+    font-size: 15px;
+  }
+
+  :where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="color"]),
+    select
+  ) {
+    box-sizing: border-box;
+    max-height: 2.5rem;
+    padding-block: 0.375rem;
+    line-height: 1.25;
+  }
+
+  :where(textarea) {
+    box-sizing: border-box;
+    min-height: 2.5rem;
+    padding-block: 0.375rem;
+    line-height: 1.35;
+  }
+
+  /* Compact CTA / form buttons (not full-width list rows). */
+  :where(
+    button[class*="rounded-[6px]"],
+    a[class*="rounded-[6px]"],
+    button[style*="--radius-panel"],
+    button[style*="--radius-input"],
+    a[style*="--radius-panel"],
+    a[style*="--radius-input"]
+  ) {
+    box-sizing: border-box;
+    max-height: 2.5rem;
+    padding-block: 0.375rem;
+    line-height: 1.25;
+  }
+}

@@ -64,7 +64,7 @@ function openAccount(toggle: () => void) {
 
 <template>
   <header class="sticky top-0 z-[20] border-b border-rule bg-paper/90 backdrop-blur-md">
-    <div class="mx-auto flex h-12 max-w-[1200px] items-center justify-between gap-2 px-3 md:h-16 md:gap-3 md:px-6">
+    <div class="mx-auto flex h-10 max-w-[1200px] items-center justify-between gap-2 px-1 md:h-16 md:gap-3 md:px-6">
       <NuxtLink to="/" class="flex min-w-0 items-baseline gap-2 text-ink no-underline">
         <span class="text-sm font-semibold tracking-tight md:text-base">ACME DNS</span>
         <span class="hidden text-sm text-muted sm:inline">client storage</span>

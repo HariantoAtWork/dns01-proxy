@@ -74,7 +74,7 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
 
       <details class="group border border-rule bg-panel" style="border-radius: var(--radius-panel)">
         <summary
-          class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink marker:content-none [&::-webkit-details-marker]:hidden"
+          class="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1 text-sm font-medium text-ink marker:content-none md:gap-3 md:px-4 md:py-3 [&::-webkit-details-marker]:hidden"
         >
           <span>Apex CNAME example</span>
           <CaretDown
@@ -84,7 +84,7 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
             aria-hidden="true"
           />
         </summary>
-        <div class="border-t border-rule px-4 py-4">
+        <div class="border-t border-rule px-1 py-1 md:px-4 md:py-4">
           <CnameRecord :record="apex" :zone="domain" />
         </div>
       </details>

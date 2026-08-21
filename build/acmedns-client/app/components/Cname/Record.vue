@@ -24,7 +24,7 @@ const cfParts = computed(() => splitName(record.cloudflareName))
 </script>
 
 <template>
-  <article class="border border-rule bg-paper p-3" style="border-radius: var(--radius-input)">
+  <article class="border border-rule bg-paper p-1 md:p-3" style="border-radius: var(--radius-input)">
     <div class="flex flex-wrap items-start justify-between gap-2">
       <p class="text-sm text-muted">
         Covers <span class="font-mono text-ink">{{ record.covers }}</span>
