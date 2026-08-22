@@ -1,6 +1,7 @@
 import type { DnsQueryResult } from '#shared/types/clientstorage'
 
 export default defineEventHandler(async (event): Promise<DnsQueryResult> => {
+  setDnsNoStore(event)
   const body = await readBody<{ name?: string, type?: string }>(event)
 
   if (!body?.name) {

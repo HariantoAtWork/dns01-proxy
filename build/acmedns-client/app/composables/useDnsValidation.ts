@@ -1,5 +1,4 @@
-import type { DnsQueryResult } from '#shared/types/clientstorage'
-import { matchDnsRecord } from '~/utils/matchDnsRecord'
+import type { DnsCnameMatchResult } from '#shared/utils/dnsMatch'
 import { challengeName } from '~/utils/domain'
 
 export type DnsValidationStatus = 'idle' | 'running' | 'ok' | 'timeout' | 'error'
@@ -41,17 +40,17 @@ export function useDnsValidation() {
     const name = challengeName(domain)
 
     try {
-      const result = await $fetch<DnsQueryResult>('/api/dns/query', {
+      const result = await $fetch<DnsCnameMatchResult>('/api/dns/cname-check', {
         method: 'POST',
-        body: { name, type: 'CNAME' },
+        body: { name, expected: fulldomain },
       })
 
       lastChecked.value = new Date().toISOString()
 
-      if (result.success && matchDnsRecord(result.data, name, fulldomain)) {
+      if (result.status === 'ok') {
         stopTimer()
         status.value = 'ok'
-        message.value = 'Public resolvers return the expected CNAME.'
+        message.value = result.message
         inFlight = false
         return
       }

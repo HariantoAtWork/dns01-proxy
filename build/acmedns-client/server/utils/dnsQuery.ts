@@ -2,8 +2,10 @@ import { Resolver } from 'node:dns/promises'
 import type { DnsLookupKind, DnsRecordGroup } from '#shared/types/clientstorage'
 import {
   evaluateCnameResolverOutcomes,
+  evaluateTxtResolverOutcomes,
   type DnsCnameMatchResult,
   type DnsResolverOutcome,
+  type DnsTxtExistenceResult,
 } from '#shared/utils/dnsMatch'
 
 export const DNS_RESOLVERS = ['75.2.6.34', '1.1.1.1', '1.0.0.1', '8.8.8.8', '8.8.4.4']
@@ -31,7 +33,7 @@ export interface DnsQueryOutcome {
   lookup: DnsLookupKind
 }
 
-export type { DnsCnameMatchResult, DnsResolverOutcome }
+export type { DnsCnameMatchResult, DnsResolverOutcome, DnsTxtExistenceResult }
 
 function classifyEmpty(error: unknown): DnsLookupKind | null {
   const code = (error as NodeJS.ErrnoException).code
@@ -82,11 +84,11 @@ async function dnsQueryViaServer(name: string, type: string, serverAddress: stri
   }
 }
 
-export async function dnsQueryCnameAnyMatch(name: string, expected: string): Promise<DnsCnameMatchResult> {
-  const outcomes = await Promise.all(
+async function queryAllResolvers(name: string, type: string): Promise<DnsResolverOutcome[]> {
+  return Promise.all(
     DNS_RESOLVERS.map(async (server) => {
       try {
-        const outcome = await dnsQueryViaServer(name, 'CNAME', server)
+        const outcome = await dnsQueryViaServer(name, type, server)
         return { server, ...outcome }
       }
       catch {
@@ -98,8 +100,32 @@ export async function dnsQueryCnameAnyMatch(name: string, expected: string): Pro
       }
     }),
   )
+}
 
-  return evaluateCnameResolverOutcomes(outcomes, name, expected, DNS_RESOLVERS.length)
+export async function dnsQueryCnameAnyMatch(name: string, expected: string): Promise<DnsCnameMatchResult> {
+  const [authoritative, publicOutcomes] = await Promise.all([
+    queryAuthoritative(name, 'CNAME'),
+    queryAllResolvers(name, 'CNAME'),
+  ])
+
+  return evaluateCnameResolverOutcomes(
+    [...authoritative, ...publicOutcomes],
+    name,
+    expected,
+    DNS_RESOLVERS.length,
+  )
+}
+
+export async function dnsQueryTxtAnyResolvable(name: string): Promise<DnsTxtExistenceResult> {
+  const [authoritative, publicOutcomes] = await Promise.all([
+    queryAuthoritative(name, 'TXT'),
+    queryAllResolvers(name, 'TXT'),
+  ])
+
+  return evaluateTxtResolverOutcomes(
+    [...authoritative, ...publicOutcomes],
+    DNS_RESOLVERS.length,
+  )
 }
 
 export async function dnsQuery(name: string, type = 'CNAME'): Promise<DnsQueryOutcome> {
