@@ -18,7 +18,7 @@ Do not treat a green hook plus a red Certbot log as an app bug. The update path 
 
 ## What you must run on the Synology
 
-The three services in `docker-compose.yml`, with **53/tcp and 53/udp** published on the NAS (same as the Compose file). Let’s Encrypt will then query the machine the DMZ already points at.
+The three services from `docker-compose.yml.example` (copy to `docker-compose.yml` on the NAS), with **53/tcp and 53/udp** published on the NAS (same as the Compose file). Let’s Encrypt will then query the machine the DMZ already points at.
 
 Also required, or issuance still fails on the NAS:
 
