@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PhCopy as Copy, PhEye as Eye, PhEyeSlash as EyeSlash } from '@phosphor-icons/vue'
+import { useClipboardCopy } from '~/composables/useClipboardCopy'
 
 const {
   label,

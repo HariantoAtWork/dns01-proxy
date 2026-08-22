@@ -28,6 +28,10 @@ data/
 # Local clientstorage
 config/
 
+# Storybook
+storybook-static/
+*storybook.log
+
 # Agent skill copies (not part of the app)
 .agents/
 .claude/
