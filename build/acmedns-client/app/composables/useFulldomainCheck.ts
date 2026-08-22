@@ -1,4 +1,5 @@
-import type { AcmeDnsCredentials, DnsQueryResult } from '#shared/types/clientstorage'
+import type { AcmeDnsCredentials } from '#shared/types/clientstorage'
+import type { DnsTxtExistenceResult } from '#shared/utils/dnsMatch'
 import { hostnameFromHttpUrl } from '#shared/utils/fulldomain'
 
 export type FulldomainCheckStatus = 'idle' | 'running' | 'ok' | 'error'
@@ -45,18 +46,12 @@ export function useFulldomainCheck() {
         return
       }
 
-      const result = await $fetch<DnsQueryResult>('/api/dns/query', {
+      const result = await $fetch<DnsTxtExistenceResult>('/api/dns/txt-check', {
         method: 'POST',
-        body: { name: details.fulldomain, type: 'TXT' },
+        body: { name: details.fulldomain },
       })
 
-      if (!result.success) {
-        status.value = 'error'
-        message.value = result.message || 'DNS query failed'
-        return
-      }
-
-      if (result.lookup === 'nxdomain') {
+      if (result.status === 'nxdomain') {
         status.value = 'error'
         message.value = (
           `NXDOMAIN for ${details.fulldomain}. That UUID is not on your acme-dns server. `
@@ -65,17 +60,14 @@ export function useFulldomainCheck() {
         return
       }
 
-      if (result.lookup === 'timeout') {
+      if (result.status === 'error') {
         status.value = 'error'
-        message.value = `Timed out looking up TXT for ${details.fulldomain}.`
+        message.value = result.message
         return
       }
 
-      const txtCount = result.data?.reduce((n, group) => n + group.data.length, 0) ?? 0
       status.value = 'ok'
-      message.value = txtCount > 0
-        ? `Fulldomain exists; public resolvers return ${txtCount} TXT value(s).`
-        : 'Fulldomain exists on public DNS (no TXT values yet — empty slots are fine).'
+      message.value = result.message
     }
     catch (error) {
       status.value = 'error'
