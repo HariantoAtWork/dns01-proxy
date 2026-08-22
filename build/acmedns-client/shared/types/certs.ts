@@ -18,6 +18,21 @@ export interface DomainsParseResult {
   text: string
   lines: ParsedDomainsLine[]
   errors: DomainsLineError[]
+  dnsChecks?: DomainsDnsCheck[]
+}
+
+export type DomainsDnsCheckStatus = 'pending' | 'ok' | 'missing' | 'mismatch' | 'no_account' | 'error'
+
+export interface DomainsDnsCheck {
+  line: number
+  zone: string
+  /** Public DNS name, e.g. _acme-challenge.example.com */
+  name: string
+  expected: string
+  actual?: string
+  status: DomainsDnsCheckStatus
+  accountKey?: string
+  message?: string
 }
 
 export interface CertSettings {

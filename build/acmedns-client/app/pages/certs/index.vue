@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CertActivityEntry, LetsEncryptDirectoryMode } from '#shared/types/certs'
+import type { CertActivityEntry, DomainsDnsCheck, LetsEncryptDirectoryMode } from '#shared/types/certs'
 import { useDocumentVisibility } from '@vueuse/core'
 import { PhArrowsClockwise as ArrowsClockwise, PhCertificate as Certificate, PhCircle as Circle, PhTrash as Trash } from '@phosphor-icons/vue'
 import { useCertLiveStream } from '~/composables/useCertLiveStream'
@@ -7,6 +7,7 @@ import { useCertLiveStream } from '~/composables/useCertLiveStream'
 useHead({ title: 'Certificates' })
 
 const toasts = useToasts()
+const { copyText } = useClipboardCopy()
 const {
   text,
   parsed,
@@ -25,6 +26,7 @@ const {
   loadSettings,
   saveSettings,
   saveDomains,
+  recheckDomainsDns,
   loadStatus,
   loadActivity,
   refresh,
@@ -59,6 +61,7 @@ const hasQueue = computed(() =>
 )
 
 const jobActionPending = ref(false)
+const dnsRecheckPending = ref(false)
 
 async function onCancelJob(id: number) {
   jobActionPending.value = true
@@ -107,6 +110,47 @@ async function onRerunJob(id: number) {
 
 function canResumeJob(job: { completedCount?: number }) {
   return (job.completedCount ?? 0) > 0
+}
+
+function dnsChecksForLine(lineNo: number) {
+  return parsed.value?.dnsChecks?.filter(check => check.line === lineNo) ?? []
+}
+
+function dnsCheckLabel(status: DomainsDnsCheck['status']) {
+  switch (status) {
+    case 'ok': return 'OK'
+    case 'missing': return 'Missing'
+    case 'mismatch': return 'Mismatch'
+    case 'no_account': return 'No account'
+    case 'error': return 'Error'
+    default: return 'Pending'
+  }
+}
+
+function dnsCheckClass(status: DomainsDnsCheck['status']) {
+  switch (status) {
+    case 'ok': return 'text-signal'
+    case 'no_account': return 'text-muted'
+    case 'pending': return 'text-muted'
+    default: return 'text-danger'
+  }
+}
+
+function notifyDnsCheckResult(dnsChecks: DomainsDnsCheck[] | undefined) {
+  const dnsIssues = dnsChecks?.filter(check => check.status !== 'ok') ?? []
+  if (dnsChecks?.length && dnsIssues.length === 0) {
+    toasts.ok('All _acme-challenge CNAMEs look good', 'DNS')
+  }
+  else if (dnsIssues.length) {
+    toasts.info(
+      `${dnsIssues.length} _acme-challenge CNAME(s) need attention`,
+      'DNS',
+    )
+  }
+}
+
+function copyDnsRecordName(check: DomainsDnsCheck) {
+  void copyText(check.name, 'DNS record name')
 }
 
 async function onDeleteJob(id: number) {
@@ -218,6 +262,7 @@ async function onSave() {
     if (result.ok) {
       dirty.value = false
       toasts.ok('domains.txt saved')
+      notifyDnsCheckResult(result.dnsChecks)
       await loadStatus()
     }
     else {
@@ -226,6 +271,20 @@ async function onSave() {
   }
   catch {
     toasts.error(error.value || 'Save failed')
+  }
+}
+
+async function onRecheckDns() {
+  dnsRecheckPending.value = true
+  try {
+    const checks = await recheckDomainsDns()
+    notifyDnsCheckResult(checks)
+  }
+  catch (caught) {
+    toasts.error(caught instanceof Error ? caught.message : 'DNS recheck failed')
+  }
+  finally {
+    dnsRecheckPending.value = false
   }
 }
 
@@ -513,7 +572,26 @@ function formatTime(iso: string) {
       </label>
 
       <UiDisclosure v-if="parsed?.lines?.length" title="Parsed lines" :open="true" class="mt-4">
-        <ul class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-xs text-muted">
+            Public CNAME checks for <span class="font-mono text-ink">_acme-challenge</span> names
+          </p>
+          <UiButton
+            variant="ghost"
+            size="sm"
+            :disabled="pending || dnsRecheckPending"
+            @click="onRecheckDns"
+          >
+            <ArrowsClockwise
+              :size="14"
+              weight="regular"
+              aria-hidden="true"
+              :class="dnsRecheckPending && 'animate-spin'"
+            />
+            Recheck DNS
+          </UiButton>
+        </div>
+        <ul class="mt-3 space-y-3">
           <li
             v-for="line in parsed.lines"
             :key="`${line.line}-${line.certName}`"
@@ -528,6 +606,37 @@ function formatTime(iso: string) {
             <p class="mt-1 font-mono text-xs text-muted">
               SANs: {{ line.expanded.join(', ') }}
             </p>
+            <ul v-if="dnsChecksForLine(line.line).length" class="mt-3 space-y-2 border-t border-rule pt-3">
+              <li
+                v-for="check in dnsChecksForLine(line.line)"
+                :key="check.name"
+                class="font-mono text-xs"
+              >
+                <span
+                  class="mr-2 rounded-[4px] border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
+                  :class="dnsCheckClass(check.status)"
+                >
+                  {{ dnsCheckLabel(check.status) }}
+                </span>
+                <button
+                  v-if="check.status === 'mismatch'"
+                  type="button"
+                  class="cursor-copy text-ink hover:text-signal"
+                  :title="`Copy ${check.name}`"
+                  @click="copyDnsRecordName(check)"
+                >
+                  {{ check.name }}
+                </button>
+                <span v-else class="text-ink">{{ check.name }}</span>
+                <span class="text-muted"> → {{ check.expected || '—' }}</span>
+                <span v-if="check.actual && check.status === 'mismatch'" class="text-danger">
+                  (found {{ check.actual }})
+                </span>
+                <span v-if="check.message && check.status !== 'ok'" class="text-muted">
+                  — {{ check.message }}
+                </span>
+              </li>
+            </ul>
           </li>
         </ul>
       </UiDisclosure>

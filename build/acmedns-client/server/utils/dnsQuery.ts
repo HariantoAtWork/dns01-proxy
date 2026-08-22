@@ -1,14 +1,19 @@
 import { Resolver } from 'node:dns/promises'
 import type { DnsLookupKind, DnsRecordGroup } from '#shared/types/clientstorage'
+import {
+  evaluateCnameResolverOutcomes,
+  type DnsCnameMatchResult,
+  type DnsResolverOutcome,
+} from '#shared/utils/dnsMatch'
 
-const RESOLVERS = ['75.2.6.34', '1.1.1.1', '1.0.0.1', '8.8.8.8', '8.8.4.4']
+export const DNS_RESOLVERS = ['75.2.6.34', '1.1.1.1', '1.0.0.1', '8.8.8.8', '8.8.4.4']
 const QUERY_TIMEOUT_MS = 2000
 
 let currentAddressIndex = 0
 
 function nextResolver() {
-  const address = RESOLVERS[currentAddressIndex] ?? '1.1.1.1'
-  currentAddressIndex = (currentAddressIndex + 1) % RESOLVERS.length
+  const address = DNS_RESOLVERS[currentAddressIndex] ?? '1.1.1.1'
+  currentAddressIndex = (currentAddressIndex + 1) % DNS_RESOLVERS.length
   return address
 }
 
@@ -26,6 +31,8 @@ export interface DnsQueryOutcome {
   lookup: DnsLookupKind
 }
 
+export type { DnsCnameMatchResult, DnsResolverOutcome }
+
 function classifyEmpty(error: unknown): DnsLookupKind | null {
   const code = (error as NodeJS.ErrnoException).code
   if (code === 'ENOTFOUND') {
@@ -40,9 +47,8 @@ function classifyEmpty(error: unknown): DnsLookupKind | null {
   return null
 }
 
-export async function dnsQuery(name: string, type = 'CNAME'): Promise<DnsQueryOutcome> {
+async function dnsQueryViaServer(name: string, type: string, serverAddress: string): Promise<DnsQueryOutcome> {
   const resolver = new Resolver()
-  const serverAddress = nextResolver()
   resolver.setServers([serverAddress])
 
   const recordType = type.toUpperCase()
@@ -74,4 +80,28 @@ export async function dnsQuery(name: string, type = 'CNAME'): Promise<DnsQueryOu
   finally {
     console.log(`Finished DNS ${recordType} via ${serverAddress}: ${Date.now() - started}ms`)
   }
+}
+
+export async function dnsQueryCnameAnyMatch(name: string, expected: string): Promise<DnsCnameMatchResult> {
+  const outcomes = await Promise.all(
+    DNS_RESOLVERS.map(async (server) => {
+      try {
+        const outcome = await dnsQueryViaServer(name, 'CNAME', server)
+        return { server, ...outcome }
+      }
+      catch {
+        return {
+          server,
+          records: [] as DnsRecordGroup[],
+          lookup: 'timeout' as DnsLookupKind,
+        }
+      }
+    }),
+  )
+
+  return evaluateCnameResolverOutcomes(outcomes, name, expected, DNS_RESOLVERS.length)
+}
+
+export async function dnsQuery(name: string, type = 'CNAME'): Promise<DnsQueryOutcome> {
+  return dnsQueryViaServer(name, type, nextResolver())
 }
