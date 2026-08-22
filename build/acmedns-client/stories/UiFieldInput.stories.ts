@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/vue3'
+import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import { ref } from 'vue'
 import UiField from '../app/components/Ui/Field.vue'
 import UiInput from '../app/components/Ui/Input.vue'
