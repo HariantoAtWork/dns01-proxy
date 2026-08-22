@@ -29,6 +29,8 @@ interface InternalJob {
   startedAt?: string
   finishedAt?: string
   currentCert?: string
+  taskIndex?: number
+  taskTotal?: number
   certNames?: string[]
   force?: boolean
   renewOnly?: boolean
@@ -66,6 +68,9 @@ function toPublic(job: InternalJob): CertJobQueueItem {
     startedAt: job.startedAt,
     finishedAt: job.finishedAt,
     currentCert: job.currentCert,
+    taskIndex: job.taskIndex,
+    taskTotal: job.taskTotal,
+    completedCount: job.results?.length ?? 0,
     certNames: job.certNames,
     force: job.force,
     renewOnly: job.renewOnly,
@@ -123,13 +128,17 @@ async function executeApplyCertificates(options: {
   force?: boolean
   renewOnly?: boolean
   jobId: number
-  onCurrentCert: (certName: string | undefined) => void
+  priorResults?: CertApplyResult[]
+  onProgress: (progress: { certName: string | undefined, taskIndex: number, taskTotal: number }) => void
   shouldCancel: () => boolean
 }): Promise<{ results: CertApplyResult[], cancelled: boolean }> {
+  const continuing = Boolean(options.priorResults?.length)
   appendCertActivity({
     source: 'system',
     level: 'info',
-    message: `Job #${options.jobId} started (${options.source}, ${options.mode})`,
+    message: continuing
+      ? `Job #${options.jobId} continuing (${options.source}, ${options.mode}) — ${options.priorResults!.length} already done`
+      : `Job #${options.jobId} started (${options.source}, ${options.mode})`,
   })
 
   const domains = await readDomainsFile()
@@ -144,9 +153,18 @@ async function executeApplyCertificates(options: {
     ? domains.lines.filter(l => options.certNames!.includes(l.certName))
     : domains.lines
 
-  const results: CertApplyResult[] = []
+  const results: CertApplyResult[] = [...(options.priorResults ?? [])]
+  const completedNames = new Set(results.map(r => r.certName))
+  const taskTotal = wanted.length
 
-  for (const line of wanted) {
+  for (let index = 0; index < wanted.length; index += 1) {
+    const line = wanted[index]!
+    const taskIndex = index + 1
+
+    if (completedNames.has(line.certName)) {
+      continue
+    }
+
     if (options.shouldCancel()) {
       appendCertActivity({
         source: 'system',
@@ -156,7 +174,7 @@ async function executeApplyCertificates(options: {
       return { results, cancelled: true }
     }
 
-    options.onCurrentCert(line.certName)
+    options.onProgress({ certName: line.certName, taskIndex, taskTotal })
     emitQueue()
     const meta = await readCertMeta(options.mode, line.certName)
     const status = (await buildCertStatus(options.mode)).find(s => s.certName === line.certName)
@@ -221,7 +239,7 @@ async function executeApplyCertificates(options: {
     }
   }
 
-  options.onCurrentCert(undefined)
+  options.onProgress({ certName: undefined, taskIndex: taskTotal, taskTotal })
   emitQueue()
 
   const renewed = results.filter(r => r.ok && ['Renewed', 'Issued', 'Re-issued (SAN change)'].includes(r.message))
@@ -286,8 +304,11 @@ async function pumpQueue() {
       force: job.force,
       renewOnly: job.renewOnly,
       jobId: job.id,
-      onCurrentCert: (certName) => {
+      priorResults: job.results?.length ? job.results : undefined,
+      onProgress: ({ certName, taskIndex, taskTotal }) => {
         job.currentCert = certName
+        job.taskIndex = taskIndex
+        job.taskTotal = taskTotal
       },
       shouldCancel: () => Boolean(job.cancelRequested),
     })
@@ -333,28 +354,45 @@ export function enqueueCertJob(options: {
   }
 
   return new Promise((resolve, reject) => {
-    const job: InternalJob = {
-      id: nextJobId++,
-      source: options.source,
-      mode: options.mode,
-      status: 'queued',
-      createdAt: new Date().toISOString(),
-      certNames: options.certNames,
-      force: options.force,
-      renewOnly: options.renewOnly,
-      resolve,
-      reject,
-    }
+    void (async () => {
+      let taskTotal: number | undefined
+      try {
+        const domains = await readDomainsFile()
+        if (domains.ok) {
+          const wanted = options.certNames?.length
+            ? domains.lines.filter(l => options.certNames!.includes(l.certName))
+            : domains.lines
+          taskTotal = wanted.length
+        }
+      }
+      catch {
+        // queue anyway; executeApplyCertificates will validate
+      }
 
-    waiting.push(job)
-    appendCertActivity({
-      source: 'system',
-      level: 'info',
-      message: `Job #${job.id} queued (${options.source}, ${options.mode}) — position ${waiting.length}`,
-    })
-    emitQueue()
+      const job: InternalJob = {
+        id: nextJobId++,
+        source: options.source,
+        mode: options.mode,
+        status: 'queued',
+        createdAt: new Date().toISOString(),
+        certNames: options.certNames,
+        force: options.force,
+        renewOnly: options.renewOnly,
+        taskTotal,
+        resolve,
+        reject,
+      }
 
-    void pumpQueue()
+      waiting.push(job)
+      appendCertActivity({
+        source: 'system',
+        level: 'info',
+        message: `Job #${job.id} queued (${options.source}, ${options.mode}) — position ${waiting.length}${taskTotal ? `, ${taskTotal} cert(s)` : ''}`,
+      })
+      emitQueue()
+
+      void pumpQueue()
+    })()
   })
 }
 
@@ -417,7 +455,7 @@ export function cancelCertJob(id: number): CertJobQueueItem {
   })
 }
 
-export function resumeCertJob(id: number): CertJobQueueItem {
+function requeueCancelledJob(id: number, mode: 'continue' | 'rerun'): CertJobQueueItem {
   const found = findJob(id)
   if (!found || found.list !== 'cancelled') {
     throw createError({
@@ -431,26 +469,56 @@ export function resumeCertJob(id: number): CertJobQueueItem {
   if (!removed) {
     throw createError({ statusCode: 404, statusMessage: 'Cancelled job not found' })
   }
+
+  const completedBefore = removed.results?.length ?? 0
+
+  if (mode === 'rerun') {
+    removed.results = undefined
+  }
+  else if (completedBefore === 0) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Nothing to continue — use Re-run to start this job from the beginning',
+    })
+  }
+
   removed.status = 'queued'
   removed.cancelRequested = false
   removed.deleteOnCancel = false
   removed.startedAt = undefined
   removed.finishedAt = undefined
   removed.currentCert = undefined
+  removed.taskIndex = undefined
   removed.error = undefined
-  removed.results = undefined
   detachPromiseHandlers(removed)
 
   waiting.push(removed)
   appendCertActivity({
     source: 'system',
     level: 'info',
-    message: `Job #${removed.id} resumed (${removed.source}, ${removed.mode}) — position ${waiting.length}`,
+    message: mode === 'rerun'
+      ? `Job #${removed.id} re-queued (re-run from start, ${removed.source}, ${removed.mode})`
+      : `Job #${removed.id} continued (${removed.source}, ${removed.mode}) — skipping ${completedBefore} already done`,
   })
   emitQueue()
 
   void pumpQueue()
   return toPublic(removed)
+}
+
+/** Continue a cancelled job, skipping certificates already processed. */
+export function continueCertJob(id: number): CertJobQueueItem {
+  return requeueCancelledJob(id, 'continue')
+}
+
+/** Re-run a cancelled job from the first certificate line. */
+export function rerunCertJob(id: number): CertJobQueueItem {
+  return requeueCancelledJob(id, 'rerun')
+}
+
+/** @deprecated use continueCertJob */
+export function resumeCertJob(id: number): CertJobQueueItem {
+  return continueCertJob(id)
 }
 
 export function deleteCertJob(id: number): CertJobQueueItem {
@@ -514,6 +582,8 @@ export function getCertJobStatus(): CertJobStatus {
     mode: running.mode,
     startedAt: running.startedAt,
     currentCert: running.currentCert,
+    taskIndex: running.taskIndex,
+    taskTotal: running.taskTotal,
     queueLength: waiting.length,
   }
 }
