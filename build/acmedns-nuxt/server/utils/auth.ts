@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import type { AcmeTxtAccount, AcmeTxtPost } from './types'
 import { getByUsername } from './db'
 import { getAcmeConfig } from './config'
+import { acmeDnsError, isAcmeDnsError } from './errors'
 import {
   getValidUsername,
   ipInCidrs,
@@ -52,21 +53,29 @@ function getUserFromRequest(event: H3Event): AcmeTxtAccount {
     username = getValidUsername(uname)
   }
   catch {
-    throw createError({ statusCode: 401, statusMessage: 'forbidden', data: { error: 'forbidden' } })
+    throw acmeDnsError(401, 'invalid_username')
   }
 
   if (!validKey(passwd)) {
-    throw createError({ statusCode: 401, statusMessage: 'forbidden', data: { error: 'forbidden' } })
+    throw acmeDnsError(401, 'invalid_api_key')
   }
 
   const dbuser = getByUsername(username)
   if (!dbuser) {
     compareSync(passwd, DUMMY_HASH)
-    throw createError({ statusCode: 401, statusMessage: 'forbidden', data: { error: 'forbidden' } })
+    throw acmeDnsError(401, 'account_not_found')
   }
 
-  if (!compareSync(passwd, dbuser.password)) {
-    throw createError({ statusCode: 401, statusMessage: 'forbidden', data: { error: 'forbidden' } })
+  try {
+    if (!compareSync(passwd, dbuser.password)) {
+      throw acmeDnsError(401, 'forbidden')
+    }
+  }
+  catch (error) {
+    if (isAcmeDnsError(error)) {
+      throw error
+    }
+    throw acmeDnsError(401, 'forbidden')
   }
 
   return dbuser
@@ -77,7 +86,7 @@ export function authenticateUpdate(event: H3Event, body: { subdomain?: string, t
 
   if (!updateAllowedFromIP(event, user)) {
     console.error('[acmedns] update not allowed from IP')
-    throw createError({ statusCode: 401, statusMessage: 'forbidden', data: { error: 'forbidden' } })
+    throw acmeDnsError(401, 'ip_not_allowed')
   }
 
   const subdomain = typeof body.subdomain === 'string' ? body.subdomain : ''
@@ -85,7 +94,7 @@ export function authenticateUpdate(event: H3Event, body: { subdomain?: string, t
 
   if (user.subdomain !== subdomain) {
     console.error(`[acmedns] subdomain mismatch: got ${subdomain}, expected ${user.subdomain}`)
-    throw createError({ statusCode: 401, statusMessage: 'forbidden', data: { error: 'forbidden' } })
+    throw acmeDnsError(401, 'subdomain_mismatch')
   }
 
   return {

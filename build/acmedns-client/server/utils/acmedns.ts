@@ -68,7 +68,11 @@ export async function updateAcmeDnsTxt(options: {
     })
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update TXT'
+    const data = (error as { data?: { error?: string } })?.data
+    const code = data?.error
+    const message = code
+      ? `acme-dns update failed: ${code}`
+      : (error instanceof Error ? error.message : 'Failed to update TXT')
     throw createError({
       statusCode: 502,
       statusMessage: message,

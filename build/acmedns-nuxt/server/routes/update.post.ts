@@ -1,5 +1,6 @@
 import { authenticateUpdate } from '../utils/auth'
 import { updateTXT } from '../utils/db'
+import { acmeDnsError, isAcmeDnsError } from '../utils/errors'
 import { jsonError, validSubdomain, validTXT } from '../utils/validation'
 
 export default defineEventHandler(async (event) => {
@@ -10,10 +11,9 @@ export default defineEventHandler(async (event) => {
     authenticated = authenticateUpdate(event, body)
   }
   catch (error) {
-    const err = error as { statusCode?: number, data?: unknown }
-    if (err.statusCode === 401) {
-      setResponseStatus(event, 401)
-      return err.data ?? jsonError('forbidden')
+    if (isAcmeDnsError(error)) {
+      setResponseStatus(event, error.statusCode)
+      return error.data ?? jsonError('forbidden')
     }
     throw error
   }
@@ -28,11 +28,18 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    updateTXT({ subdomain: authenticated.subdomain, txt: authenticated.txt })
+    const updated = updateTXT({ subdomain: authenticated.subdomain, txt: authenticated.txt })
+    if (!updated) {
+      throw acmeDnsError(404, 'subdomain_not_found')
+    }
     setResponseStatus(event, 200)
     return { txt: authenticated.txt }
   }
   catch (error) {
+    if (isAcmeDnsError(error)) {
+      setResponseStatus(event, error.statusCode)
+      return error.data ?? jsonError('db_error')
+    }
     console.error('[acmedns] update failed', error)
     setResponseStatus(event, 500)
     return jsonError('db_error')

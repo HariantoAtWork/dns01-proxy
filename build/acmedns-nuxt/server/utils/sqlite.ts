@@ -1,8 +1,12 @@
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 
+export interface SqliteRunResult {
+  changes: number
+}
+
 export interface SqliteStatement {
-  run: (...params: unknown[]) => unknown
+  run: (...params: unknown[]) => SqliteRunResult
   get: (...params: unknown[]) => unknown
   all: (...params: unknown[]) => unknown[]
 }
@@ -24,7 +28,10 @@ async function openBunSqlite(path: string): Promise<SqliteDatabase> {
     prepare: (sql: string) => {
       const stmt = db.prepare(sql)
       return {
-        run: (...params: unknown[]) => stmt.run(...params),
+        run: (...params: unknown[]) => {
+          const result = stmt.run(...params) as { changes?: number }
+          return { changes: Number(result?.changes ?? 0) }
+        },
         get: (...params: unknown[]) => stmt.get(...params),
         all: (...params: unknown[]) => stmt.all(...params) as unknown[],
       }
@@ -49,7 +56,10 @@ async function openNodeSqlite(path: string): Promise<SqliteDatabase> {
     prepare: (sql: string) => {
       const stmt = db.prepare(sql)
       return {
-        run: (...params: unknown[]) => stmt.run(...params),
+        run: (...params: unknown[]) => {
+          const result = stmt.run(...params) as { changes?: number }
+          return { changes: Number(result?.changes ?? 0) }
+        },
         get: (...params: unknown[]) => stmt.get(...params),
         all: (...params: unknown[]) => stmt.all(...params) as unknown[],
       }

@@ -192,13 +192,14 @@ export function getTXTForDomain(domain: string): string[] {
   return rows.map(row => row.Value ?? '')
 }
 
-export function updateTXT(post: AcmeTxtPost): void {
+export function updateTXT(post: AcmeTxtPost): boolean {
   const database = requireDb()
   const now = Math.floor(Date.now() / 1000)
-  database.prepare(`
+  const result = database.prepare(`
     UPDATE txt SET Value = ?, LastUpdate = ?
     WHERE rowid = (
       SELECT rowid FROM txt WHERE Subdomain = ? ORDER BY LastUpdate LIMIT 1
     )
   `).run(post.txt, now, post.subdomain)
+  return result.changes > 0
 }
