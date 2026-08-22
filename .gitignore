@@ -3,3 +3,5 @@
 /data/
 /config/
 .env
+/docker-compose.yml
+/docker-compose.override.yml

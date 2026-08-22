@@ -60,6 +60,8 @@ Nothing published. It only talks out: Let's Encrypt, and `http://acmedns-server`
 
 ```bash
 cp .env.example .env
+cp docker-compose.yml.example docker-compose.yml
+cp docker-compose.override.yml.example docker-compose.override.yml
 docker compose up -d --build
 ```
 
@@ -77,13 +79,15 @@ If an old compose file already bind-mounted a missing `domains.txt`, Docker may 
 2. `domains.txt` — one certificate per line. Space- or comma-separated names; order on the line does not matter. Register only the line apex in acmedns-client. Nested `*.zone.example.com` entries imply parent wildcards automatically; restart `acmedns-letsencrypt` after edits. Example: `mdstn.com *.mdstn.com *.oib.mdstn.com *.admin.mdstn.com`. `#` and `;` start comments.
 3. `.env` — at least `LETSENCRYPT_EMAIL`. For grouped SAN certs, rebuild `acmedns-server` from this tree (100 TXT slots, pad on start).
 4. CNAME `_acme-challenge.<apex>` → `fulldomain` in `clientstorage.json`. Nested zones CNAME to `_acme-challenge.<apex>` (proven for `mdstn.com`: `oib` / `otherinbox` / `admin` chain to the apex challenge). See [`.wiki/Working-Synology-setup.md`](.wiki/Working-Synology-setup.md).
-5. You need the `cloudflared` Docker network (see `docker-compose.override.yml`).
+5. You need the `cloudflared` Docker network (see `docker-compose.override.yml.example`).
 
 ## Config
 
 | File | |
 | --- | --- |
 | `.env` | Copy from `.env.example`. Gitignored. |
+| `docker-compose.yml` | Copy from `docker-compose.yml.example`. Gitignored. |
+| `docker-compose.override.yml` | Copy from `docker-compose.override.yml.example`. Gitignored. Edit for your tunnel / networks. |
 | `data/acmedns-server/config/config.cfg` | Listen address, zone, API. Example has `tls = "none"` on port 80. |
 | `data/acmedns-letsencrypt/domains.txt` | What Certbot should issue. |
 | `clientstorage.json` (volume `acmedns-client`) | acme-dns logins. Not Let's Encrypt. |
@@ -131,8 +135,8 @@ Why DNS-01 needs public 53, why hostnames do not split that port, and why the tu
 ## Layout
 
 ```
-docker-compose.yml
-docker-compose.override.yml
+docker-compose.yml.example
+docker-compose.override.yml.example
 .env.example
 .wiki/                     # public DNS, port 53, DMZ, cloudflared
 build/acmedns-server/
