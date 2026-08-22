@@ -51,3 +51,79 @@ export interface TrashItem {
   fromTree: 'live' | 'staging'
   notAfter?: string
 }
+
+export type CertActivitySource = 'renew' | 'apply' | 'system' | 'acme'
+
+export type CertActivityLevel = 'info' | 'warn' | 'error'
+
+export interface CertActivityEntry {
+  id: number
+  at: string
+  source: CertActivitySource
+  level: CertActivityLevel
+  certName?: string
+  message: string
+}
+
+export interface CertJobStatus {
+  running: boolean
+  id?: number
+  source?: CertActivitySource
+  mode?: LetsEncryptDirectoryMode
+  startedAt?: string
+  currentCert?: string
+  queueLength?: number
+}
+
+export type CertJobQueueStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+export interface CertJobQueueItem {
+  id: number
+  source: 'renew' | 'apply'
+  mode: LetsEncryptDirectoryMode
+  status: CertJobQueueStatus
+  createdAt: string
+  startedAt?: string
+  finishedAt?: string
+  currentCert?: string
+  certNames?: string[]
+  force?: boolean
+  renewOnly?: boolean
+  error?: string
+  cancelRequested?: boolean
+}
+
+export interface CertJobQueueSnapshot {
+  running: CertJobQueueItem | null
+  queued: CertJobQueueItem[]
+  cancelled: CertJobQueueItem[]
+}
+
+export interface CertActivityResponse {
+  entries: CertActivityEntry[]
+  job: CertJobStatus
+  queue: CertJobQueueSnapshot
+  lastErrors: Record<string, { message: string, at: string }>
+}
+
+export interface CertLiveSnapshot {
+  entries: CertActivityEntry[]
+  job: CertJobStatus
+  queue: CertJobQueueSnapshot
+  lastErrors: Record<string, { message: string, at: string }>
+}
+
+export interface CertLiveActivityEvent {
+  entry: CertActivityEntry
+  lastErrors: Record<string, { message: string, at: string }>
+}
+
+export interface CertLiveQueueEvent {
+  job: CertJobStatus
+  queue: CertJobQueueSnapshot
+}
+
+export interface CertLiveStatusEvent {
+  mode: LetsEncryptDirectoryMode
+  entries: CertStatusEntry[]
+}

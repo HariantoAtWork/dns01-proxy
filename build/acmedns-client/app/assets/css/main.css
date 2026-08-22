@@ -8,6 +8,7 @@
   --rule: #b7c4bc;
   --signal: #c45c12;
   --signal-ink: #fff8f1;
+  --live: #2f8f57;
   --danger: #8f2d14;
   --secret: #3d4f48;
   --focus: #c45c12;
@@ -28,6 +29,7 @@
     --rule: #2f3d37;
     --signal: #e07a28;
     --signal-ink: #1a120c;
+    --live: #4fbf78;
     --danger: #e07055;
     --secret: #c5d4cc;
     --focus: #e07a28;
@@ -45,6 +47,7 @@
   --color-rule: var(--rule);
   --color-signal: var(--signal);
   --color-signal-ink: var(--signal-ink);
+  --color-live: var(--live);
   --color-danger: var(--danger);
   --color-secret: var(--secret);
 }

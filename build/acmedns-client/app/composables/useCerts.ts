@@ -1,11 +1,21 @@
 import type {
+  CertActivityEntry,
+  CertActivityResponse,
   CertApplyResult,
+  CertJobQueueItem,
+  CertJobQueueSnapshot,
+  CertJobStatus,
+  CertLiveActivityEvent,
+  CertLiveQueueEvent,
+  CertLiveSnapshot,
+  CertLiveStatusEvent,
   CertSettings,
   CertStatusEntry,
   DomainsParseResult,
   LetsEncryptDirectoryMode,
   TrashItem,
 } from '#shared/types/certs'
+import { mergeLiveActivity } from './useCertLiveStream'
 
 export function useCerts() {
   const text = ref('')
@@ -15,8 +25,15 @@ export function useCerts() {
   const acmeEnabled = ref(true)
   const applyResults = ref<CertApplyResult[]>([])
   const trashItems = ref<TrashItem[]>([])
+  const activityEntries = ref<CertActivityEntry[]>([])
+  const certJob = ref<CertJobStatus>({ running: false })
+  const certQueue = ref<CertJobQueueSnapshot>({ running: null, queued: [], cancelled: [] })
+  const lastCertErrors = ref<Record<string, { message: string, at: string }>>({})
+  const lastActivityId = ref(0)
+  const lastRefreshedAt = ref<string | null>(null)
   const error = ref('')
   const pending = ref(false)
+  const refreshing = ref(false)
 
   async function loadDomains() {
     const data = await $fetch<DomainsParseResult>('/api/certs/domains')
@@ -83,8 +100,68 @@ export function useCerts() {
       '/api/certs/status',
       { query: { mode: m } },
     )
-    statusEntries.value = data.entries
+    statusEntries.value = data.entries.map((entry) => {
+      const lastError = lastCertErrors.value[entry.certName]
+      return lastError ? { ...entry, lastError: lastError.message } : entry
+    })
     return data
+  }
+
+  async function loadActivity(options?: { sinceId?: number, full?: boolean, notify?: (entries: CertActivityEntry[]) => void }) {
+    const poll = !options?.full && options?.sinceId && options.sinceId > 0
+
+    const data = await $fetch<CertActivityResponse>('/api/certs/activity', {
+      query: {
+        sinceId: poll ? options.sinceId : undefined,
+        limit: poll ? 50 : 100,
+      },
+    })
+
+    certJob.value = data.job
+    certQueue.value = data.queue
+    lastCertErrors.value = data.lastErrors
+
+    if (poll) {
+      if (data.entries.length) {
+        const incoming = [...data.entries].reverse()
+        const existingIds = new Set(activityEntries.value.map(e => e.id))
+        activityEntries.value = [
+          ...incoming.filter(e => !existingIds.has(e.id)),
+          ...activityEntries.value,
+        ].slice(0, 100)
+        lastActivityId.value = Math.max(lastActivityId.value, ...data.entries.map(e => e.id))
+        options?.notify?.(incoming)
+      }
+    }
+    else {
+      activityEntries.value = data.entries
+      if (data.entries.length) {
+        lastActivityId.value = Math.max(...data.entries.map(e => e.id))
+      }
+    }
+
+    statusEntries.value = statusEntries.value.map((entry) => {
+      const lastError = lastCertErrors.value[entry.certName]
+      return lastError ? { ...entry, lastError: lastError.message } : entry
+    })
+
+    return data
+  }
+
+  async function refresh(options?: { full?: boolean, notify?: (entries: CertActivityEntry[]) => void }) {
+    refreshing.value = true
+    try {
+      await loadStatus()
+      await loadActivity({
+        full: options?.full,
+        sinceId: options?.full ? undefined : lastActivityId.value,
+        notify: options?.notify,
+      })
+      lastRefreshedAt.value = new Date().toISOString()
+    }
+    finally {
+      refreshing.value = false
+    }
   }
 
   async function apply(options?: { certNames?: string[], force?: boolean }) {
@@ -103,6 +180,7 @@ export function useCerts() {
         },
       )
       applyResults.value = data.results
+      await loadActivity()
       await loadStatus()
       return data
     }
@@ -145,6 +223,64 @@ export function useCerts() {
     await loadTrash()
   }
 
+  async function cancelJob(id: number) {
+    const job = await $fetch<CertJobQueueItem>(`/api/certs/jobs/${id}/cancel`, { method: 'POST' })
+    await loadActivity({ full: true })
+    return job
+  }
+
+  async function resumeJob(id: number) {
+    const job = await $fetch<CertJobQueueItem>(`/api/certs/jobs/${id}/resume`, { method: 'POST' })
+    await loadActivity({ full: true })
+    return job
+  }
+
+  async function deleteJob(id: number) {
+    const job = await $fetch<CertJobQueueItem>(`/api/certs/jobs/${id}`, { method: 'DELETE' })
+    await loadActivity({ full: true })
+    return job
+  }
+
+  async function applyLiveSnapshot(data: CertLiveSnapshot) {
+    activityEntries.value = data.entries
+    certJob.value = data.job
+    certQueue.value = data.queue
+    lastCertErrors.value = data.lastErrors
+    if (data.entries.length) {
+      lastActivityId.value = Math.max(...data.entries.map(e => e.id))
+    }
+    statusEntries.value = statusEntries.value.map((entry) => {
+      const lastError = data.lastErrors[entry.certName]
+      return lastError ? { ...entry, lastError: lastError.message } : entry
+    })
+    lastRefreshedAt.value = new Date().toISOString()
+  }
+
+  function applyLiveActivity(data: CertLiveActivityEvent, notify?: (entries: CertActivityEntry[]) => void) {
+    lastCertErrors.value = data.lastErrors
+    activityEntries.value = mergeLiveActivity(activityEntries.value, data.entry)
+    lastActivityId.value = Math.max(lastActivityId.value, data.entry.id)
+    statusEntries.value = statusEntries.value.map((entry) => {
+      const lastError = data.lastErrors[entry.certName]
+      return lastError ? { ...entry, lastError: lastError.message } : entry
+    })
+    lastRefreshedAt.value = new Date().toISOString()
+    notify?.([data.entry])
+  }
+
+  function applyLiveQueue(data: CertLiveQueueEvent) {
+    certJob.value = data.job
+    certQueue.value = data.queue
+    lastRefreshedAt.value = new Date().toISOString()
+  }
+
+  function applyLiveStatus(data: CertLiveStatusEvent) {
+    if (data.mode === directoryMode.value) {
+      statusEntries.value = data.entries
+      lastRefreshedAt.value = new Date().toISOString()
+    }
+  }
+
   return {
     text,
     parsed,
@@ -153,18 +289,32 @@ export function useCerts() {
     acmeEnabled,
     applyResults,
     trashItems,
+    activityEntries,
+    certJob,
+    certQueue,
+    lastRefreshedAt,
     error,
     pending,
+    refreshing,
     loadDomains,
     loadSettings,
     saveSettings,
     saveDomains,
     validateDomains,
     loadStatus,
+    loadActivity,
+    refresh,
     apply,
     loadTrash,
     trashCert,
     restoreTrash,
     permanentDelete,
+    cancelJob,
+    resumeJob,
+    deleteJob,
+    applyLiveSnapshot,
+    applyLiveActivity,
+    applyLiveQueue,
+    applyLiveStatus,
   }
 }

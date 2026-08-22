@@ -7,6 +7,7 @@ import { readStorage } from './storage'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
 import { accountsDir, getLetsEncryptEmail } from './certSettings'
 import { writeLivePems } from './letsencryptFs'
+import { logAcmeStep, withAcmeLogContext } from './acmeLogger'
 
 type AcmeClient = InstanceType<typeof acme.Client>
 
@@ -54,51 +55,80 @@ export async function issueCertificate(options: {
   certName: string
   altNames: string[]
 }) {
-  const preferUrl = resolveAcmeDnsBase()
-  const storage = await readStorage()
-  const client = await createAcmeClient(options.mode)
-  const email = getLetsEncryptEmail()
+  return withAcmeLogContext(
+    { certName: options.certName, mode: options.mode },
+    async () => {
+      const preferUrl = resolveAcmeDnsBase()
+      const storage = await readStorage()
+      const client = await createAcmeClient(options.mode)
+      const email = getLetsEncryptEmail()
+      const directory = directoryUrl(options.mode)
 
-  const [key, csr] = await acme.crypto.createCsr({
-    commonName: options.altNames.find(n => !n.startsWith('*.')) || options.altNames[0],
-    altNames: options.altNames,
-  })
+      logAcmeStep(
+        options.certName,
+        `Starting dns-01 (${options.mode}) — ${options.altNames.join(', ')}`,
+      )
+      logAcmeStep(options.certName, `Let's Encrypt directory: ${directory}`)
 
-  const certificate = await client.auto({
-    csr,
-    email,
-    termsOfServiceAgreed: true,
-    challengePriority: ['dns-01'],
-    skipChallengeVerification: true,
-    challengeCreateFn: async (authz, challenge, keyAuthorization) => {
-      if (challenge.type !== 'dns-01') {
-        throw new Error(`Unsupported challenge type: ${challenge.type}`)
-      }
-      const domain = authz.identifier.value
-      const { key: storageKey, account } = findAccount(storage, domain, preferUrl)
-      if (!account || !storageKey) {
-        throw new Error(`No acme-dns account for ${domain}`)
-      }
-      await updateAcmeDnsTxt({
-        serverUrl: account.server_url || preferUrl,
-        username: account.username,
-        password: account.password,
-        subdomain: account.subdomain,
-        txt: keyAuthorization,
+      const [key, csr] = await acme.crypto.createCsr({
+        commonName: options.altNames.find(n => !n.startsWith('*.')) || options.altNames[0],
+        altNames: options.altNames,
       })
-    },
-    challengeRemoveFn: async () => {
-      // acme-dns keeps a rolling TXT window; no delete API required
-    },
-  })
 
-  const { cert, chain, fullchain } = splitChain(certificate.toString())
-  await writeLivePems(options.mode, options.certName, {
-    cert,
-    chain,
-    fullchain,
-    privkey: key.toString(),
-  })
+      const certificate = await client.auto({
+        csr,
+        email,
+        termsOfServiceAgreed: true,
+        challengePriority: ['dns-01'],
+        skipChallengeVerification: true,
+        challengeCreateFn: async (authz, challenge, keyAuthorization) => {
+          if (challenge.type !== 'dns-01') {
+            throw new Error(`Unsupported challenge type: ${challenge.type}`)
+          }
+          const domain = authz.identifier.value
+          const { key: storageKey, account } = findAccount(storage, domain, preferUrl)
+          if (!account || !storageKey) {
+            throw new Error(`No acme-dns account for ${domain}`)
+          }
 
-  return { fullchain, certName: options.certName }
+          logAcmeStep(
+            options.certName,
+            `Publishing dns-01 TXT for ${domain} via acme-dns (${account.subdomain})`,
+          )
+
+          await updateAcmeDnsTxt({
+            serverUrl: account.server_url || preferUrl,
+            username: account.username,
+            password: account.password,
+            subdomain: account.subdomain,
+            txt: keyAuthorization,
+          })
+
+          logAcmeStep(
+            options.certName,
+            `acme-dns TXT published for ${domain}; waiting for Let's Encrypt validation`,
+          )
+        },
+        challengeRemoveFn: async () => {
+          // acme-dns keeps a rolling TXT window; no delete API required
+        },
+      })
+
+      const { cert, chain, fullchain } = splitChain(certificate.toString())
+      const tree = options.mode === 'staging' ? 'staging' : 'live'
+      await writeLivePems(options.mode, options.certName, {
+        cert,
+        chain,
+        fullchain,
+        privkey: key.toString(),
+      })
+
+      logAcmeStep(
+        options.certName,
+        `Certificate saved to ${tree}/${options.certName}/fullchain.pem`,
+      )
+
+      return { fullchain, certName: options.certName }
+    },
+  )
 }
