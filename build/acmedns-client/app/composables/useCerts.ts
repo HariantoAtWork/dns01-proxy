@@ -235,6 +235,12 @@ export function useCerts() {
     return job
   }
 
+  async function rerunJob(id: number) {
+    const job = await $fetch<CertJobQueueItem>(`/api/certs/jobs/${id}/rerun`, { method: 'POST' })
+    await loadActivity({ full: true })
+    return job
+  }
+
   async function deleteJob(id: number) {
     const job = await $fetch<CertJobQueueItem>(`/api/certs/jobs/${id}`, { method: 'DELETE' })
     await loadActivity({ full: true })
@@ -311,6 +317,7 @@ export function useCerts() {
     permanentDelete,
     cancelJob,
     resumeJob,
+    rerunJob,
     deleteJob,
     applyLiveSnapshot,
     applyLiveActivity,

@@ -32,6 +32,7 @@ const {
   trashCert,
   cancelJob,
   resumeJob,
+  rerunJob,
   deleteJob,
   applyLiveSnapshot,
   applyLiveActivity,
@@ -87,6 +88,25 @@ async function onResumeJob(id: number) {
   finally {
     jobActionPending.value = false
   }
+}
+
+async function onRerunJob(id: number) {
+  jobActionPending.value = true
+  try {
+    await rerunJob(id)
+    toasts.ok(`Job #${id} re-queued from start`, 'Queue')
+    await refresh()
+  }
+  catch (caught) {
+    toasts.error(caught instanceof Error ? caught.message : 'Re-run failed')
+  }
+  finally {
+    jobActionPending.value = false
+  }
+}
+
+function canResumeJob(job: { completedCount?: number }) {
+  return (job.completedCount ?? 0) > 0
 }
 
 async function onDeleteJob(id: number) {
@@ -315,8 +335,9 @@ function formatTime(iso: string) {
           </span>
           <span v-if="lastRefreshedAt">Last refreshed {{ formatTime(lastRefreshedAt) }}</span>
           <span v-if="certJob.running" class="text-signal">
-            · Job {{ jobLabel(certJob.id!, certJob.source!, certJob.mode!) }} running
-            <span v-if="certJob.currentCert"> — {{ certJob.currentCert }}</span>
+            · Job {{ jobLabel(certJob.id!, certJob.source!, certJob.mode!) }}
+            <span v-if="certJob.taskTotal"> — {{ certJob.taskIndex ?? 0 }}/{{ certJob.taskTotal }}</span>
+            <span v-if="certJob.currentCert"> · {{ certJob.currentCert }}</span>
             <span v-if="certJob.queueLength"> · {{ certJob.queueLength }} waiting</span>
           </span>
           <span v-else-if="certQueue.queued.length" class="ml-2 text-muted">
@@ -345,7 +366,7 @@ function formatTime(iso: string) {
       <h2 class="text-sm font-semibold text-ink">Job queue</h2>
       <p class="mt-1 text-xs text-muted">
         Each Apply or renewal is a batch session with its mode fixed at queue time.
-        The directory toggle only affects the next job you start.
+        Cancelled jobs can be resumed where they left off, or re-run from the first certificate.
       </p>
       <ul class="mt-3 space-y-2 font-mono text-xs">
         <li
@@ -355,6 +376,9 @@ function formatTime(iso: string) {
           <div>
             <span class="text-signal">Running</span>
             {{ jobLabel(certQueue.running.id, certQueue.running.source, certQueue.running.mode) }}
+            <span v-if="certQueue.running.taskTotal" class="font-semibold text-signal">
+              {{ certQueue.running.taskIndex ?? 0 }}/{{ certQueue.running.taskTotal }}
+            </span>
             <span v-if="certQueue.running.currentCert" class="text-muted"> — {{ certQueue.running.currentCert }}</span>
             <span v-if="certQueue.running.cancelRequested" class="ml-2 text-muted">(stopping…)</span>
           </div>
@@ -385,6 +409,8 @@ function formatTime(iso: string) {
           <div>
             <span class="text-ink">Queued</span>
             {{ jobLabel(job.id, job.source, job.mode) }}
+            <span v-if="job.taskTotal" class="text-muted"> · {{ job.taskTotal }} cert(s)</span>
+            <span v-else-if="job.certNames?.length" class="text-muted"> · {{ job.certNames.length }} cert(s)</span>
           </div>
           <div class="flex gap-1">
             <UiButton variant="ghost" size="sm" :disabled="jobActionPending" @click="onCancelJob(job.id)">
@@ -403,10 +429,26 @@ function formatTime(iso: string) {
           <div>
             <span class="text-ink">Cancelled</span>
             {{ jobLabel(job.id, job.source, job.mode) }}
+            <span v-if="job.taskTotal && (job.completedCount ?? job.taskIndex)" class="text-muted">
+              · {{ job.completedCount ?? job.taskIndex }}/{{ job.taskTotal }} done
+            </span>
           </div>
           <div class="flex gap-1">
-            <UiButton variant="ghost" size="sm" :disabled="jobActionPending" @click="onResumeJob(job.id)">
+            <UiButton
+              v-if="canResumeJob(job)"
+              size="sm"
+              :disabled="jobActionPending"
+              @click="onResumeJob(job.id)"
+            >
               Resume
+            </UiButton>
+            <UiButton
+              variant="ghost"
+              size="sm"
+              :disabled="jobActionPending"
+              @click="onRerunJob(job.id)"
+            >
+              Re-run
             </UiButton>
             <UiButton variant="ghost" size="sm" :disabled="jobActionPending" @click="onDeleteJob(job.id)">
               Delete
@@ -470,31 +512,30 @@ function formatTime(iso: string) {
         />
       </label>
 
+      <UiDisclosure v-if="parsed?.lines?.length" title="Parsed lines" :open="true" class="mt-4">
+        <ul class="space-y-3">
+          <li
+            v-for="line in parsed.lines"
+            :key="`${line.line}-${line.certName}`"
+            class="rounded-[6px] border border-rule p-3"
+          >
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <p class="font-mono text-sm text-ink">
+                {{ line.certName }}
+                <span class="text-muted">(line {{ line.line }})</span>
+              </p>
+            </div>
+            <p class="mt-1 font-mono text-xs text-muted">
+              SANs: {{ line.expanded.join(', ') }}
+            </p>
+          </li>
+        </ul>
+      </UiDisclosure>
+
       <p v-if="dirty" class="mt-2 text-xs text-muted">
         Unsaved changes — Save before Apply.
       </p>
       <pre v-if="error" class="mt-2 whitespace-pre-wrap text-xs text-danger">{{ error }}</pre>
-    </UiPanel>
-
-    <UiPanel v-if="parsed?.lines?.length">
-      <h2 class="text-sm font-semibold text-ink">Parsed lines</h2>
-      <ul class="mt-3 space-y-3">
-        <li
-          v-for="line in parsed.lines"
-          :key="`${line.line}-${line.certName}`"
-          class="rounded-[6px] border border-rule p-3"
-        >
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <p class="font-mono text-sm text-ink">
-              {{ line.certName }}
-              <span class="text-muted">(line {{ line.line }})</span>
-            </p>
-          </div>
-          <p class="mt-1 font-mono text-xs text-muted">
-            SANs: {{ line.expanded.join(', ') }}
-          </p>
-        </li>
-      </ul>
     </UiPanel>
 
     <UiPanel>
@@ -520,7 +561,8 @@ function formatTime(iso: string) {
                 v-if="certJob.running && certJob.currentCert === entry.certName"
                 class="ml-2 rounded-[4px] border border-signal px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-signal"
               >
-                Working…
+                <span v-if="certJob.taskTotal">{{ certJob.taskIndex }}/{{ certJob.taskTotal }}</span>
+                <span v-else>Working…</span>
               </span>
             </p>
             <p v-if="entry.notAfter" class="mt-0.5 text-xs text-muted">

@@ -72,6 +72,10 @@ export interface CertJobStatus {
   mode?: LetsEncryptDirectoryMode
   startedAt?: string
   currentCert?: string
+  /** 1-based index of the certificate line being processed */
+  taskIndex?: number
+  /** Total certificate lines in this job batch */
+  taskTotal?: number
   queueLength?: number
 }
 
@@ -86,6 +90,10 @@ export interface CertJobQueueItem {
   startedAt?: string
   finishedAt?: string
   currentCert?: string
+  taskIndex?: number
+  taskTotal?: number
+  /** Certificate lines already finished before cancel (for continue) */
+  completedCount?: number
   certNames?: string[]
   force?: boolean
   renewOnly?: boolean
