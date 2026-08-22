@@ -4,12 +4,14 @@ Two containers. One compose file. Certificates via DNS-01 without giving Let's E
 
 | Service | What it does |
 | --- | --- |
-| `acmedns-server` | [acme-dns](https://github.com/acme-dns/acme-dns) — a tiny DNS server plus an HTTP API for TXT updates |
+| `acmedns-nuxt` | Nuxt/Node port of [acme-dns](https://github.com/acme-dns/acme-dns) — DNS on `:53` plus HTTP register/update (same SQLite/`config.cfg` as the Go tree) |
 | `acmedns-client` | Nuxt 4 UI — `clientstorage.json`, `domains.txt` editor, ACME issue/renew into `/etc/letsencrypt` |
+
+Compose gives `acmedns-nuxt` the network alias `acmedns-server` so `ACMEDNS_URL=http://acmedns-server` keeps working. The Go sources under `build/acmedns-server` remain for reference/rollback.
 
 ```mermaid
 flowchart LR
-  UI[acmedns-client] -->|HTTP /update| API[acmedns-server :80]
+  UI[acmedns-client] -->|HTTP /update| API[acmedns-nuxt :80]
   UI -->|reads/writes| CS[clientstorage.json]
   UI -->|reads/writes| Domains[domains.txt]
   UI -->|writes PEMs| Certs[letsencrypt volume live/]
@@ -32,22 +34,21 @@ volumes:
   - letsencrypt:/etc/letsencrypt:ro
 ```
 
-Upstream acme-dns only keeps two TXT records per account. This stack vendors acme-dns with **100 rolling TXT slots**. Rebuild `acmedns-server` from this tree when issuing many SANs on one account.
+Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt server keeps **100 rolling TXT slots** (same as the vendored Go tree). Rebuild `acmedns-nuxt` when issuing many SANs on one account.
 
 `domains.txt` expands nested wildcards (implied parent wildcards). Line order does not matter — shortest apex is the cert-name. Register the line apex in the UI; the issuer walks parent keys in `clientstorage.json`.
 
 ## Ports
 
-### `acmedns-server`
+### `acmedns-nuxt`
 
 | Container | Host | Notes |
 | --- | --- | --- |
 | `53/tcp` | `53` | DNS. Let's Encrypt hits this. |
 | `53/udp` | `53` | Same. |
-| `80/tcp` | not published | Register/update API. Compose DNS name `http://acmedns-server`, or cloudflared. |
-| `443/tcp` | not published | Image exposes it. Unused while `tls = "none"`. |
+| `80/tcp` | not published | Register/update API. Alias `http://acmedns-server`, or cloudflared. |
 
-Leave `:80` and `:443` off the host. DNS has to be public; the API does not.
+Leave `:80` off the host. DNS has to be public; the API does not.
 
 This house’s router DMZ is the Synology, so public `:53` never reaches a Mac. **Test real Let's Encrypt issuance on the NAS**, not on a laptop. See [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md). Working NAS runbook: [`.wiki/Working-Synology-setup.md`](.wiki/Working-Synology-setup.md).
 
@@ -74,7 +75,7 @@ Docker creates `data/` for you. On first start the containers write:
 
 1. `config.cfg` — your auth hostname, NS, admin, public IP.
 2. `domains.txt` — one certificate per line. Edit in the Certs UI or on disk; Save validates; Apply issues. Example: `mdstn.com *.mdstn.com *.oib.mdstn.com *.admin.mdstn.com`. `#` and `;` start comments.
-3. `.env` — at least `LETSENCRYPT_EMAIL`. For grouped SAN certs, rebuild `acmedns-server` from this tree (100 TXT slots).
+3. `.env` — at least `LETSENCRYPT_EMAIL`. For grouped SAN certs, rebuild `acmedns-nuxt` from this tree (100 TXT slots).
 4. CNAME `_acme-challenge.<apex>` → `fulldomain` in `clientstorage.json`. Nested zones CNAME to `_acme-challenge.<apex>`.
 5. You need the `cloudflared` Docker network (see `docker-compose.override.yml.example`).
 
@@ -109,16 +110,16 @@ Set `ADMINISTRATOR_PASSWORD` to lock the UI behind username `admin`.
 
 | Volume | Who | Inside the container |
 | --- | --- | --- |
-| `letsencrypt` | `acmedns-client` rw, `acmedns-server` ro | `/etc/letsencrypt` (`live/`, `staging/`, `trash/`) |
+| `letsencrypt` | `acmedns-client` rw | `/etc/letsencrypt` (`live/`, `staging/`, `trash/`) |
 | `acmedns-client` | `acmedns-client` rw | `/app/config` (`clientstorage.json`, cert settings) |
 | `acmedns-client-data` | `acmedns-client` rw | `/app/data` |
-| `./data/acmedns-server/config` | `acmedns-server` | `/etc/acme-dns` |
-| `./data/acmedns-server/data` | `acmedns-server` | `/var/lib/acme-dns` |
+| `./data/acmedns-server/config` | `acmedns-nuxt` | `/etc/acme-dns` |
+| `./data/acmedns-server/data` | `acmedns-nuxt` | `/var/lib/acme-dns` |
 | `./data/acmedns-letsencrypt` | `acmedns-client` | `/config/host` — `domains.txt` |
 
 ## Networks
 
-Default compose network: both services. The client reaches the server as `http://acmedns-server`.
+Default compose network: both services. The client reaches the API as `http://acmedns-server` (network alias on `acmedns-nuxt`).
 
 `cloudflared` (external): server and client. Port 53 stays on the host, not the tunnel.
 
@@ -131,7 +132,8 @@ docker-compose.yml.example
 docker-compose.override.yml.example
 .env.example
 .wiki/
-build/acmedns-server/
+build/acmedns-nuxt/        # Node/Nuxt acme-dns (DNS + API)
+build/acmedns-server/      # Go reference / rollback
 build/acmedns-client/
 data/                      # gitignored
 ```

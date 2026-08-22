@@ -1,4 +1,11 @@
 services:
+  acmedns-nuxt:
+    build:
+      context: build/acmedns-nuxt
+      dockerfile: Dockerfile
+    image: harianto/acmedns-nuxt:latest
+
+  # Keep Go image build for rollback while cutting over to Nuxt.
   acmedns-server:
     build:
       context: build/acmedns-server
