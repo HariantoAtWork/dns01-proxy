@@ -3,20 +3,22 @@ networks:
     external: true
   tsdproxy:
     external: true
-  
 
 services:
-  acmedns-server:
+  acmedns-nuxt:
     networks:
-      - default
-      - cloudflared
-      - tsdproxy
+      default:
+        aliases:
+          - acmedns-server
+      cloudflared:
+      tsdproxy:
     labels:
       tsdproxy.enable: "true"
-      tsdproxy.name: "acmedns-server"
-
+      tsdproxy.name: "acmedns-nuxt"
+      tsdproxy.container_port: "80"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
   acmedns-client:
     networks:
       - default

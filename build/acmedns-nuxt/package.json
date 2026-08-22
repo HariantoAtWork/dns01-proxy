@@ -10,8 +10,17 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dns2": "^3.1.1",
     "nuxt": "^4.5.2",
+    "smol-toml": "^1.8.0",
+    "uuid": "^14.0.2",
     "vue": "^3.5.41",
     "vue-router": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/dns2": "^2.0.10",
+    "@types/uuid": "^11.0.0"
   }
 }

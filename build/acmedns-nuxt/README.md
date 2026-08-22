@@ -1,75 +1,29 @@
-# Nuxt Minimal Starter
+# acme-dns (Nuxt / Node)
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Wire-compatible Node port of [acme-dns](https://github.com/acme-dns/acme-dns): authoritative DNS on `:53` plus HTTP `POST /register`, `POST /update`, and `GET /health`.
 
-## Setup
+Uses the same SQLite schema and `config.cfg` layout as [`../acmedns-server`](../acmedns-server) (100 rolling TXT slots), so Synology volumes can be reused.
 
-Make sure to install dependencies:
+## Local develop
 
 ```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
 bun install
+ACME_DNS_CONFIG=./config/config.cfg bun run dev
 ```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+Defaults in `config/config.cfg` bind DNS to `127.0.0.1:15353` and SQLite under `.data/`.
 
 ```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
+curl -sS -X POST http://127.0.0.1:3000/register
+curl -sS http://127.0.0.1:3000/health
+dig @127.0.0.1 -p 15353 TXT <subdomain>.auth.example.test +short
 ```
 
-## Production
+## Docker
 
-Build the application for production:
+Image listens on **80** (HTTP API) and **53** TCP/UDP (DNS). Mount:
 
-```bash
-# npm
-npm run build
+- `/etc/acme-dns` → `config.cfg`
+- `/var/lib/acme-dns` → SQLite DB
 
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Compose gives this service the network alias `acmedns-server` so existing clients keep `ACMEDNS_URL=http://acmedns-server`.
