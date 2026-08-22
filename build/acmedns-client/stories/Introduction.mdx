@@ -1,0 +1,28 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Introduction" />
+
+# ACME DNS UI
+
+Browse the shared primitives used across Register, Domain detail, Backup, and Login.
+
+## How to run
+
+```bash
+bun run storybook
+```
+
+Opens on [http://localhost:6006](http://localhost:6006).
+
+## What is Storybook?
+
+A workshop for UI components **in isolation**. Flip props in Controls, read the Docs tab, and check layouts without walking the full app flow.
+
+## Primitives here
+
+- **Ui/Button** — signal / ghost / danger, optional link (`to`)
+- **Ui/Field + Input** — labelled controls with hints and errors
+- **Ui/PasswordInput** — editable password with in-field eye
+- **Ui/SecretField** — readonly secret with eye + copy inside the shell
+- **Ui/Panel** — bordered card, optional accent
+- **Ui/Disclosure** — shared details drawer
