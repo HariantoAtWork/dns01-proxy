@@ -1,32 +1,37 @@
 export default defineNitroPlugin(() => {
   if (!isAcmeEnabled()) {
-    console.info('[cert-renew] CERTS_ACME_ENABLED is off; renew timer idle')
+    appendCertActivity({
+      source: 'system',
+      level: 'info',
+      message: 'CERTS_ACME_ENABLED is off; renew timer idle',
+    })
     return
   }
 
   const hours = getRenewIntervalHours()
   const ms = hours * 60 * 60 * 1000
-  console.info(`[cert-renew] scheduling production renew every ${hours}h`)
+  appendCertActivity({
+    source: 'system',
+    level: 'info',
+    message: `Scheduling production renew every ${hours}h`,
+  })
 
   const tick = async () => {
     try {
-      const results = await applyCertificates({
+      await applyCertificates({
         mode: 'production',
         renewOnly: true,
+        source: 'renew',
       })
-      for (const r of results) {
-        if (!r.ok) {
-          console.error(`[cert-renew] ${r.certName}: ${r.message}`)
-        }
-        else if (r.message === 'Renewed') {
-          console.info(`[cert-renew] ${r.certName}: renewed`)
-        }
-      }
     }
     catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       if (!message.includes('already running')) {
-        console.error('[cert-renew]', message)
+        appendCertActivity({
+          source: 'renew',
+          level: 'error',
+          message,
+        })
       }
     }
   }
