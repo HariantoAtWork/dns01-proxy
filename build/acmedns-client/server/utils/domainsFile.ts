@@ -10,6 +10,7 @@ import type {
   DomainsParseResult,
   ParsedDomainsLine,
 } from '#shared/types/certs'
+import { checkDomainsDns } from './domainsDnsCheck'
 
 const COMMENT_LINE = /^\s*[#;]/
 
@@ -134,5 +135,6 @@ export async function writeDomainsFile(text: string): Promise<DomainsParseResult
   const tmp = `${filePath}.${process.pid}.tmp`
   await fs.writeFile(tmp, text.endsWith('\n') ? text : `${text}\n`, 'utf-8')
   await fs.rename(tmp, filePath)
-  return parsed
+  const dnsChecks = await checkDomainsDns(parsed.lines)
+  return { ...parsed, dnsChecks }
 }

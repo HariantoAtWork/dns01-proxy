@@ -12,6 +12,7 @@ import type {
   CertSettings,
   CertStatusEntry,
   DomainsParseResult,
+  DomainsDnsCheck,
   LetsEncryptDirectoryMode,
   TrashItem,
 } from '#shared/types/certs'
@@ -92,6 +93,17 @@ export function useCerts() {
       method: 'POST',
       body: { text: text.value },
     })
+  }
+
+  async function recheckDomainsDns() {
+    const data = await $fetch<{ dnsChecks: DomainsDnsCheck[] }>('/api/certs/domains/dns-check', {
+      method: 'POST',
+      body: { text: text.value },
+    })
+    if (parsed.value) {
+      parsed.value = { ...parsed.value, dnsChecks: data.dnsChecks }
+    }
+    return data.dnsChecks
   }
 
   async function loadStatus(mode?: LetsEncryptDirectoryMode) {
@@ -307,6 +319,7 @@ export function useCerts() {
     saveSettings,
     saveDomains,
     validateDomains,
+    recheckDomainsDns,
     loadStatus,
     loadActivity,
     refresh,
