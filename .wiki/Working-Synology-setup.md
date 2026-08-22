@@ -243,7 +243,7 @@ services:
 - `8080:80` — what the reverse proxy targets.
 - `8443:443` — optional; unused while `tls = "none"`.
 
-`acmedns-letsencrypt` publishes nothing. It talks out to Let's Encrypt and to the API. Prefer the compose service name when you can (`http://acmedns-server`); if `clientstorage` already has `http://auth.uti.email`, the reverse proxy path above is what made that work on Synology.
+`acmedns-client` issues certificates (nothing published for ACME). It talks out to Let's Encrypt and to the API. Prefer the compose service name when you can (`http://acmedns-server`); if `clientstorage` already has `http://auth.uti.email`, the reverse proxy path above is what made that work on Synology.
 
 ---
 
@@ -251,7 +251,7 @@ services:
 
 File: `data/acmedns-letsencrypt/domains.txt`
 
-One certificate per line. Restart `acmedns-letsencrypt` after edits — the renew loop alone will not pick up new SANs.
+One certificate per line. Edit in the Certs UI or on disk, Save, then Apply — no restart.
 
 ```txt
 # Domain list for Let's Encrypt
@@ -269,7 +269,7 @@ One certificate per line. Restart `acmedns-letsencrypt` after edits — the rene
 #     *.fail.label.parent.example.com  also adds  *.parent and *.label.parent
 # - Write *.example.com on the line if you want that apex wildcard on the cert
 # - Each wildcard must be its own name (*.example.com). *.*.example.com is invalid
-# - After editing this file, restart acmedns-letsencrypt (renew loop alone is not enough)
+# - After editing this file, Save + Apply in the Certs UI (or leave for the renew timer if only expiry)
 # - Lines starting with # or ; are comments
 # - Empty lines are ignored
 #
@@ -331,7 +331,7 @@ Still valid as a Register **Server URL**. It is upstream acme-dns: **two TXT slo
 
 For more names on the public service: register a **separate** account per nested zone and CNAME `_acme-challenge.oib.mdstn.com` at **that** fulldomain — do not chain to the apex UUID.
 
-This NAS Certbot uses `ACMEDNS_URL` for your server (`https://auth.uti.email`). The hook then **skips** `auth.acme-dns.io` rows and uses the local apex account. Keep public-service logins for tools that actually talk to acme-dns.io; grouped SANs on this stack stay on `auth.uti.email`.
+This NAS client uses `ACMEDNS_URL` for your server (`https://auth.uti.email`). The issuer then **skips** `auth.acme-dns.io` rows and uses the local apex account. Keep public-service logins for tools that actually talk to acme-dns.io; grouped SANs on this stack stay on `auth.uti.email`.
 
 ---
 
@@ -342,7 +342,7 @@ This NAS Certbot uses `ACMEDNS_URL` for your server (`https://auth.uti.email`). 
 3. Cloudflare: grey-cloud A/NS glue for `auth` / `ns`; apex `_acme-challenge` CNAME → `fulldomain`; nested zones chain to that apex name.
 4. Reverse proxy: `auth.uti.email` → `localhost:8080`.
 5. Register apex with **`http://auth.uti.email`**.
-6. `domains.txt` lists the cert; restart `acmedns-letsencrypt`.
-7. From cellular: dig A/NS/SOA/TXT until they look right, then watch Certbot logs for `Successfully updated TXT record` and a green issue.
+6. `domains.txt` lists the cert; Save + Apply in the Certs UI (Production → `live/`).
+7. From cellular: dig A/NS/SOA/TXT until they look right, then watch client Apply results / logs for a successful issue.
 
-When adding another nested wildcard: one new CNAME `_acme-challenge.<zone>.mdstn.com` → `_acme-challenge.mdstn.com`, append the name on the same `domains.txt` line, restart `acmedns-letsencrypt`.
+When adding another nested wildcard: one new CNAME `_acme-challenge.<zone>.mdstn.com` → `_acme-challenge.mdstn.com`, append the name on the same `domains.txt` line, Save + Apply.

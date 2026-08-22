@@ -6,6 +6,7 @@ import {
   PhSignOut as SignOut,
   PhSignIn as SignIn,
   PhArchive as Archive,
+  PhCertificate as Certificate,
   PhList as List,
   PhUser as User,
   PhCaretDown as CaretDown,
@@ -18,6 +19,7 @@ const { restrictMode, authenticated, logout } = useAuth()
 const links = [
   { to: '/', label: 'Home', icon: House, exact: true },
   { to: '/register', label: 'Register', icon: Plus, exact: false },
+  { to: '/certs', label: 'Certs', icon: Certificate, exact: false },
   { to: '/backup', label: 'Backup', icon: Archive, exact: false },
   { to: '/help', label: 'Help', icon: Question, exact: false },
 ] as const

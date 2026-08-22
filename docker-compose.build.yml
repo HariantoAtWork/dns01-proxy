@@ -10,10 +10,3 @@ services:
       context: build/acmedns-client
       dockerfile: Dockerfile
     image: harianto/acmedns-client:latest
-
-  acmedns-letsencrypt:
-    build:
-      context: build/acmedns-letsencrypt
-      dockerfile: Dockerfile
-    image: harianto/acmedns-letsencrypt:latest
-

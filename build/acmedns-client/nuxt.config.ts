@@ -22,6 +22,12 @@ export default defineNuxtConfig({
     applicationsDataRoot: 'data',
     acmednsUrl: 'http://acmedns-server',
     administratorPassword: '',
+    domainsFile: 'config/host/domains.txt',
+    certbotConfigDir: '/etc/letsencrypt',
+    certSettingsFile: 'config/cert-settings.json',
+    letsencryptEmail: 'admin@example.com',
+    renewInterval: 12,
+    certsAcmeEnabled: true,
     public: {
       defaultAcmednsUrl: 'http://acmedns-server',
       restrictMode: false,

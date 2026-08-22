@@ -10,18 +10,18 @@ How public DNS, port 53, and this stack fit together. The [README](../README.md)
 - [Hostnames do not split ports](Hostnames-do-not-split-ports.md) — A records, glue, email as an analogy
 - [DMZ, Synology, and Mac](DMZ-Synology-and-Mac.md) — where `84.86.220.240:53` actually lands
 - [Cloudflared and DNS](Cloudflared-and-DNS.md) — why the tunnel feels magical and still cannot carry DNS-01
-- [Certificate checklist](Certificate-checklist.md) — CNAME, glue, forward, then Certbot; public auth.acme-dns.io is two slots per account
+- [Certificate checklist](Certificate-checklist.md) — CNAME, glue, forward, then Apply in the Certs UI; public auth.acme-dns.io is two slots per account
 
 ## Two paths
 
-Certbot talks to acme-dns over **HTTP** (`/update`). Let's Encrypt does **not**. Validators only do a public DNS lookup. Those two paths are easy to mix up.
+The client talks to acme-dns over **HTTP** (`/update`). Let's Encrypt does **not**. Validators only do a public DNS lookup. Those two paths are easy to mix up.
 
 ```mermaid
 flowchart LR
-  Certbot[acmedns-letsencrypt] -->|HTTP /update| API[acmedns-server :80]
+  Client[acmedns-client] -->|HTTP /update| API[acmedns-server :80]
   LE[Lets Encrypt] -->|DNS-01 UDP/TCP 53| DNS[acmedns-server :53]
   Tunnel[cloudflared] -->|HTTPS hostname| API
-  Tunnel -->|HTTPS hostname| UI[acmedns-client]
+  Tunnel -->|HTTPS hostname| Client
 ```
 
 HTTP can go through Docker DNS or cloudflared. Port 53 cannot.
