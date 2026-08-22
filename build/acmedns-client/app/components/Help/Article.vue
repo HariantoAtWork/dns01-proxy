@@ -2,7 +2,8 @@
   <article class="prose-runbook mx-auto max-w-[68ch]">
     <h1 class="text-3xl font-semibold tracking-tight">How this store works</h1>
     <p class="mt-4 text-muted">
-      This UI writes <span class="font-mono text-ink">clientstorage.json</span>. Certbot in this stack reads that file and talks to acme-dns. Let's Encrypt only looks up the public CNAME.
+      This UI writes <span class="font-mono text-ink">clientstorage.json</span> and issues certificates from
+      <span class="font-mono text-ink">domains.txt</span> (Certs page). Let's Encrypt only looks up the public CNAME.
     </p>
 
     <h2 class="mt-10 text-xl font-semibold">Public internet</h2>
@@ -24,7 +25,11 @@
 
     <h2 class="mt-10 text-xl font-semibold">Grouped and nested wildcards</h2>
     <p class="mt-3 text-muted">
-      Put all names on one <span class="font-mono text-ink">domains.txt</span> line — order does not matter. Certbot expands nested wildcards and adds implied parent wildcards on the certificate. The hook reuses the apex registration for nested SANs — you do not register <span class="font-mono text-ink">*.oib.example.com</span> separately. That grouping needs this stack’s 100-slot server. On <span class="font-mono text-ink">auth.acme-dns.io</span> stay at one apex plus one wildcard per account.
+      Put all names on one <span class="font-mono text-ink">domains.txt</span> line — order does not matter.
+      Open <strong class="font-medium text-ink">Certs</strong>, Save to validate, then Apply.
+      Nested wildcards imply parent wildcards on the certificate. The issuer reuses the apex registration for nested SANs.
+      Production PEMs land under <span class="font-mono text-ink">live/</span>; Staging uses <span class="font-mono text-ink">staging/</span> and never overwrites live.
+      That grouping needs this stack’s 100-slot server. On <span class="font-mono text-ink">auth.acme-dns.io</span> stay at one apex plus one wildcard per account.
     </p>
 
     <h2 class="mt-10 text-xl font-semibold">CNAME shape</h2>
@@ -70,7 +75,8 @@
 
     <h2 class="mt-10 text-xl font-semibold">Keep the secrets</h2>
     <p class="mt-3 text-muted">
-      Username and password are the acme-dns API login. If they leave this file, you cannot fetch them back. Copy with care. The volume is shared with Certbot as read-only.
+      Username and password are the acme-dns API login. If they leave this file, you cannot fetch them back. Copy with care.
+      The same volume is read when issuing certificates.
     </p>
   </article>
 </template>

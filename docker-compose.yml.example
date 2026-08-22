@@ -22,12 +22,20 @@ services:
     volumes:
       - acmedns-client:/app/config:rw
       - acmedns-client-data:/app/data:rw
+      - letsencrypt:/etc/letsencrypt
+      - ./data/acmedns-letsencrypt:/config/host
     environment:
       - CLIENTSTORAGE_DATA=/app/config/clientstorage.json
       - NUXT_APPLICATIONS_DATA_ROOT=${NUXT_APPLICATIONS_DATA_ROOT:-/app/data}
       - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
       - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
+      - DOMAINS_FILE=/config/host/domains.txt
+      - CERTBOT_CONFIG_DIR=/etc/letsencrypt
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
+      - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
+      - CERTS_ACME_ENABLED=${CERTS_ACME_ENABLED:-true}
+      - TZ=${TZ:-UTC}
     entrypoint:
       - /bin/sh
       - -c
@@ -38,28 +46,10 @@ services:
           if [ ! -s "$$file" ]; then
             echo '{}' > "$$file"
           fi
+          mkdir -p /config/host /etc/letsencrypt
           exec bun .output/server/index.mjs
-    networks:
-      - default
-
-  acmedns-letsencrypt:
-    image: harianto/acmedns-letsencrypt
-    container_name: acmedns-letsencrypt
-    restart: unless-stopped
-    volumes:
-      - letsencrypt:/etc/letsencrypt
-      - letsencrypt-logs:/var/log/certbot
-      - acmedns-client:/config/acmedns-client:ro
-      - ./data/acmedns-letsencrypt:/config/host
-    environment:
-      - ACMEDNS_URL=${ACMEDNS_URL:-http://acmedns-server}
-      - STORAGE_PATH=${STORAGE_PATH:-/config/acmedns-client/clientstorage.json}
-      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
-      - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
-      - TZ=${TZ:-UTC}
     depends_on:
       - acmedns-server
-      - acmedns-client
     networks:
       - default
 
@@ -70,5 +60,3 @@ volumes:
     name: acmedns-client
   acmedns-client-data:
     name: acmedns-client-data
-  letsencrypt-logs:
-    name: letsencrypt-logs
