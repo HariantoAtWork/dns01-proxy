@@ -379,21 +379,23 @@ function formatRemaining(untilIso: string) {
   if (ms <= 0) {
     return 'ready'
   }
-  const total = Math.ceil(ms / 1000)
+  const total = Math.max(0, Math.ceil(ms / 1000))
   const days = Math.floor(total / 86400)
   const hours = Math.floor((total % 86400) / 3600)
   const minutes = Math.floor((total % 3600) / 60)
   const seconds = total % 60
+  const parts: string[] = []
   if (days > 0) {
-    return `${days}d ${hours}h ${minutes}m`
+    parts.push(`${days}d`)
   }
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${seconds}s`
+  if (days > 0 || hours > 0) {
+    parts.push(`${hours}h`)
   }
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`
+  if (days > 0 || hours > 0 || minutes > 0) {
+    parts.push(`${minutes}m`)
   }
-  return `${seconds}s`
+  parts.push(`${seconds}s`)
+  return parts.join(' ')
 }
 
 function rateLimitLabel(limit: CertRateLimit) {
