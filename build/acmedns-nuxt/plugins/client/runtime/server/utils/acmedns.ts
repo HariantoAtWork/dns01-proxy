@@ -2,21 +2,81 @@ import { compareSync } from 'bcryptjs'
 import type { AcmeDnsCredentials } from '#shared/types/clientstorage'
 import { fulldomainForAccount } from '#shared/utils/fulldomain'
 
+function hostnameOf(base: string): string {
+  try {
+    return new URL(base).hostname.replace(/\.$/, '').toLowerCase()
+  }
+  catch {
+    return ''
+  }
+}
+
+function authZoneHost(): string {
+  try {
+    return getAcmeConfig().general.domain.replace(/\.$/, '').toLowerCase()
+  }
+  catch {
+    return ''
+  }
+}
+
+function isLoopbackAcmeDnsHost(host: string): boolean {
+  return host === '127.0.0.1'
+    || host === 'localhost'
+    || host === '::1'
+    || host === 'acmedns-server'
+    || host === 'acmedns-nuxt'
+}
+
+/** In-process API (loopback / compose name / this stack's auth zone). */
 function isLocalAcmeDnsBase(base: string): boolean {
   if (!base || base.startsWith('local://')) {
     return true
   }
-  try {
-    const host = new URL(base).hostname.toLowerCase()
-    return host === '127.0.0.1'
-      || host === 'localhost'
-      || host === '::1'
-      || host === 'acmedns-server'
-      || host === 'acmedns-nuxt'
-  }
-  catch {
+  const host = hostnameOf(base)
+  if (!host) {
     return false
   }
+  if (isLoopbackAcmeDnsHost(host)) {
+    return true
+  }
+  const zone = authZoneHost()
+  return Boolean(zone && host === zone)
+}
+
+/**
+ * URL stored on the account for CNAME / UI.
+ * Prefer a public ACMEDNS_URL (or auth zone) over loopback so register
+ * does not persist http://127.0.0.1 when the operator set a public identity.
+ */
+function identityServerUrl(resolvedBase: string): string {
+  const cleaned = resolvedBase.replace(/\/$/, '')
+  const host = hostnameOf(cleaned)
+  if (host && !isLoopbackAcmeDnsHost(host)) {
+    return cleaned
+  }
+
+  const preferred = (
+    process.env.ACMEDNS_URL
+    || process.env.NUXT_ACMEDNS_URL
+    || ''
+  ).replace(/\/$/, '')
+  if (preferred && !isLoopbackAcmeDnsHost(hostnameOf(preferred))) {
+    return preferred
+  }
+
+  const zone = authZoneHost()
+  if (zone && zone.includes('.')) {
+    try {
+      const scheme = getAcmeConfig().api.tls === 'cert' ? 'https' : 'http'
+      return `${scheme}://${zone}`
+    }
+    catch {
+      return `https://${zone}`
+    }
+  }
+
+  return cleaned
 }
 
 export function resolveAcmeDnsBase(requestedUrl?: string) {
@@ -40,6 +100,7 @@ function defaultLocalAcmeDnsBase(): string {
 
 export async function registerAcmeDnsAccount(serverUrl: string) {
   const base = resolveAcmeDnsBase(serverUrl)
+  const storedUrl = identityServerUrl(base)
 
   if (isLocalAcmeDnsBase(base)) {
     try {
@@ -47,11 +108,11 @@ export async function registerAcmeDnsAccount(serverUrl: string) {
       const acmeConfig = getAcmeConfig()
       const reported = `${account.subdomain}.${acmeConfig.general.domain}`
       return {
-        fulldomain: fulldomainForAccount(account.subdomain, base, reported),
+        fulldomain: fulldomainForAccount(account.subdomain, storedUrl, reported),
         subdomain: account.subdomain,
         username: account.username,
         password: account.plaintextPassword,
-        server_url: base,
+        server_url: storedUrl,
         allowfrom: account.allowfrom,
       } satisfies AcmeDnsCredentials
     }
@@ -78,11 +139,11 @@ export async function registerAcmeDnsAccount(serverUrl: string) {
     }
 
     return {
-      fulldomain: fulldomainForAccount(payload.subdomain, base, payload.fulldomain),
+      fulldomain: fulldomainForAccount(payload.subdomain, storedUrl, payload.fulldomain),
       subdomain: payload.subdomain,
       username: payload.username,
       password: payload.password,
-      server_url: base,
+      server_url: storedUrl,
       allowfrom: payload.allowfrom,
     } satisfies AcmeDnsCredentials
   }

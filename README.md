@@ -90,7 +90,7 @@ If Docker created a *directory* named `domains.txt`, remove it (`rm -rf data/acm
 
 | Variable | Example | |
 | --- | --- | --- |
-| `ACMEDNS_URL` | `http://127.0.0.1` | In-process register/update default (`https://127.0.0.1` when `api.tls = "cert"`). |
+| `ACMEDNS_URL` | `https://auth.example.org` | Public identity for register/update. Loopback or a host matching `config.cfg` `domain` still runs in-process; that public URL is what gets stored. Compose also uses this as the Register form default unless `NUXT_PUBLIC_DEFAULT_ACMEDNS_URL` is set. |
 | `LETSENCRYPT_EMAIL` | `admin@example.com` | ACME account contact. |
 | `RENEW_INTERVAL` | `12` | Hours between production renew checks. |
 | `CERTS_ACME_ENABLED` | `true` | Set `false` to disable issue/renew (editor still works). |

@@ -8,15 +8,20 @@ import type {
 import { readDomainsFile } from './domainsFile'
 import { issueCertificate } from './acmeIssue'
 import { isAcmeEnabled } from './certSettings'
-import { appendCertActivity, getLastCertErrors } from './certActivity'
+import { appendCertActivity } from './certActivity'
 import { publishCertLive } from './certLiveBus'
+import { buildCertLiveStatus } from './certLivePublish'
 import { buildCertStatus, needsRenewal, readCertMeta } from './certStatus'
+import { clearRateLimitAfterSuccess } from './acmeLogger'
 
 const QUIET_MESSAGES = new Set([
   'Not due for renewal',
   'No certificate to renew',
   'Up to date',
 ])
+
+/** Per-certificate ACME wall clock (production dns-01 can exceed proxy timeouts). */
+const ACME_CERT_TIMEOUT_MS = Number(process.env.ACME_CERT_TIMEOUT_MS || 4 * 60 * 1000)
 
 type JobSource = 'renew' | 'apply'
 
@@ -38,6 +43,7 @@ interface InternalJob {
   error?: string
   cancelRequested?: boolean
   deleteOnCancel?: boolean
+  abortController?: AbortController
   resolve: (results: CertApplyResult[]) => void
   reject: (error: unknown) => void
 }
@@ -53,6 +59,17 @@ function jobCancelledError() {
     statusCode: 499,
     statusMessage: 'Job cancelled',
   })
+}
+
+function isAbortLike(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+  const err = error as { name?: string, message?: string, statusCode?: number }
+  return err.name === 'AbortError'
+    || err.name === 'TimeoutError'
+    || err.statusCode === 499
+    || /cancelled|aborted|timed out/i.test(err.message || '')
 }
 
 function noopResolve(_results: CertApplyResult[]) {}
@@ -95,17 +112,9 @@ function emitQueue() {
 }
 
 async function emitStatus(mode: LetsEncryptDirectoryMode) {
-  const lastErrors = getLastCertErrors()
-  const entries = await buildCertStatus(mode)
   publishCertLive({
     type: 'status',
-    data: {
-      mode,
-      entries: entries.map((entry) => {
-        const lastError = lastErrors[entry.certName]
-        return lastError ? { ...entry, lastError: lastError.message } : entry
-      }),
-    },
+    data: await buildCertLiveStatus(mode),
   })
 }
 
@@ -121,6 +130,17 @@ function logApplyResult(source: JobSource, result: CertApplyResult) {
   })
 }
 
+function certIssueSignal(jobAbort: AbortSignal) {
+  const timeoutMs = Number.isFinite(ACME_CERT_TIMEOUT_MS) && ACME_CERT_TIMEOUT_MS > 0
+    ? ACME_CERT_TIMEOUT_MS
+    : 4 * 60 * 1000
+  const timeout = AbortSignal.timeout(timeoutMs)
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([jobAbort, timeout])
+  }
+  return jobAbort
+}
+
 async function executeApplyCertificates(options: {
   mode: LetsEncryptDirectoryMode
   source: JobSource
@@ -129,6 +149,7 @@ async function executeApplyCertificates(options: {
   renewOnly?: boolean
   jobId: number
   priorResults?: CertApplyResult[]
+  abortSignal: AbortSignal
   onProgress: (progress: { certName: string | undefined, taskIndex: number, taskTotal: number }) => void
   shouldCancel: () => boolean
 }): Promise<{ results: CertApplyResult[], cancelled: boolean }> {
@@ -165,7 +186,7 @@ async function executeApplyCertificates(options: {
       continue
     }
 
-    if (options.shouldCancel()) {
+    if (options.shouldCancel() || options.abortSignal.aborted) {
       appendCertActivity({
         source: 'system',
         level: 'warn',
@@ -215,6 +236,7 @@ async function executeApplyCertificates(options: {
         mode: options.mode,
         certName: line.certName,
         altNames: line.expanded,
+        signal: certIssueSignal(options.abortSignal),
       })
       const after = await readCertMeta(options.mode, line.certName)
       const result: CertApplyResult = {
@@ -225,9 +247,63 @@ async function executeApplyCertificates(options: {
       }
       results.push(result)
       logApplyResult(options.source, result)
+      await clearRateLimitAfterSuccess(options.mode, line.certName)
       await emitStatus(options.mode)
     }
     catch (error) {
+      const rateLimited = Boolean(
+        error
+        && typeof error === 'object'
+        && 'rateLimited' in error
+        && (error as { rateLimited?: boolean }).rateLimited,
+      ) || /rate limit/i.test(error instanceof Error ? error.message : '')
+
+      if (rateLimited) {
+        const message = error instanceof Error
+          ? error.message
+          : 'Let\'s Encrypt rate limit'
+        const result: CertApplyResult = {
+          certName: line.certName,
+          ok: false,
+          message,
+        }
+        results.push(result)
+        logApplyResult(options.source, result)
+        // Account-wide new-order limits apply to the rest of the batch too.
+        appendCertActivity({
+          source: 'system',
+          level: 'warn',
+          message: `Job #${options.jobId} stopped after rate limit on ${line.certName}`,
+        })
+        return { results, cancelled: false }
+      }
+
+      if (isAbortLike(error) || options.shouldCancel() || options.abortSignal.aborted) {
+        const timedOut = !options.shouldCancel()
+          && (
+            (error instanceof Error && error.name === 'TimeoutError')
+            || /timed out/i.test(error instanceof Error ? error.message : '')
+          )
+        appendCertActivity({
+          source: 'system',
+          level: 'warn',
+          certName: line.certName,
+          message: timedOut
+            ? `Job #${options.jobId} ACME timed out on ${line.certName} after ${Math.round(ACME_CERT_TIMEOUT_MS / 1000)}s`
+            : `Job #${options.jobId} aborted on ${line.certName}`,
+        })
+        if (timedOut) {
+          const result: CertApplyResult = {
+            certName: line.certName,
+            ok: false,
+            message: `ACME timed out after ${Math.round(ACME_CERT_TIMEOUT_MS / 1000)}s (dns-01 / Let's Encrypt). Check CNAME → auth zone and try again.`,
+          }
+          results.push(result)
+          logApplyResult(options.source, result)
+          continue
+        }
+        return { results, cancelled: true }
+      }
       const message = error instanceof Error ? error.message : 'Issue failed'
       const result: CertApplyResult = {
         certName: line.certName,
@@ -278,6 +354,16 @@ function finishCancelledJob(job: InternalJob) {
   job.reject(jobCancelledError())
 }
 
+function abortRunningJob(job: InternalJob, reason: string) {
+  job.cancelRequested = true
+  try {
+    job.abortController?.abort(new Error(reason))
+  }
+  catch {
+    // already aborted
+  }
+}
+
 async function pumpQueue() {
   if (pumping || running) {
     return
@@ -294,6 +380,7 @@ async function pumpQueue() {
   job.startedAt = new Date().toISOString()
   job.cancelRequested = false
   job.deleteOnCancel = false
+  job.abortController = new AbortController()
   emitQueue()
 
   try {
@@ -305,6 +392,7 @@ async function pumpQueue() {
       renewOnly: job.renewOnly,
       jobId: job.id,
       priorResults: job.results?.length ? job.results : undefined,
+      abortSignal: job.abortController.signal,
       onProgress: ({ certName, taskIndex, taskTotal }) => {
         job.currentCert = certName
         job.taskIndex = taskIndex
@@ -325,12 +413,23 @@ async function pumpQueue() {
     }
   }
   catch (error) {
-    job.status = 'failed'
-    job.error = error instanceof Error ? error.message : 'Job failed'
-    job.finishedAt = new Date().toISOString()
-    job.reject(error)
+    if (isAbortLike(error) || job.cancelRequested) {
+      finishCancelledJob(job)
+    }
+    else {
+      job.status = 'failed'
+      job.error = error instanceof Error ? error.message : 'Job failed'
+      job.finishedAt = new Date().toISOString()
+      appendCertActivity({
+        source: 'system',
+        level: 'error',
+        message: `Job #${job.id} failed: ${job.error}`,
+      })
+      job.reject(error)
+    }
   }
   finally {
+    job.abortController = undefined
     running = null
     pumping = false
     emitQueue()
@@ -339,6 +438,78 @@ async function pumpQueue() {
   }
 }
 
+async function createQueuedJob(options: {
+  mode: LetsEncryptDirectoryMode
+  source: JobSource
+  certNames?: string[]
+  force?: boolean
+  renewOnly?: boolean
+  resolve: (results: CertApplyResult[]) => void
+  reject: (error: unknown) => void
+}): Promise<InternalJob> {
+  if (!isAcmeEnabled()) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Certificate ACME is disabled (CERTS_ACME_ENABLED=false).',
+    })
+  }
+
+  let taskTotal: number | undefined
+  try {
+    const domains = await readDomainsFile()
+    if (domains.ok) {
+      const wanted = options.certNames?.length
+        ? domains.lines.filter(l => options.certNames!.includes(l.certName))
+        : domains.lines
+      taskTotal = wanted.length
+    }
+  }
+  catch {
+    // queue anyway; executeApplyCertificates will validate
+  }
+
+  const job: InternalJob = {
+    id: nextJobId++,
+    source: options.source,
+    mode: options.mode,
+    status: 'queued',
+    createdAt: new Date().toISOString(),
+    certNames: options.certNames,
+    force: options.force,
+    renewOnly: options.renewOnly,
+    taskTotal,
+    resolve: options.resolve,
+    reject: options.reject,
+  }
+
+  waiting.push(job)
+  appendCertActivity({
+    source: 'system',
+    level: 'info',
+    message: `Job #${job.id} queued (${options.source}, ${options.mode}) — position ${waiting.length}${taskTotal ? `, ${taskTotal} cert(s)` : ''}`,
+  })
+  emitQueue()
+  void pumpQueue()
+  return job
+}
+
+/** Fire-and-forget queue (HTTP Apply). Progress via SSE / activity. */
+export async function startCertJob(options: {
+  mode: LetsEncryptDirectoryMode
+  source: JobSource
+  certNames?: string[]
+  force?: boolean
+  renewOnly?: boolean
+}): Promise<CertJobQueueItem> {
+  const job = await createQueuedJob({
+    ...options,
+    resolve: noopResolve,
+    reject: noopReject,
+  })
+  return toPublic(job)
+}
+
+/** Wait until the job finishes (renew timer). */
 export function enqueueCertJob(options: {
   mode: LetsEncryptDirectoryMode
   source: JobSource
@@ -346,53 +517,12 @@ export function enqueueCertJob(options: {
   force?: boolean
   renewOnly?: boolean
 }): Promise<CertApplyResult[]> {
-  if (!isAcmeEnabled()) {
-    return Promise.reject(createError({
-      statusCode: 503,
-      statusMessage: 'Certificate ACME is disabled (CERTS_ACME_ENABLED=false).',
-    }))
-  }
-
   return new Promise((resolve, reject) => {
-    void (async () => {
-      let taskTotal: number | undefined
-      try {
-        const domains = await readDomainsFile()
-        if (domains.ok) {
-          const wanted = options.certNames?.length
-            ? domains.lines.filter(l => options.certNames!.includes(l.certName))
-            : domains.lines
-          taskTotal = wanted.length
-        }
-      }
-      catch {
-        // queue anyway; executeApplyCertificates will validate
-      }
-
-      const job: InternalJob = {
-        id: nextJobId++,
-        source: options.source,
-        mode: options.mode,
-        status: 'queued',
-        createdAt: new Date().toISOString(),
-        certNames: options.certNames,
-        force: options.force,
-        renewOnly: options.renewOnly,
-        taskTotal,
-        resolve,
-        reject,
-      }
-
-      waiting.push(job)
-      appendCertActivity({
-        source: 'system',
-        level: 'info',
-        message: `Job #${job.id} queued (${options.source}, ${options.mode}) — position ${waiting.length}${taskTotal ? `, ${taskTotal} cert(s)` : ''}`,
-      })
-      emitQueue()
-
-      void pumpQueue()
-    })()
+    void createQueuedJob({
+      ...options,
+      resolve,
+      reject,
+    }).catch(reject)
   })
 }
 
@@ -420,11 +550,11 @@ export function cancelCertJob(id: number): CertJobQueueItem {
   const { job, list } = found
 
   if (list === 'running') {
-    job.cancelRequested = true
+    abortRunningJob(job, 'Job cancelled by operator')
     appendCertActivity({
       source: 'system',
       level: 'warn',
-      message: `Job #${job.id} cancel requested — will stop after current certificate`,
+      message: `Job #${job.id} cancel requested — aborting current ACME attempt`,
     })
     emitQueue()
     return toPublic(job)
@@ -490,6 +620,7 @@ function requeueCancelledJob(id: number, mode: 'continue' | 'rerun'): CertJobQue
   removed.currentCert = undefined
   removed.taskIndex = undefined
   removed.error = undefined
+  removed.abortController = undefined
   detachPromiseHandlers(removed)
 
   waiting.push(removed)
@@ -530,12 +661,12 @@ export function deleteCertJob(id: number): CertJobQueueItem {
   const { job, list } = found
 
   if (list === 'running') {
-    job.cancelRequested = true
     job.deleteOnCancel = true
+    abortRunningJob(job, 'Job deleted by operator')
     appendCertActivity({
       source: 'system',
       level: 'warn',
-      message: `Job #${job.id} delete requested — will stop after current certificate`,
+      message: `Job #${job.id} delete requested — aborting current ACME attempt`,
     })
     emitQueue()
     return toPublic(job)
@@ -597,5 +728,5 @@ export function getCertJobQueueSnapshot(): CertJobQueueSnapshot {
 }
 
 export function isCertJobLocked() {
-  return running !== null
+  return Boolean(running) || waiting.length > 0
 }

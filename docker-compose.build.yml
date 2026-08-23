@@ -6,8 +6,8 @@ services:
     image: harianto/acmedns-nuxt:latest
 
   # Optional Go image for rollback only.
-  acmedns-server:
-    build:
-      context: build/acmedns-server
-      dockerfile: Dockerfile
-    image: harianto/acmedns-server:latest
+  # acmedns-server:
+  #   build:
+  #     context: build/acmedns-server
+  #     dockerfile: Dockerfile
+  #   image: harianto/acmedns-server:latest

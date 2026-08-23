@@ -50,6 +50,9 @@ export interface CertStatusEntry {
   sansOnDisk?: string[]
   tree: 'live' | 'staging' | 'trash' | 'none'
   lastError?: string
+  /** ISO timestamp when Let's Encrypt rate limit lifts (if any). */
+  rateLimitedUntil?: string
+  rateLimitDetail?: string
   inDomainsFile: boolean
 }
 
@@ -78,6 +81,19 @@ export interface CertActivityEntry {
   level: CertActivityLevel
   certName?: string
   message: string
+}
+
+/** Persisted Let's Encrypt Retry-After / 429 cooldown (survives reboot). */
+export interface CertRateLimit {
+  id: string
+  mode: LetsEncryptDirectoryMode
+  scope: 'account' | 'cert'
+  certName?: string
+  until: string
+  retryAfterSeconds: number
+  endpoint?: string
+  at: string
+  detail: string
 }
 
 export interface CertJobStatus {
@@ -127,6 +143,7 @@ export interface CertActivityResponse {
   job: CertJobStatus
   queue: CertJobQueueSnapshot
   lastErrors: Record<string, { message: string, at: string }>
+  rateLimits: CertRateLimit[]
 }
 
 export interface CertLiveSnapshot {
@@ -134,6 +151,7 @@ export interface CertLiveSnapshot {
   job: CertJobStatus
   queue: CertJobQueueSnapshot
   lastErrors: Record<string, { message: string, at: string }>
+  rateLimits: CertRateLimit[]
 }
 
 export interface CertLiveActivityEvent {
@@ -149,4 +167,8 @@ export interface CertLiveQueueEvent {
 export interface CertLiveStatusEvent {
   mode: LetsEncryptDirectoryMode
   entries: CertStatusEntry[]
+}
+
+export interface CertLiveRateLimitsEvent {
+  rateLimits: CertRateLimit[]
 }

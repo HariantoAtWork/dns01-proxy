@@ -7,8 +7,8 @@ services:
       platforms:
         - linux/amd64
         - linux/arm64
-  acmedns-server:
-    build:
-      platforms:
-        - linux/amd64
-        - linux/arm64
+  # acmedns-server:
+  #   build:
+  #     platforms:
+  #       - linux/amd64
+  #       - linux/arm64

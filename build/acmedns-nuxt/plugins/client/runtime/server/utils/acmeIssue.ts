@@ -50,14 +50,59 @@ function splitChain(pemBundle: string) {
   return { cert, chain, fullchain }
 }
 
+function throwIfAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) {
+    return
+  }
+  const reason = signal.reason
+  if (reason instanceof Error) {
+    throw reason
+  }
+  const err = new Error(typeof reason === 'string' ? reason : 'ACME aborted')
+  err.name = 'AbortError'
+  throw err
+}
+
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) {
+    return promise
+  }
+  throwIfAborted(signal)
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      try {
+        throwIfAborted(signal)
+      }
+      catch (error) {
+        reject(error)
+      }
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(value)
+      },
+      (error) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+  })
+}
+
 export async function issueCertificate(options: {
   mode: LetsEncryptDirectoryMode
   certName: string
   altNames: string[]
+  signal?: AbortSignal
 }) {
   return withAcmeLogContext(
     { certName: options.certName, mode: options.mode },
-    async () => {
+    async (rateLimitSignal) => {
+      const signal = combineSignals(options.signal, rateLimitSignal)
+      throwIfAborted(signal)
+
       const preferUrl = resolveAcmeDnsBase()
       const storage = await readStorage()
       const client = await createAcmeClient(options.mode)
@@ -75,44 +120,54 @@ export async function issueCertificate(options: {
         altNames: options.altNames,
       })
 
-      const certificate = await client.auto({
-        csr,
-        email,
-        termsOfServiceAgreed: true,
-        challengePriority: ['dns-01'],
-        skipChallengeVerification: true,
-        challengeCreateFn: async (authz, challenge, keyAuthorization) => {
-          if (challenge.type !== 'dns-01') {
-            throw new Error(`Unsupported challenge type: ${challenge.type}`)
-          }
-          const domain = authz.identifier.value
-          const { key: storageKey, account } = findAccount(storage, domain, preferUrl)
-          if (!account || !storageKey) {
-            throw new Error(`No acme-dns account for ${domain}`)
-          }
+      throwIfAborted(signal)
 
-          logAcmeStep(
-            options.certName,
-            `Publishing dns-01 TXT for ${domain} via acme-dns (${account.subdomain})`,
-          )
+      const certificate = await abortable(
+        client.auto({
+          csr,
+          email,
+          termsOfServiceAgreed: true,
+          challengePriority: ['dns-01'],
+          skipChallengeVerification: true,
+          challengeCreateFn: async (authz, challenge, keyAuthorization) => {
+            throwIfAborted(signal)
+            if (challenge.type !== 'dns-01') {
+              throw new Error(`Unsupported challenge type: ${challenge.type}`)
+            }
+            const domain = authz.identifier.value
+            const { key: storageKey, account } = findAccount(storage, domain, preferUrl)
+            if (!account || !storageKey) {
+              throw new Error(`No acme-dns account for ${domain}`)
+            }
 
-          await updateAcmeDnsTxt({
-            serverUrl: account.server_url || preferUrl,
-            username: account.username,
-            password: account.password,
-            subdomain: account.subdomain,
-            txt: keyAuthorization,
-          })
+            logAcmeStep(
+              options.certName,
+              `Publishing dns-01 TXT for ${domain} via acme-dns (${account.subdomain})`,
+            )
 
-          logAcmeStep(
-            options.certName,
-            `acme-dns TXT published for ${domain}; waiting for Let's Encrypt validation`,
-          )
-        },
-        challengeRemoveFn: async () => {
-          // acme-dns keeps a rolling TXT window; no delete API required
-        },
-      })
+            await updateAcmeDnsTxt({
+              serverUrl: account.server_url || preferUrl,
+              username: account.username,
+              password: account.password,
+              subdomain: account.subdomain,
+              txt: keyAuthorization,
+            })
+
+            throwIfAborted(signal)
+
+            logAcmeStep(
+              options.certName,
+              `acme-dns TXT published for ${domain}; waiting for Let's Encrypt validation`,
+            )
+          },
+          challengeRemoveFn: async () => {
+            // acme-dns keeps a rolling TXT window; no delete API required
+          },
+        }),
+        signal,
+      )
+
+      throwIfAborted(signal)
 
       const { cert, chain, fullchain } = splitChain(certificate.toString())
       const tree = options.mode === 'staging' ? 'staging' : 'live'
@@ -131,4 +186,18 @@ export async function issueCertificate(options: {
       return { fullchain, certName: options.certName }
     },
   )
+}
+
+function combineSignals(...signals: Array<AbortSignal | undefined>) {
+  const list = signals.filter((s): s is AbortSignal => Boolean(s))
+  if (!list.length) {
+    return undefined
+  }
+  if (list.length === 1) {
+    return list[0]
+  }
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any(list)
+  }
+  return list[0]
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { CertActivityEntry, DomainsDnsCheck, LetsEncryptDirectoryMode } from '#shared/types/certs'
-import { useDocumentVisibility } from '@vueuse/core'
+import type { CertActivityEntry, CertRateLimit, DomainsDnsCheck, LetsEncryptDirectoryMode } from '#shared/types/certs'
+import { useDocumentVisibility, useNow } from '@vueuse/core'
 import { PhArrowsClockwise as ArrowsClockwise, PhCertificate as Certificate, PhCircle as Circle, PhTrash as Trash } from '@phosphor-icons/vue'
 import { useCertLiveStream } from '#client/composables/useCertLiveStream'
 
@@ -16,6 +16,7 @@ const {
   acmeEnabled,
   applyResults,
   activityEntries,
+  rateLimits,
   certJob,
   certQueue,
   lastRefreshedAt,
@@ -40,12 +41,14 @@ const {
   applyLiveActivity,
   applyLiveQueue,
   applyLiveStatus,
+  applyLiveRateLimits,
 } = useCerts()
 
 const dirty = ref(false)
 const loaded = ref(false)
 const logFilter = ref<'all' | 'acme'>('acme')
 const visibility = useDocumentVisibility()
+const now = useNow({ interval: 1000 })
 
 const filteredActivity = computed(() => {
   if (logFilter.value === 'acme') {
@@ -53,6 +56,12 @@ const filteredActivity = computed(() => {
   }
   return activityEntries.value
 })
+
+const activeRateLimits = computed(() =>
+  rateLimits.value
+    .filter(l => l.mode === directoryMode.value && Date.parse(l.until) > now.value.getTime())
+    .sort((a, b) => Date.parse(a.until) - Date.parse(b.until)),
+)
 
 const hasQueue = computed(() =>
   certJob.value.running
@@ -199,6 +208,7 @@ const { transport, transportLabel, start: startLive, disconnect: disconnectLive 
   onActivity: (data, notify) => applyLiveActivity(data, notify ? notifyNewActivity : undefined),
   onQueue: data => applyLiveQueue(data),
   onStatus: data => applyLiveStatus(data),
+  onRateLimits: data => applyLiveRateLimits(data),
 })
 
 watch(directoryMode, async (mode) => {
@@ -302,13 +312,7 @@ async function onMode(mode: LetsEncryptDirectoryMode) {
 async function onApply(force = false) {
   try {
     const data = await apply({ force })
-    const failed = data.results.filter(r => !r.ok)
-    if (failed.length) {
-      toasts.error(failed.map(r => `${r.certName}: ${r.message}`).join('; '))
-    }
-    else {
-      toasts.ok(`Apply finished (${data.mode})`)
-    }
+    toasts.ok(`Apply queued as job #${data.job.id} (${data.mode}) — watch Live / Job queue`)
     await loadActivity({ full: true })
   }
   catch {
@@ -369,6 +373,35 @@ function transportClass(mode: typeof transport.value) {
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString()
 }
+
+function formatRemaining(untilIso: string) {
+  const ms = Date.parse(untilIso) - now.value.getTime()
+  if (ms <= 0) {
+    return 'ready'
+  }
+  const total = Math.ceil(ms / 1000)
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor((total % 86400) / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`
+  }
+  return `${seconds}s`
+}
+
+function rateLimitLabel(limit: CertRateLimit) {
+  const who = limit.scope === 'account'
+    ? `Account (${limit.mode})`
+    : (limit.certName || 'Certificate')
+  return `${who}: ${formatRemaining(limit.until)} left · until ${formatTime(limit.until)}`
+}
 </script>
 
 <template>
@@ -421,6 +454,28 @@ function formatTime(iso: string) {
       </div>
     </div>
 
+    <UiPanel v-if="activeRateLimits.length">
+      <h2 class="text-sm font-semibold text-danger">
+        Let's Encrypt rate limit
+      </h2>
+      <p class="mt-1 text-xs text-muted">
+        Cooldown from HTTP 429 / Retry-After. Stored on disk so it survives refresh and reboot.
+      </p>
+      <ul class="mt-3 space-y-2 font-mono text-xs">
+        <li
+          v-for="limit in activeRateLimits"
+          :key="limit.id"
+          class="rounded-[6px] border border-danger/30 px-3 py-2 text-danger"
+        >
+          <p>{{ rateLimitLabel(limit) }}</p>
+          <p v-if="limit.detail" class="mt-1 text-[11px] text-muted">
+            {{ limit.detail }}
+            <span v-if="limit.endpoint"> · {{ limit.endpoint }}</span>
+          </p>
+        </li>
+      </ul>
+    </UiPanel>
+
     <UiPanel v-if="hasQueue">
       <h2 class="text-sm font-semibold text-ink">Job queue</h2>
       <p class="mt-1 text-xs text-muted">
@@ -453,7 +508,7 @@ function formatTime(iso: string) {
             <UiButton
               variant="ghost"
               size="sm"
-              :disabled="jobActionPending || certQueue.running.cancelRequested"
+              :disabled="jobActionPending"
               @click="onDeleteJob(certQueue.running.id)"
             >
               Delete
@@ -682,6 +737,10 @@ function formatTime(iso: string) {
             </p>
             <p v-if="entry.lastError" class="mt-0.5 text-xs text-danger">
               Last error: {{ entry.lastError }}
+            </p>
+            <p v-if="entry.rateLimitedUntil && Date.parse(entry.rateLimitedUntil) > now.getTime()" class="mt-0.5 text-xs text-danger">
+              Rate limited · {{ formatRemaining(entry.rateLimitedUntil) }} left
+              <span class="text-muted"> (until {{ formatTime(entry.rateLimitedUntil) }})</span>
             </p>
           </div>
           <UiButton

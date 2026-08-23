@@ -2,6 +2,7 @@ import type {
   CertActivityEntry,
   CertLiveActivityEvent,
   CertLiveQueueEvent,
+  CertLiveRateLimitsEvent,
   CertLiveSnapshot,
   CertLiveStatusEvent,
 } from '#shared/types/certs'
@@ -39,6 +40,7 @@ export function useCertLiveStream(options: {
   onActivity: (data: CertLiveActivityEvent, notify: boolean) => void
   onQueue: (data: CertLiveQueueEvent) => void
   onStatus: (data: CertLiveStatusEvent) => void
+  onRateLimits: (data: CertLiveRateLimitsEvent) => void
   onPoll: () => void | Promise<void>
   pollBlocked?: Ref<boolean>
 }) {
@@ -153,6 +155,11 @@ export function useCertLiveStream(options: {
       markLiveEvent()
     })
 
+    next.addEventListener('rateLimits', (event) => {
+      options.onRateLimits(JSON.parse(event.data) as CertLiveRateLimitsEvent)
+      markLiveEvent()
+    })
+
     next.addEventListener('ping', () => {
       markLiveEvent()
     })
@@ -174,7 +181,6 @@ export function useCertLiveStream(options: {
       const silentFor = Date.now() - lastEventAt
       const hadLiveConnection = lastEventAt > 0
 
-      // Browser auto-reconnects in the background — keep the UI on Live.
       if (source.readyState === EventSource.CONNECTING) {
         schedulePollingFallback()
         return

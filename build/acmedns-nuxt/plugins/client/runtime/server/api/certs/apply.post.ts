@@ -9,15 +9,12 @@ export default defineEventHandler(async (event) => {
     ? body.mode
     : (await readCertSettings()).directoryMode
 
-  const results = await applyCertificates({
+  const job = await startApplyCertificates({
     mode,
     certNames: Array.isArray(body?.certNames) ? body.certNames : undefined,
     force: Boolean(body?.force),
   })
 
-  const failed = results.some(r => !r.ok)
-  if (failed) {
-    setResponseStatus(event, 207)
-  }
-  return { mode, results }
+  setResponseStatus(event, 202)
+  return { mode, job, queued: true }
 })
