@@ -45,7 +45,8 @@ Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt se
 | --- | --- | --- |
 | `53/tcp` | `53` | DNS. Let's Encrypt hits this. |
 | `53/udp` | `53` | Same. |
-| `80/tcp` | `82` | UI + register/update API at `http://localhost:82`. |
+| `80/tcp` | `8080` | UI + register/update API when `api.tls = "none"`. |
+| `443/tcp` | `8443` | UI + register/update API when `api.tls = "cert"`. |
 
 DNS has to be public; keep the UI behind your LAN / tunnel.
 
@@ -89,7 +90,7 @@ If Docker created a *directory* named `domains.txt`, remove it (`rm -rf data/acm
 
 | Variable | Example | |
 | --- | --- | --- |
-| `ACMEDNS_URL` | `http://127.0.0.1` | In-process register/update default (same container, `NITRO_PORT=80`). |
+| `ACMEDNS_URL` | `http://127.0.0.1` | In-process register/update default (`https://127.0.0.1` when `api.tls = "cert"`). |
 | `LETSENCRYPT_EMAIL` | `admin@example.com` | ACME account contact. |
 | `RENEW_INTERVAL` | `12` | Hours between production renew checks. |
 | `CERTS_ACME_ENABLED` | `true` | Set `false` to disable issue/renew (editor still works). |
@@ -112,7 +113,12 @@ Set `ADMINISTRATOR_PASSWORD` to lock the UI behind username `admin`.
 
 ## Networks
 
-Default compose network: single `acmedns-nuxt` service. UI and acme-dns API share the process (`ACMEDNS_URL=http://127.0.0.1`, `NITRO_PORT=80`).
+Default compose network: single `acmedns-nuxt` service. UI and acme-dns API share the process. Set `api.tls = "cert"` in `config.cfg` for HTTPS on container port `443` (host `8443`).
+
+| `config.cfg` `[api]` | Container | Host (compose) |
+| --- | --- | --- |
+| `tls = "none"`, `port = "80"` | HTTP `:80` | `8080` |
+| `tls = "cert"`, `port = "443"` | HTTPS `:443` | `8443` |
 
 `cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel.
 

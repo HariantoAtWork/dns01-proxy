@@ -17,6 +17,10 @@ export interface AcmeDnsConfig {
     port: string
     disable_registration: boolean
     tls: string
+    tls_cert_privkey?: string
+    tls_cert_fullchain?: string
+    acme_cache_dir?: string
+    notification_email?: string
     corsorigins: string[]
     use_header: boolean
     header_name: string

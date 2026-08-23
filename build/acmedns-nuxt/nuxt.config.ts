@@ -9,6 +9,7 @@ export default defineNuxtConfig({
   ],
   nitro: {
     preset: 'bun',
+    entry: './entry.ts',
   },
   vite: {
     plugins: [tailwindcss()],

@@ -24,9 +24,18 @@ export function resolveAcmeDnsBase(requestedUrl?: string) {
   const fallback = process.env.ACMEDNS_URL
     || process.env.NUXT_ACMEDNS_URL
     || (config.acmednsUrl as string)
-    || 'http://127.0.0.1'
+    || defaultLocalAcmeDnsBase()
 
   return (requestedUrl || fallback).replace(/\/$/, '')
+}
+
+function defaultLocalAcmeDnsBase(): string {
+  try {
+    return localApiBaseUrl()
+  }
+  catch {
+    return 'http://127.0.0.1'
+  }
 }
 
 export async function registerAcmeDnsAccount(serverUrl: string) {
