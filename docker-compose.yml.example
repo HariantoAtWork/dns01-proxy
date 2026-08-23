@@ -28,6 +28,7 @@ services:
       - CERTS_ACME_ENABLED=${CERTS_ACME_ENABLED:-true}
       - NUXT_ACME_DNS_CONFIG=/etc/acme-dns/config.cfg
       - TZ=${TZ:-UTC}
+    # NET_BIND_SERVICE only needed when not running as root; omit cap_add if the process runs as root.
     cap_add:
       - NET_BIND_SERVICE
 
