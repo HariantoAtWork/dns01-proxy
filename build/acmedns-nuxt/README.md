@@ -32,7 +32,12 @@ bun install
 ACME_DNS_CONFIG=./config/config.cfg bun run dev
 ```
 
-UI + API on `http://127.0.0.1:3000`. DNS defaults to `127.0.0.1:15353` via `config/config.cfg`.
+UI + API on `http://127.0.0.1:3000` in dev (`bun run dev`). DNS defaults to `127.0.0.1:15353` via `config/config.cfg`.
+
+Production Docker reads `[api]` from `config.cfg`:
+
+- `tls = "none"` → HTTP on `api.port` (default `80`)
+- `tls = "cert"` → HTTPS on `api.port` (default `443`) using `tls_cert_fullchain` + `tls_cert_privkey`
 
 ```bash
 curl -sS -X POST http://127.0.0.1:3000/register
@@ -44,7 +49,7 @@ Local ACME register/update from the UI plugin calls host utils **in-process** (n
 
 ## Docker
 
-Image listens on **80** (UI + HTTP API, `NITRO_PORT=80`) and **53** TCP/UDP (DNS). Mount:
+Image listens on **80** or **443** (from `config.cfg` `[api]`, `tls = "none"` vs `"cert"`) plus **53** TCP/UDP (DNS). Mount:
 
 - `/etc/acme-dns` → `config.cfg`
 - `/var/lib/acme-dns` → SQLite DB
