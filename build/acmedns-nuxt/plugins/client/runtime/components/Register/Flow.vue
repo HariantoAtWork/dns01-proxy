@@ -4,6 +4,14 @@ import { isValidDomain, isValidHttpUrl } from '#client/utils/domain'
 
 type Step = 'form' | 'cname' | 'poll' | 'save'
 
+const { embedded = false } = defineProps<{
+  embedded?: boolean
+}>()
+
+const emit = defineEmits<{
+  done: [domain?: string]
+}>()
+
 const config = useRuntimeConfig()
 const toasts = useToasts()
 const { saveDomain } = useClientStorage()
@@ -102,6 +110,7 @@ watch(dnsStatus, (value) => {
 async function persist(shouldSave: boolean) {
   if (!shouldSave || !pendingData.value) {
     reset()
+    emit('done')
     return
   }
 
@@ -110,7 +119,10 @@ async function persist(shouldSave: boolean) {
     toasts.ok('Domain registered successfully')
     const saved = domain.value.trim()
     reset()
-    await router.push({ path: '/', query: { d: saved } })
+    emit('done', saved)
+    if (!embedded) {
+      await router.push({ path: '/', query: { d: saved } })
+    }
   }
   catch (error) {
     toasts.error(error instanceof Error ? error.message : 'Failed to save domain')
@@ -128,13 +140,16 @@ function reset() {
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-xl flex-col gap-6">
-    <header>
+  <div class="mx-auto flex max-w-xl flex-col gap-6" :class="embedded && 'max-w-none'">
+    <header v-if="!embedded">
       <h1 class="text-3xl font-semibold tracking-tight">Register domain</h1>
       <p class="mt-2 max-w-[65ch] text-muted">
         Two fields, then Register. Nested CNAME examples live in the drawer under the button.
       </p>
     </header>
+    <p v-else class="max-w-[65ch] text-sm text-muted">
+      Two fields, then Register. Nested CNAME examples live in the drawer under the button.
+    </p>
 
     <RegisterForm
       v-if="step === 'form'"
