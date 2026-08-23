@@ -16,18 +16,21 @@ services:
       - letsencrypt:/etc/letsencrypt  # certbot PEM output (live, staging, trash)
       - ./data/acmedns-letsencrypt:/config/host  # domains.txt edited on host or in Certs UI
     environment:
+      # system
+      - TZ=${TZ:-UTC}
+      - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
+      # backend
+      - NUXT_ACME_DNS_CONFIG=/etc/acme-dns/config.cfg
+      - ACMEDNS_URL=${ACMEDNS_URL:-http://127.0.0.1}
       - CLIENTSTORAGE_DATA=/app/config/clientstorage.json
       - NUXT_APPLICATIONS_DATA_ROOT=${NUXT_APPLICATIONS_DATA_ROOT:-/app/data}
-      - ACMEDNS_URL=${ACMEDNS_URL:-http://127.0.0.1}
-      - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-http://127.0.0.1}
-      - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
       - DOMAINS_FILE=/config/host/domains.txt
       - CERTBOT_CONFIG_DIR=/etc/letsencrypt
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
       - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
       - CERTS_ACME_ENABLED=${CERTS_ACME_ENABLED:-true}
-      - NUXT_ACME_DNS_CONFIG=/etc/acme-dns/config.cfg
-      - TZ=${TZ:-UTC}
+      # frontend
+      - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-http://127.0.0.1}
     # NET_BIND_SERVICE only needed when not running as root; omit cap_add if the process runs as root.
     cap_add:
       - NET_BIND_SERVICE
