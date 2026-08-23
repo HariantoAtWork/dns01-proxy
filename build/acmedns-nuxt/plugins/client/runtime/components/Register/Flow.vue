@@ -147,7 +147,6 @@ function reset() {
 
     <template v-else-if="pendingData">
       <CnameRecipe compact :domain="domain.trim()" :fulldomain="pendingData.fulldomain" />
-      <CnameNestedDrawer :domain="domain.trim()" :fulldomain="pendingData.fulldomain" />
 
       <DnsProgress
         v-if="step === 'poll'"

@@ -13,7 +13,7 @@ const {
 } = defineProps<{
   domain: string
   fulldomain: string
-  /** Two copy fields + drawers (domain detail / short register). */
+  /** Apex fields + drawers in one panel (domain detail / register). */
   compact?: boolean
   embedded?: boolean
 }>()
@@ -66,11 +66,14 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
             <p class="mt-0.5 font-sans text-xs text-muted">DNS only</p>
           </dd>
         </dl>
-      </UiPanel>
 
-      <UiDisclosure title="Apex CNAME example">
-        <CnameRecord :record="apex" :zone="domain" />
-      </UiDisclosure>
+        <div class="mt-3 flex flex-col border-t border-rule">
+          <UiDisclosure flush title="Apex CNAME example">
+            <CnameRecord :record="apex" :zone="domain" />
+          </UiDisclosure>
+          <CnameNestedDrawer flush :domain :fulldomain />
+        </div>
+      </UiPanel>
     </template>
 
     <template v-else-if="!embedded">

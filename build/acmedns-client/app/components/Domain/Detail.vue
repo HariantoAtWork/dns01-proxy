@@ -75,7 +75,6 @@ watch(status, (value) => {
     </header>
 
     <CnameRecipe compact :domain="entry.domain" :fulldomain="entry.details.fulldomain" />
-    <CnameNestedDrawer :domain="entry.domain" :fulldomain="entry.details.fulldomain" />
 
     <DnsProgress
       v-if="status === 'running'"
