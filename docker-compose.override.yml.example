@@ -7,26 +7,12 @@ networks:
 services:
   acmedns-nuxt:
     networks:
-      default:
-        aliases:
-          - acmedns-server
-      cloudflared:
-      tsdproxy:
-    labels:
-      tsdproxy.enable: "true"
-      tsdproxy.name: "acmedns-nuxt"
-      tsdproxy.container_port: "80"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  acmedns-client:
-    networks:
       - default
       - cloudflared
       - tsdproxy
     labels:
       tsdproxy.enable: "true"
-      tsdproxy.name: "acmedns-client"
-      tsdproxy.container_port: "3000"
+      tsdproxy.name: "acmedns-nuxt"
+      tsdproxy.container_port: "80"
     extra_hosts:
       - "host.docker.internal:host-gateway"

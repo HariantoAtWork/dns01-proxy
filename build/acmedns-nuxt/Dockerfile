@@ -17,7 +17,11 @@ ENV NODE_ENV=production
 ENV NITRO_HOST=0.0.0.0
 ENV NITRO_PORT=80
 ENV NUXT_ACME_DNS_CONFIG=/etc/acme-dns/config.cfg
+ENV CLIENTSTORAGE_DATA=/app/config/clientstorage.json
+ENV NUXT_APPLICATIONS_DATA_ROOT=/app/data
+ENV DOMAINS_FILE=/config/host/domains.txt
+ENV CERTBOT_CONFIG_DIR=/etc/letsencrypt
 COPY --from=build /app/.output .output
 EXPOSE 53 80
 EXPOSE 53/udp
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["/bin/sh", "-c", "set -e; file=\"${CLIENTSTORAGE_DATA:?CLIENTSTORAGE_DATA is required}\"; mkdir -p \"$(dirname \"$file\")\" /config/host /etc/letsencrypt /app/data; if [ ! -s \"$file\" ]; then echo '{}' > \"$file\"; fi; exec bun .output/server/index.mjs"]
