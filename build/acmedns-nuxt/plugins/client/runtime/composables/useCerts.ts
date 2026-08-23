@@ -7,8 +7,10 @@ import type {
   CertJobStatus,
   CertLiveActivityEvent,
   CertLiveQueueEvent,
+  CertLiveRateLimitsEvent,
   CertLiveSnapshot,
   CertLiveStatusEvent,
+  CertRateLimit,
   CertSettings,
   CertStatusEntry,
   DomainsParseResult,
@@ -27,6 +29,7 @@ export function useCerts() {
   const applyResults = ref<CertApplyResult[]>([])
   const trashItems = ref<TrashItem[]>([])
   const activityEntries = ref<CertActivityEntry[]>([])
+  const rateLimits = ref<CertRateLimit[]>([])
   const certJob = ref<CertJobStatus>({ running: false })
   const certQueue = ref<CertJobQueueSnapshot>({ running: null, queued: [], cancelled: [] })
   const lastCertErrors = ref<Record<string, { message: string, at: string }>>({})
@@ -112,11 +115,27 @@ export function useCerts() {
       '/api/certs/status',
       { query: { mode: m } },
     )
-    statusEntries.value = data.entries.map((entry) => {
-      const lastError = lastCertErrors.value[entry.certName]
-      return lastError ? { ...entry, lastError: lastError.message } : entry
-    })
+    statusEntries.value = data.entries
     return data
+  }
+
+  function mergeRateLimitsOntoStatus() {
+    statusEntries.value = statusEntries.value.map((entry) => {
+      const lastError = lastCertErrors.value[entry.certName]
+      const active = rateLimits.value
+        .filter(l => l.mode === directoryMode.value && Date.parse(l.until) > Date.now())
+        .filter(l =>
+          l.scope === 'account'
+          || (l.scope === 'cert' && l.certName === entry.certName),
+        )
+        .sort((a, b) => Date.parse(b.until) - Date.parse(a.until))[0]
+      return {
+        ...entry,
+        lastError: lastError?.message ?? entry.lastError,
+        rateLimitedUntil: active?.until,
+        rateLimitDetail: active?.detail,
+      }
+    })
   }
 
   async function loadActivity(options?: { sinceId?: number, full?: boolean, notify?: (entries: CertActivityEntry[]) => void }) {
@@ -132,6 +151,7 @@ export function useCerts() {
     certJob.value = data.job
     certQueue.value = data.queue
     lastCertErrors.value = data.lastErrors
+    rateLimits.value = data.rateLimits || []
 
     if (poll) {
       if (data.entries.length) {
@@ -152,10 +172,7 @@ export function useCerts() {
       }
     }
 
-    statusEntries.value = statusEntries.value.map((entry) => {
-      const lastError = lastCertErrors.value[entry.certName]
-      return lastError ? { ...entry, lastError: lastError.message } : entry
-    })
+    mergeRateLimitsOntoStatus()
 
     return data
   }
@@ -180,7 +197,11 @@ export function useCerts() {
     pending.value = true
     error.value = ''
     try {
-      const data = await $fetch<{ mode: LetsEncryptDirectoryMode, results: CertApplyResult[] }>(
+      const data = await $fetch<{
+        mode: LetsEncryptDirectoryMode
+        job: CertJobQueueItem
+        queued: boolean
+      }>(
         '/api/certs/apply',
         {
           method: 'POST',
@@ -191,9 +212,8 @@ export function useCerts() {
           },
         },
       )
-      applyResults.value = data.results
+      applyResults.value = []
       await loadActivity()
-      await loadStatus()
       return data
     }
     catch (caught) {
@@ -264,13 +284,11 @@ export function useCerts() {
     certJob.value = data.job
     certQueue.value = data.queue
     lastCertErrors.value = data.lastErrors
+    rateLimits.value = data.rateLimits || []
     if (data.entries.length) {
       lastActivityId.value = Math.max(...data.entries.map(e => e.id))
     }
-    statusEntries.value = statusEntries.value.map((entry) => {
-      const lastError = data.lastErrors[entry.certName]
-      return lastError ? { ...entry, lastError: lastError.message } : entry
-    })
+    mergeRateLimitsOntoStatus()
     lastRefreshedAt.value = new Date().toISOString()
   }
 
@@ -278,10 +296,7 @@ export function useCerts() {
     lastCertErrors.value = data.lastErrors
     activityEntries.value = mergeLiveActivity(activityEntries.value, data.entry)
     lastActivityId.value = Math.max(lastActivityId.value, data.entry.id)
-    statusEntries.value = statusEntries.value.map((entry) => {
-      const lastError = data.lastErrors[entry.certName]
-      return lastError ? { ...entry, lastError: lastError.message } : entry
-    })
+    mergeRateLimitsOntoStatus()
     lastRefreshedAt.value = new Date().toISOString()
     notify?.([data.entry])
   }
@@ -299,6 +314,12 @@ export function useCerts() {
     }
   }
 
+  function applyLiveRateLimits(data: CertLiveRateLimitsEvent) {
+    rateLimits.value = data.rateLimits || []
+    mergeRateLimitsOntoStatus()
+    lastRefreshedAt.value = new Date().toISOString()
+  }
+
   return {
     text,
     parsed,
@@ -308,6 +329,7 @@ export function useCerts() {
     applyResults,
     trashItems,
     activityEntries,
+    rateLimits,
     certJob,
     certQueue,
     lastRefreshedAt,
@@ -336,5 +358,6 @@ export function useCerts() {
     applyLiveActivity,
     applyLiveQueue,
     applyLiveStatus,
+    applyLiveRateLimits,
   }
 }

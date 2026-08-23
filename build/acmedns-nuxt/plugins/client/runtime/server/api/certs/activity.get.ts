@@ -1,8 +1,9 @@
 import type { CertActivityResponse } from '#shared/types/certs'
 import { getCertActivityEntries, getLastCertErrors } from '../../utils/certActivity'
 import { getCertJobQueueSnapshot, getCertJobStatus } from '../../utils/certJobQueue'
+import { getCertRateLimits } from '../../utils/certRateLimit'
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const sinceId = Number.parseInt(String(query.sinceId ?? '0'), 10)
   const limit = Number.parseInt(String(query.limit ?? '100'), 10)
@@ -15,6 +16,7 @@ export default defineEventHandler((event) => {
     job: getCertJobStatus(),
     queue: getCertJobQueueSnapshot(),
     lastErrors: getLastCertErrors(),
+    rateLimits: await getCertRateLimits(),
   }
 
   return response

@@ -1,6 +1,7 @@
 import type {
   CertLiveActivityEvent,
   CertLiveQueueEvent,
+  CertLiveRateLimitsEvent,
   CertLiveSnapshot,
   CertLiveStatusEvent,
 } from '#shared/types/certs'
@@ -10,6 +11,7 @@ export type CertLiveBusEvent =
   | { type: 'activity', data: CertLiveActivityEvent }
   | { type: 'queue', data: CertLiveQueueEvent }
   | { type: 'status', data: CertLiveStatusEvent }
+  | { type: 'rateLimits', data: CertLiveRateLimitsEvent }
   | { type: 'ping', data: Record<string, never> }
 
 type CertLiveListener = (event: CertLiveBusEvent) => void
