@@ -45,8 +45,8 @@ Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt se
 | --- | --- | --- |
 | `53/tcp` | `53` | DNS. Let's Encrypt hits this. |
 | `53/udp` | `53` | Same. |
-| `80/tcp` | `8080` | UI + register/update API when `api.tls = "none"`. |
-| `443/tcp` | `8443` | UI + register/update API when `api.tls = "cert"`. |
+| `80/tcp` | `8080` | UI + register/update API (always). |
+| `443/tcp` | `8443` | Same API over HTTPS when `api.tls = "cert"`. |
 
 DNS has to be public; keep the UI behind your LAN / tunnel.
 
@@ -113,12 +113,12 @@ Set `ADMINISTRATOR_PASSWORD` to lock the UI behind username `admin`.
 
 ## Networks
 
-Default compose network: single `acmedns-nuxt` service. UI and acme-dns API share the process. Set `api.tls = "cert"` in `config.cfg` for HTTPS on container port `443` (host `8443`).
+Default compose network: single `acmedns-nuxt` service. UI and acme-dns API share the process. HTTP on `:80` is always on; set `api.tls = "cert"` in `config.cfg` to also serve HTTPS on `:443` (host `8443`).
 
 | `config.cfg` `[api]` | Container | Host (compose) |
 | --- | --- | --- |
-| `tls = "none"`, `port = "80"` | HTTP `:80` | `8080` |
-| `tls = "cert"`, `port = "443"` | HTTPS `:443` | `8443` |
+| `tls = "none"` | HTTP `:80` | `8080` |
+| `tls = "cert"`, `port = "443"` | HTTP `:80` + HTTPS `:443` | `8080` + `8443` |
 
 `cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel.
 

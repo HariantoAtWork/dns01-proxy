@@ -6,10 +6,16 @@ export interface ListenTlsOptions {
   keyPath: string
 }
 
-export interface ListenOptions {
+export interface ListenBinding {
   host: string
   port: number
   tls: ListenTlsOptions | null
+}
+
+/** HTTP is always bound; HTTPS is optional when `api.tls = "cert"`. */
+export interface DualListenOptions {
+  http: ListenBinding
+  https: ListenBinding | null
 }
 
 function parsePort(value: string | undefined, fallback: string): number {
@@ -21,38 +27,65 @@ function parsePort(value: string | undefined, fallback: string): number {
   return port
 }
 
-export function localApiBaseUrl(): string {
+function resolveTlsMaterial(): ListenTlsOptions {
   const config = getAcmeConfig()
-  const scheme = config.api.tls === 'cert' ? 'https' : 'http'
-  const port = parsePort(config.api.port, scheme === 'https' ? '443' : '80')
+  const certPath = config.api.tls_cert_fullchain?.trim()
+  const keyPath = config.api.tls_cert_privkey?.trim()
+  if (!certPath || !keyPath) {
+    throw new Error('api.tls is "cert" but tls_cert_fullchain / tls_cert_privkey are not set')
+  }
+  if (!existsSync(certPath)) {
+    throw new Error(`TLS certificate not found: ${certPath}`)
+  }
+  if (!existsSync(keyPath)) {
+    throw new Error(`TLS private key not found: ${keyPath}`)
+  }
+  return { certPath, keyPath }
+}
+
+function formatLocalBase(scheme: 'http' | 'https', port: number): string {
   if ((scheme === 'http' && port === 80) || (scheme === 'https' && port === 443)) {
     return `${scheme}://127.0.0.1`
   }
   return `${scheme}://127.0.0.1:${port}`
 }
 
-export function resolveListenOptions(): ListenOptions {
+export function localApiBaseUrl(): string {
+  const listen = resolveListenOptions()
+  if (listen.https) {
+    return formatLocalBase('https', listen.https.port)
+  }
+  return formatLocalBase('http', listen.http.port)
+}
+
+/**
+ * Always bind HTTP (default `:80`, or `api.port` when TLS is off).
+ * When `api.tls = "cert"`, also bind HTTPS (default `:443` / `api.port`).
+ */
+export function resolveListenOptions(): DualListenOptions {
   const config = getAcmeConfig()
   const host = process.env.NITRO_HOST || process.env.HOST || config.api.ip || '0.0.0.0'
-  const defaultPort = config.api.tls === 'cert' ? '443' : '80'
-  const port = parsePort(
-    process.env.NITRO_PORT || process.env.PORT,
-    config.api.port || defaultPort,
-  )
+  const envPort = process.env.NITRO_PORT || process.env.PORT
 
   if (config.api.tls === 'cert') {
-    const certPath = config.api.tls_cert_fullchain?.trim()
-    const keyPath = config.api.tls_cert_privkey?.trim()
-    if (!certPath || !keyPath) {
-      throw new Error('api.tls is "cert" but tls_cert_fullchain / tls_cert_privkey are not set')
+    const tls = resolveTlsMaterial()
+    // HTTP stays on 80 (or NITRO_PORT/PORT). HTTPS uses api.port (default 443).
+    const httpPort = parsePort(envPort, '80')
+    let httpsPort = parsePort(config.api.port, '443')
+    if (httpsPort === httpPort) {
+      if (httpPort === 80) {
+        httpsPort = 443
+      }
+      else {
+        throw new Error(
+          `HTTP and HTTPS cannot share port ${httpPort}; set api.port to a distinct HTTPS port`,
+        )
+      }
     }
-    if (!existsSync(certPath)) {
-      throw new Error(`TLS certificate not found: ${certPath}`)
+    return {
+      http: { host, port: httpPort, tls: null },
+      https: { host, port: httpsPort, tls },
     }
-    if (!existsSync(keyPath)) {
-      throw new Error(`TLS private key not found: ${keyPath}`)
-    }
-    return { host, port, tls: { certPath, keyPath } }
   }
 
   if (config.api.tls !== 'none') {
@@ -61,5 +94,9 @@ export function resolveListenOptions(): ListenOptions {
     )
   }
 
-  return { host, port, tls: null }
+  const httpPort = parsePort(envPort, config.api.port || '80')
+  return {
+    http: { host, port: httpPort, tls: null },
+    https: null,
+  }
 }

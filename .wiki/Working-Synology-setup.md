@@ -241,7 +241,7 @@ services:
 
 - `53` — Let's Encrypt. Nothing else on the NAS should bind it (Synology DNS Server package, another DNS container, …).
 - `8080:80` — what the reverse proxy targets.
-- `8443:443` — optional; unused while `tls = "none"`.
+- `8443:443` — optional HTTPS when `api.tls = "cert"` (HTTP `:80` stays up either way).
 
 `acmedns-client` issues certificates (nothing published for ACME). It talks out to Let's Encrypt and to the API. Prefer the compose service name when you can (`http://acmedns-server`); if `clientstorage` already has `http://auth.uti.email`, the reverse proxy path above is what made that work on Synology.
 
