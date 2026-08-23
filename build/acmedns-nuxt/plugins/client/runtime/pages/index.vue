@@ -82,7 +82,7 @@ function onDeleted() {
 
     <div v-else>
       <div
-        class="sticky top-10 z-[15] -mx-1 -mt-1 mb-2 border-b border-rule bg-paper/95 backdrop-blur-md md:hidden"
+        class="sticky top-12 z-[15] -mx-3 -mt-1 mb-2 border-b border-rule bg-paper/95 backdrop-blur-md md:hidden"
       >
         <button
           type="button"
@@ -126,7 +126,7 @@ function onDeleted() {
           <aside
             v-if="sidebarOpen"
             id="domain-sidebar-mobile"
-            class="fixed inset-y-0 left-0 z-[16] flex w-[min(18rem,88vw)] flex-col border-r border-rule bg-paper pt-10 shadow-[0_16px_40px_var(--shadow)] md:hidden"
+            class="fixed inset-y-0 left-0 z-[16] flex w-[min(18rem,88vw)] flex-col border-r border-rule bg-paper pt-12 shadow-[0_16px_40px_var(--shadow)] md:hidden"
             aria-label="Domain list"
           >
             <div class="flex items-center justify-between border-b border-rule px-3 py-2">

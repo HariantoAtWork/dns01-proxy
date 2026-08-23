@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { PhX as Close } from '@phosphor-icons/vue'
 
-const { title, id } = defineProps<{
+const { title, id, size = 'md' } = defineProps<{
   title: string
   id?: string
+  size?: 'md' | 'lg'
 }>()
+
+const widthClass = computed(() =>
+  size === 'lg'
+    ? 'w-[min(42rem,calc(100vw-2rem))]'
+    : 'w-[min(36rem,calc(100vw-2rem))]',
+)
 
 const open = defineModel<boolean>('open', { required: true })
 const dialog = useTemplateRef<HTMLDialogElement>('dialog')
@@ -47,7 +54,8 @@ function onBackdropClick(event: MouseEvent) {
   <dialog
     :id
     ref="dialog"
-    class="m-auto w-[min(36rem,calc(100vw-2rem))] border border-rule bg-panel p-0 text-ink shadow-[0_16px_40px_var(--shadow)] backdrop:bg-ink/40"
+    class="m-auto max-h-[calc(100dvh-2rem)] border border-rule bg-panel p-0 text-ink shadow-[0_16px_40px_var(--shadow)] backdrop:bg-ink/40"
+    :class="widthClass"
     style="border-radius: var(--radius-panel)"
     :aria-labelledby="titleId"
     @close="onClose"
@@ -69,7 +77,7 @@ function onBackdropClick(event: MouseEvent) {
         </button>
       </div>
     </div>
-    <div class="px-5 py-4">
+    <div class="max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain px-5 py-4">
       <slot />
     </div>
   </dialog>
