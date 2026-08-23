@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CertActivityEntry, CertRateLimit, DomainsDnsCheck, LetsEncryptDirectoryMode } from '#shared/types/certs'
 import { useDocumentVisibility, useNow } from '@vueuse/core'
-import { PhArrowsClockwise as ArrowsClockwise, PhCertificate as Certificate, PhCircle as Circle, PhFloppyDisk as FloppyDisk, PhTrash as Trash } from '@phosphor-icons/vue'
+import { PhArrowsClockwise as ArrowsClockwise, PhCertificate as Certificate, PhCircle as Circle, PhDownload as Download, PhFloppyDisk as FloppyDisk, PhTrash as Trash } from '@phosphor-icons/vue'
 import { useCertLiveStream } from '#client/composables/useCertLiveStream'
 
 useHead({ title: 'Certificates' })
@@ -32,6 +32,7 @@ const {
   loadActivity,
   refresh,
   apply,
+  downloadCert,
   trashCert,
   cancelJob,
   resumeJob,
@@ -71,6 +72,7 @@ const hasQueue = computed(() =>
 
 const jobActionPending = ref(false)
 const dnsRecheckPending = ref(false)
+const downloadPending = ref<string | null>(null)
 
 async function onCancelJob(id: number) {
   jobActionPending.value = true
@@ -317,6 +319,20 @@ async function onApply(force = false) {
   }
   catch {
     toasts.error(error.value || 'Apply failed')
+  }
+}
+
+async function onDownload(certName: string) {
+  downloadPending.value = certName
+  try {
+    await downloadCert(certName)
+    toasts.ok(`Downloaded live/${certName}`, 'Certificates')
+  }
+  catch (caught) {
+    toasts.error(caught instanceof Error ? caught.message : 'Download failed')
+  }
+  finally {
+    downloadPending.value = null
   }
 }
 
@@ -749,15 +765,28 @@ function rateLimitLabel(limit: CertRateLimit) {
               <span class="text-muted"> (until {{ formatTime(entry.rateLimitedUntil) }})</span>
             </p>
           </div>
-          <UiButton
-            v-if="entry.tree !== 'none'"
-            variant="ghost"
-            size="sm"
-            :disabled="pending || certJob.running"
-            @click="onTrash(entry.certName)"
-          >
-            Trash
-          </UiButton>
+          <div class="flex shrink-0 flex-wrap items-center gap-2">
+            <UiButton
+              v-if="entry.liveOnDisk"
+              variant="ghost"
+              size="sm"
+              title="Download production PEMs from live/"
+              :disabled="pending || certJob.running || downloadPending === entry.certName"
+              @click="onDownload(entry.certName)"
+            >
+              <Download :size="14" weight="regular" aria-hidden="true" />
+              Download
+            </UiButton>
+            <UiButton
+              v-if="entry.tree !== 'none'"
+              variant="ghost"
+              size="sm"
+              :disabled="pending || certJob.running"
+              @click="onTrash(entry.certName)"
+            >
+              Trash
+            </UiButton>
+          </div>
         </li>
       </ul>
     </UiPanel>

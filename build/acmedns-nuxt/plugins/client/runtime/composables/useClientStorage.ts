@@ -1,23 +1,6 @@
 import type { AcmeDnsCredentials, ClientStorageMap, DomainEntry, StorageFileBody, StorageMutationResult } from '#shared/types/clientstorage'
 import { fulldomainForAccount } from '#shared/utils/fulldomain'
-
-function filenameFromDisposition(header: string | null) {
-  const match = header?.match(/filename="?([^";]+)"?/i)
-  const name = match?.[1]?.trim()
-  return name || 'clientstorage.json'
-}
-
-function triggerDownload(blob: Blob, filename: string) {
-  const href = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = href
-  link.download = filename
-  link.rel = 'noopener'
-  document.body.append(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(href)
-}
+import { filenameFromDisposition, triggerDownload } from '#client/utils/download'
 
 export function useClientStorage() {
   const { data, error, status, refresh } = useFetch<ClientStorageMap>('/api/clientstorage', {
@@ -84,7 +67,7 @@ export function useClientStorage() {
     }
 
     const blob = await response.blob()
-    triggerDownload(blob, filenameFromDisposition(response.headers.get('content-disposition')))
+    triggerDownload(blob, filenameFromDisposition(response.headers.get('content-disposition'), 'clientstorage.json'))
   }
 
   async function uploadFile(storage: ClientStorageMap, overwrite = false) {

@@ -49,6 +49,8 @@ export interface CertStatusEntry {
   notAfter?: string
   sansOnDisk?: string[]
   tree: 'live' | 'staging' | 'trash' | 'none'
+  /** True when PEMs exist under live/<certName>/ (production). */
+  liveOnDisk?: boolean
   lastError?: string
   /** ISO timestamp when Let's Encrypt rate limit lifts (if any). */
   rateLimitedUntil?: string

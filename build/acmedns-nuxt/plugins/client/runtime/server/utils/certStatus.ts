@@ -69,6 +69,7 @@ export async function buildCertStatus(mode: LetsEncryptDirectoryMode = 'producti
   const domains = await readDomainsFile()
   const tree = mode === 'staging' ? 'staging' : 'live'
   const onDisk = new Set(await listCertNamesInTree(tree))
+  const onLive = new Set(await listCertNamesInTree('live'))
   const entries: CertStatusEntry[] = []
   const seen = new Set<string>()
 
@@ -82,6 +83,7 @@ export async function buildCertStatus(mode: LetsEncryptDirectoryMode = 'producti
         expanded: line.expanded,
         status: 'missing',
         tree: 'none',
+        liveOnDisk: onLive.has(line.certName),
         inDomainsFile: true,
       })
       continue
@@ -95,6 +97,7 @@ export async function buildCertStatus(mode: LetsEncryptDirectoryMode = 'producti
       notAfter: meta.notAfter,
       sansOnDisk: meta.sans,
       tree,
+      liveOnDisk: onLive.has(line.certName),
       inDomainsFile: true,
     })
   }
@@ -112,6 +115,7 @@ export async function buildCertStatus(mode: LetsEncryptDirectoryMode = 'producti
       notAfter: meta?.notAfter,
       sansOnDisk: meta?.sans,
       tree,
+      liveOnDisk: onLive.has(certName),
       inDomainsFile: false,
     })
   }
