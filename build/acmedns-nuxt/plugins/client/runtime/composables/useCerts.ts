@@ -16,6 +16,7 @@ import type {
   DomainsParseResult,
   DomainsDnsCheck,
   LetsEncryptDirectoryMode,
+  LastSavedItem,
   TrashItem,
 } from '#shared/types/certs'
 import { mergeLiveActivity } from './useCertLiveStream'
@@ -28,6 +29,7 @@ export function useCerts() {
   const acmeEnabled = ref(true)
   const applyResults = ref<CertApplyResult[]>([])
   const trashItems = ref<TrashItem[]>([])
+  const lastSavedItems = ref<LastSavedItem[]>([])
   const activityEntries = ref<CertActivityEntry[]>([])
   const rateLimits = ref<CertRateLimit[]>([])
   const certJob = ref<CertJobStatus>({ running: false })
@@ -255,6 +257,29 @@ export function useCerts() {
     await loadTrash()
   }
 
+  async function loadLastSaved() {
+    const data = await $fetch<{ items: LastSavedItem[] }>('/api/certs/last-saved')
+    lastSavedItems.value = data.items
+    return data
+  }
+
+  async function restoreLastSaved(certName: string, fromTree: 'live' | 'staging') {
+    await $fetch(`/api/certs/last-saved/${encodeURIComponent(certName)}/restore`, {
+      method: 'POST',
+      body: { fromTree },
+    })
+    await loadLastSaved()
+    await loadStatus()
+  }
+
+  async function permanentDeleteLastSaved(certName: string, fromTree: 'live' | 'staging') {
+    await $fetch(`/api/certs/last-saved/${encodeURIComponent(certName)}`, {
+      method: 'DELETE',
+      query: { fromTree },
+    })
+    await loadLastSaved()
+  }
+
   async function cancelJob(id: number) {
     const job = await $fetch<CertJobQueueItem>(`/api/certs/jobs/${id}/cancel`, { method: 'POST' })
     await loadActivity({ full: true })
@@ -328,6 +353,7 @@ export function useCerts() {
     acmeEnabled,
     applyResults,
     trashItems,
+    lastSavedItems,
     activityEntries,
     rateLimits,
     certJob,
@@ -350,6 +376,9 @@ export function useCerts() {
     trashCert,
     restoreTrash,
     permanentDelete,
+    loadLastSaved,
+    restoreLastSaved,
+    permanentDeleteLastSaved,
     cancelJob,
     resumeJob,
     rerunJob,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CertActivityEntry, CertRateLimit, DomainsDnsCheck, LetsEncryptDirectoryMode } from '#shared/types/certs'
 import { useDocumentVisibility, useNow } from '@vueuse/core'
-import { PhArrowsClockwise as ArrowsClockwise, PhCertificate as Certificate, PhCircle as Circle, PhTrash as Trash } from '@phosphor-icons/vue'
+import { PhArrowsClockwise as ArrowsClockwise, PhCertificate as Certificate, PhCircle as Circle, PhFloppyDisk as FloppyDisk, PhTrash as Trash } from '@phosphor-icons/vue'
 import { useCertLiveStream } from '#client/composables/useCertLiveStream'
 
 useHead({ title: 'Certificates' })
@@ -448,6 +448,10 @@ function rateLimitLabel(limit: CertRateLimit) {
             :class="refreshing && 'animate-spin'"
           />
           Refresh
+        </UiButton>
+        <UiButton to="/certs/last-saved" variant="ghost" size="sm">
+          <FloppyDisk :size="14" weight="regular" aria-hidden="true" />
+          Last Saved
         </UiButton>
         <UiButton to="/certs/trash" variant="ghost" size="sm">
           <Trash :size="14" weight="regular" aria-hidden="true" />
