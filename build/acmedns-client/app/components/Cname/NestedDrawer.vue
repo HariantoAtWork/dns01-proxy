@@ -9,11 +9,13 @@ const {
   fulldomain = '',
   open = false,
   title = 'Nested challenge CNAMEs',
+  flush = false,
 } = defineProps<{
   domain: string
   fulldomain?: string
   open?: boolean
   title?: string
+  flush?: boolean
 }>()
 
 const { copyText } = useClipboardCopy()
@@ -40,7 +42,7 @@ const chainFulldomain = computed(() => {
 </script>
 
 <template>
-  <UiDisclosure :title :open>
+  <UiDisclosure :title :open :flush>
     <p class="max-w-[65ch] text-sm text-muted">
       Type a nested path (e.g. <span class="font-mono text-ink">oib</span> or
       <span class="font-mono text-ink">child.parent.grandparent</span>).
