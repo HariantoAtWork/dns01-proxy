@@ -3,6 +3,7 @@ import type {
   CertJobQueueItem,
   CertJobQueueSnapshot,
   CertJobStatus,
+  CertRateLimit,
   LetsEncryptDirectoryMode,
 } from '#shared/types/certs'
 import { readDomainsFile } from './domainsFile'
@@ -13,12 +14,18 @@ import { publishCertLive } from './certLiveBus'
 import { buildCertLiveStatus } from './certLivePublish'
 import { buildCertStatus, needsRenewal, readCertMeta } from './certStatus'
 import { clearRateLimitAfterSuccess } from './acmeLogger'
+import { getCertRateLimits, rateLimitForCert } from './certRateLimit'
 
 const QUIET_MESSAGES = new Set([
   'Not due for renewal',
   'No certificate to renew',
   'Up to date',
 ])
+
+function rateLimitSkipMessage(limit: CertRateLimit) {
+  const when = new Date(limit.until).toLocaleString()
+  return `Skipped — Let's Encrypt rate limited until ${when}`
+}
 
 /** Per-certificate ACME wall clock (production dns-01 can exceed proxy timeouts). */
 const ACME_CERT_TIMEOUT_MS = Number(process.env.ACME_CERT_TIMEOUT_MS || 4 * 60 * 1000)
@@ -224,6 +231,37 @@ async function executeApplyCertificates(options: {
       continue
     }
 
+    const activeLimit = rateLimitForCert(
+      await getCertRateLimits(),
+      options.mode,
+      line.certName,
+    )
+    if (activeLimit && !options.force) {
+      const result: CertApplyResult = {
+        certName: line.certName,
+        ok: false,
+        message: rateLimitSkipMessage(activeLimit),
+        notAfter: meta?.notAfter,
+      }
+      results.push(result)
+      appendCertActivity({
+        source: options.source,
+        level: 'warn',
+        certName: line.certName,
+        message: result.message,
+      })
+      continue
+    }
+
+    if (activeLimit && options.force) {
+      appendCertActivity({
+        source: options.source,
+        level: 'warn',
+        certName: line.certName,
+        message: `Force Apply — retrying despite rate limit until ${activeLimit.until}`,
+      })
+    }
+
     appendCertActivity({
       source: options.source,
       level: 'info',
@@ -269,13 +307,13 @@ async function executeApplyCertificates(options: {
         }
         results.push(result)
         logApplyResult(options.source, result)
-        // Account-wide new-order limits apply to the rest of the batch too.
         appendCertActivity({
           source: 'system',
           level: 'warn',
-          message: `Job #${options.jobId} stopped after rate limit on ${line.certName}`,
+          message: `Job #${options.jobId} skipped ${line.certName} (rate limited); continuing with remaining certs`,
         })
-        return { results, cancelled: false }
+        await emitStatus(options.mode)
+        continue
       }
 
       if (isAbortLike(error) || options.shouldCancel() || options.abortSignal.aborted) {
