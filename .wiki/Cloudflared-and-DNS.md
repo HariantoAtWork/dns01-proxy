@@ -8,7 +8,7 @@ Cloudflared looks like it splits traffic by hostname. It does, but only for **HT
 2. Inbound NAT / DMZ is irrelevant for that path.
 3. A client hits `https://auth.uti.email` (or whichever hostname you mapped).
 4. Cloudflare’s edge already has the hostname (TLS SNI / HTTP `Host`).
-5. Cloudflare sends the request down that tunnel to the container in `docker-compose.override.yml` (from the `.example`; `acmedns-client:3000`, `acmedns-server:80`, …).
+5. Cloudflare sends the request down that tunnel to the container in `docker-compose.override.yml` (from the `.example`; `acmedns-nuxt:80`, …).
 
 Hostname routing lives at **Cloudflare**, not on `84.86.220.240:443`. Many names, one tunnel.
 

@@ -7,13 +7,20 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@nuxt/fonts": "^0.14.0",
+    "@phosphor-icons/vue": "^2.2.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vueuse/core": "^14.4.0",
+    "acme-client": "^5.4.0",
     "bcryptjs": "^3.0.3",
     "dns2": "^3.1.1",
     "nuxt": "^4.5.2",
     "smol-toml": "^1.8.0",
+    "tailwindcss": "^4.3.3",
     "uuid": "^14.0.2",
     "vue": "^3.5.41",
     "vue-router": "^5.2.0"
@@ -21,6 +28,8 @@
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
     "@types/dns2": "^2.0.10",
-    "@types/uuid": "^11.0.0"
+    "@types/uuid": "^11.0.0",
+    "typescript": "5.9.3",
+    "vue-tsc": "^3.3.11"
   }
 }

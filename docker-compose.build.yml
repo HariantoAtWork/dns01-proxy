@@ -5,15 +5,9 @@ services:
       dockerfile: Dockerfile
     image: harianto/acmedns-nuxt:latest
 
-  # Keep Go image build for rollback while cutting over to Nuxt.
+  # Optional Go image for rollback only.
   acmedns-server:
     build:
       context: build/acmedns-server
       dockerfile: Dockerfile
     image: harianto/acmedns-server:latest
-
-  acmedns-client:
-    build:
-      context: build/acmedns-client
-      dockerfile: Dockerfile
-    image: harianto/acmedns-client:latest
