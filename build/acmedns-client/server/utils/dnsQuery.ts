@@ -2,10 +2,8 @@ import { Resolver } from 'node:dns/promises'
 import type { DnsLookupKind, DnsRecordGroup } from '#shared/types/clientstorage'
 import {
   evaluateCnameResolverOutcomes,
-  evaluateTxtResolverOutcomes,
   type DnsCnameMatchResult,
   type DnsResolverOutcome,
-  type DnsTxtExistenceResult,
 } from '#shared/utils/dnsMatch'
 
 export const DNS_RESOLVERS = ['75.2.6.34', '1.1.1.1', '1.0.0.1', '8.8.8.8', '8.8.4.4']
@@ -33,7 +31,7 @@ export interface DnsQueryOutcome {
   lookup: DnsLookupKind
 }
 
-export type { DnsCnameMatchResult, DnsResolverOutcome, DnsTxtExistenceResult }
+export type { DnsCnameMatchResult, DnsResolverOutcome }
 
 function classifyEmpty(error: unknown): DnsLookupKind | null {
   const code = (error as NodeJS.ErrnoException).code
@@ -60,14 +58,6 @@ async function dnsQueryViaServer(name: string, type: string, serverAddress: stri
     if (recordType === 'CNAME') {
       const answers = await withTimeout(resolver.resolveCname(name), serverAddress)
       return { records: [{ name, data: answers }], lookup: 'ok' }
-    }
-
-    if (recordType === 'TXT') {
-      const answers = await withTimeout(resolver.resolveTxt(name), serverAddress)
-      return {
-        records: [{ name, data: answers.map(chunks => chunks.join('')) }],
-        lookup: 'ok',
-      }
     }
 
     throw new Error(`Unsupported record type ${recordType}`)
@@ -112,18 +102,6 @@ export async function dnsQueryCnameAnyMatch(name: string, expected: string): Pro
     [...authoritative, ...publicOutcomes],
     name,
     expected,
-    DNS_RESOLVERS.length,
-  )
-}
-
-export async function dnsQueryTxtAnyResolvable(name: string): Promise<DnsTxtExistenceResult> {
-  const [authoritative, publicOutcomes] = await Promise.all([
-    queryAuthoritative(name, 'TXT'),
-    queryAllResolvers(name, 'TXT'),
-  ])
-
-  return evaluateTxtResolverOutcomes(
-    [...authoritative, ...publicOutcomes],
     DNS_RESOLVERS.length,
   )
 }

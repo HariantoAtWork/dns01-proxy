@@ -89,15 +89,6 @@ async function queryViaNameserver(
       return { server: label, records: [{ name, data: answers }], lookup: 'ok' }
     }
 
-    if (recordType === 'TXT') {
-      const answers = await withTimeout(resolver.resolveTxt(name), label)
-      return {
-        server: label,
-        records: [{ name, data: answers.map(chunks => chunks.join('')) }],
-        lookup: 'ok',
-      }
-    }
-
     throw new Error(`Unsupported record type ${recordType}`)
   }
   catch (error) {
