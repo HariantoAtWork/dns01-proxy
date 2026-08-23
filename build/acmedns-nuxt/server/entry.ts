@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs'
 import { useNitroApp } from 'nitropack/runtime'
 import { startScheduleRunner } from 'nitropack/runtime/internal'
 import wsAdapter from 'crossws/adapters/bun'
+import { loadAcmeConfigSync } from './utils/config'
 import { resolveListenOptions } from './utils/listen'
+
+loadAcmeConfigSync()
 
 const nitroApp = useNitroApp()
 // @ts-expect-error replaced at build time by Nitro

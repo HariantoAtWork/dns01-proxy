@@ -1,7 +1,15 @@
-import { readFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { parse } from 'smol-toml'
 import type { AcmeDnsConfig, ParsedListen } from './types'
+import { DEFAULT_ACME_DNS_CONFIG_TEXT } from './defaultConfig'
 
 const DEFAULTS: AcmeDnsConfig = {
   general: {
@@ -125,32 +133,109 @@ function prepareConfig(raw: Record<string, unknown>): AcmeDnsConfig {
   }
 }
 
-export async function loadAcmeConfig(configPath?: string): Promise<AcmeDnsConfig> {
+/** Folder that contains `nuxt.config.ts` / `seed/` when you `cd build/acmedns-nuxt && bun run dev`. */
+export function findPackageRoot(): string {
+  const here = dirname(fileURLToPath(import.meta.url))
+  for (const dir of [process.cwd(), resolve(here, '../..'), resolve(here, '../../..')]) {
+    if (existsSync(resolve(dir, 'nuxt.config.ts')) || existsSync(resolve(dir, 'seed/config.cfg'))) {
+      return dir
+    }
+  }
+  return process.cwd()
+}
+
+function resolvePath(path: string, root = findPackageRoot()) {
+  if (!path) {
+    return path
+  }
+  if (path.startsWith('/')) {
+    return path
+  }
+  return resolve(root, path)
+}
+
+function tryRuntimePaths(): { config?: string, defaultConfig?: string } {
+  try {
+    const runtime = useRuntimeConfig()
+    return {
+      config: runtime.acmeDnsConfig as string | undefined,
+      defaultConfig: runtime.acmeDnsDefaultConfig as string | undefined,
+    }
+  }
+  catch {
+    return {}
+  }
+}
+
+function pathHasContent(path: string) {
+  try {
+    const st = statSync(path)
+    return st.isFile() && st.size > 0
+  }
+  catch {
+    return false
+  }
+}
+
+function seedLiveConfig(target: string, root: string, runtimeDefault?: string) {
+  if (pathHasContent(target)) {
+    return
+  }
+
+  const candidates = [
+    process.env.ACME_DNS_DEFAULT_CONFIG,
+    process.env.NUXT_ACME_DNS_DEFAULT_CONFIG,
+    runtimeDefault,
+    resolve(root, 'seed/config.cfg'),
+    '/app/config.cfg.default',
+  ].filter((value): value is string => Boolean(value))
+
+  let body = DEFAULT_ACME_DNS_CONFIG_TEXT
+  let source = 'embedded default'
+  for (const candidate of candidates) {
+    const src = resolvePath(candidate, root)
+    if (src === target || !pathHasContent(src)) {
+      continue
+    }
+    body = readFileSync(src, 'utf8')
+    source = src
+    break
+  }
+
+  mkdirSync(dirname(target), { recursive: true })
+  writeFileSync(target, body.endsWith('\n') ? body : `${body}\n`, 'utf8')
+  console.info(`[acmedns] seeded ${target} from ${source}`)
+}
+
+export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
   if (cached) {
     return cached
   }
 
-  const runtime = useRuntimeConfig()
-  const resolved = configPath
+  const root = findPackageRoot()
+  const runtime = tryRuntimePaths()
+  const resolved = resolvePath(
+    configPath
     || process.env.ACME_DNS_CONFIG
     || process.env.NUXT_ACME_DNS_CONFIG
-    || (runtime.acmeDnsConfig as string)
-    || '/etc/acme-dns/config.cfg'
+    || runtime.config
+    || 'config/config.cfg',
+    root,
+  )
+
+  seedLiveConfig(resolved, root, runtime.defaultConfig)
 
   if (!existsSync(resolved)) {
-    throw new Error(`Configuration file not found: ${resolved}`)
+    throw new Error(`Configuration file not found: ${resolved} (root ${root})`)
   }
 
   const text = readFileSync(resolved, 'utf8')
-  const raw = parse(text) as Record<string, unknown>
-  cached = prepareConfig(raw)
+  cached = prepareConfig(parse(text) as Record<string, unknown>)
 
-  // Resolve relative sqlite paths against process cwd (compose mounts use absolute paths).
   if (!cached.database.connection.startsWith('/')) {
-    cached.database.connection = resolve(process.cwd(), cached.database.connection)
+    cached.database.connection = resolve(root, cached.database.connection)
   }
 
-  // Dev overrides so local dig does not need root on :53
   const listenOverride = process.env.ACME_DNS_LISTEN || process.env.DNS_LISTEN
   const portOverride = process.env.ACME_DNS_PORT || process.env.DNS_PORT
   if (listenOverride || portOverride) {
@@ -160,14 +245,16 @@ export async function loadAcmeConfig(configPath?: string): Promise<AcmeDnsConfig
     cached.general.listen = `${host}:${Number.isFinite(port) ? port : parsed.port}`
   }
 
+  console.info(`[acmedns] config ${resolved} domain=${cached.general.domain} listen=${cached.general.listen}`)
   return cached
 }
 
+export async function loadAcmeConfig(configPath?: string): Promise<AcmeDnsConfig> {
+  return loadAcmeConfigSync(configPath)
+}
+
 export function getAcmeConfig(): AcmeDnsConfig {
-  if (!cached) {
-    throw new Error('acme-dns config not loaded yet')
-  }
-  return cached
+  return loadAcmeConfigSync()
 }
 
 export function resetAcmeConfigCache() {
