@@ -6,7 +6,8 @@ services:
     ports:
       - "53:53"
       - "53:53/udp"
-      - "82:80"
+      - "8080:80"
+      - "8443:443"
     volumes:
       - ./data/acmedns-server/config:/etc/acme-dns
       - ./data/acmedns-server/data:/var/lib/acme-dns
