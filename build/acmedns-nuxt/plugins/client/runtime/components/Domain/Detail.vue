@@ -93,16 +93,7 @@ watch(status, (value) => {
       {{ message }}
     </p>
 
-    <section class="flex flex-col gap-4">
-      <h2 class="text-base font-semibold">Account secrets</h2>
-      <p class="max-w-[65ch] text-sm text-muted">
-        Hidden until you reveal them. Copy only what you need. These cannot be recovered from acme-dns if you lose this file.
-      </p>
-      <UiSecretField label="Username" :value="entry.details.username" />
-      <UiSecretField label="Password" :value="entry.details.password" />
-      <UiSecretField label="Subdomain" :value="entry.details.subdomain" :secret="false" />
-      <UiSecretField label="Full domain" :value="entry.details.fulldomain" :secret="false" hint="CNAME target" />
-    </section>
+    <DomainSecrets :details="entry.details" />
 
     <UiConfirmDialog
       v-model:open="confirmOpen"
