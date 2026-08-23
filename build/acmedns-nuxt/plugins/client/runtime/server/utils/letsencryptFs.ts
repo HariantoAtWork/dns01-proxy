@@ -29,6 +29,10 @@ export function trashTreePath(certName: string) {
   return join(getCertbotConfigDir(), 'trash', certName)
 }
 
+export function lastSavedTreePath(fromTree: 'live' | 'staging', certName: string) {
+  return join(getCertbotConfigDir(), 'last-saved', fromTree, certName)
+}
+
 async function pathExists(path: string) {
   try {
     await fs.access(path)
@@ -41,6 +45,21 @@ async function pathExists(path: string) {
 
 export async function listCertNamesInTree(tree: 'live' | 'staging' | 'trash') {
   const root = join(getCertbotConfigDir(), tree)
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true })
+    return entries.filter(e => e.isDirectory() && e.name !== 'README').map(e => e.name).sort()
+  }
+  catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') {
+      return []
+    }
+    throw error
+  }
+}
+
+export async function listCertNamesInLastSaved(fromTree: 'live' | 'staging') {
+  const root = join(getCertbotConfigDir(), 'last-saved', fromTree)
   try {
     const entries = await fs.readdir(root, { withFileTypes: true })
     return entries.filter(e => e.isDirectory() && e.name !== 'README').map(e => e.name).sort()
@@ -95,10 +114,16 @@ export async function writeLivePems(
   }
 }
 
-export async function removeCertTree(mode: LetsEncryptDirectoryMode | 'trash', certName: string) {
+export async function removeCertTree(
+  mode: LetsEncryptDirectoryMode | 'trash' | 'last-saved',
+  certName: string,
+  fromTree: 'live' | 'staging' = 'live',
+) {
   const dir = mode === 'trash'
     ? trashTreePath(certName)
-    : certTreePath(mode, certName)
+    : mode === 'last-saved'
+      ? lastSavedTreePath(fromTree, certName)
+      : certTreePath(mode, certName)
   await fs.rm(dir, { recursive: true, force: true })
 }
 
@@ -108,6 +133,14 @@ export async function moveTree(from: string, to: string) {
     await fs.rm(to, { recursive: true, force: true })
   }
   await fs.rename(from, to)
+}
+
+export async function copyTree(from: string, to: string) {
+  await fs.mkdir(dirname(to), { recursive: true })
+  if (await pathExists(to)) {
+    await fs.rm(to, { recursive: true, force: true })
+  }
+  await fs.cp(from, to, { recursive: true })
 }
 
 export { PEM_NAMES }

@@ -7,6 +7,7 @@ import { readStorage } from './storage'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
 import { accountsDir, getLetsEncryptEmail } from './certSettings'
 import { writeLivePems } from './letsencryptFs'
+import { snapshotCertToLastSaved } from './certLastSaved'
 import { logAcmeStep, withAcmeLogContext } from './acmeLogger'
 
 type AcmeClient = InstanceType<typeof acme.Client>
@@ -171,6 +172,7 @@ export async function issueCertificate(options: {
 
       const { cert, chain, fullchain } = splitChain(certificate.toString())
       const tree = options.mode === 'staging' ? 'staging' : 'live'
+      await snapshotCertToLastSaved(options.mode, options.certName)
       await writeLivePems(options.mode, options.certName, {
         cert,
         chain,

@@ -2,6 +2,7 @@ import { X509Certificate } from 'node:crypto'
 import { join } from 'node:path'
 import {
   certTreePath,
+  lastSavedTreePath,
   listCertNamesInTree,
   readPem,
   trashTreePath,
@@ -42,10 +43,16 @@ function sameSanSet(a: string[], b: string[]) {
 }
 
 export async function readCertMeta(
-  mode: LetsEncryptDirectoryMode | 'trash',
+  mode: LetsEncryptDirectoryMode | 'trash' | 'last-saved-live' | 'last-saved-staging',
   certName: string,
 ) {
-  const dir = mode === 'trash' ? trashTreePath(certName) : certTreePath(mode, certName)
+  const dir = mode === 'trash'
+    ? trashTreePath(certName)
+    : mode === 'last-saved-live'
+      ? lastSavedTreePath('live', certName)
+      : mode === 'last-saved-staging'
+        ? lastSavedTreePath('staging', certName)
+        : certTreePath(mode, certName)
   const fullchainPath = join(dir, 'fullchain.pem')
   try {
     const pem = await readPem(fullchainPath)

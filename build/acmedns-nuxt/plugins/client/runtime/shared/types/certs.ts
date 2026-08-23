@@ -70,6 +70,13 @@ export interface TrashItem {
   notAfter?: string
 }
 
+export interface LastSavedItem {
+  certName: string
+  savedAt: string
+  fromTree: 'live' | 'staging'
+  notAfter?: string
+}
+
 export type CertActivitySource = 'renew' | 'apply' | 'system' | 'acme'
 
 export type CertActivityLevel = 'info' | 'warn' | 'error'
