@@ -20,6 +20,7 @@ import type {
   TrashItem,
 } from '#shared/types/certs'
 import { mergeLiveActivity } from './useCertLiveStream'
+import { filenameFromDisposition, triggerDownload } from '#client/utils/download'
 
 export function useCerts() {
   const text = ref('')
@@ -233,6 +234,26 @@ export function useCerts() {
     return data
   }
 
+  async function downloadCert(certName: string) {
+    const response = await fetch(`/api/certs/download/${encodeURIComponent(certName)}`, {
+      credentials: 'same-origin',
+    })
+    if (!response.ok) {
+      let message = 'Download failed'
+      try {
+        const body = await response.json() as { message?: string, statusMessage?: string }
+        message = body.message || body.statusMessage || message
+      }
+      catch {
+        // Keep the generic message when the error body is not JSON.
+      }
+      throw new Error(message)
+    }
+
+    const blob = await response.blob()
+    triggerDownload(blob, filenameFromDisposition(response.headers.get('content-disposition')))
+  }
+
   async function trashCert(certName: string, fromTree: 'live' | 'staging' = 'live') {
     await $fetch(`/api/certs/trash/${encodeURIComponent(certName)}`, {
       method: 'POST',
@@ -373,6 +394,7 @@ export function useCerts() {
     refresh,
     apply,
     loadTrash,
+    downloadCert,
     trashCert,
     restoreTrash,
     permanentDelete,
