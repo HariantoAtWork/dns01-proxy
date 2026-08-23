@@ -1,5 +1,8 @@
 import tailwindcss from '@tailwindcss/vite'
 
+// `nuxt dev` runs Nitro under Node — do not use the Bun.serve entry there.
+const isNuxtDev = process.argv.includes('dev')
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
@@ -9,7 +12,8 @@ export default defineNuxtConfig({
   ],
   nitro: {
     preset: 'bun',
-    entry: './entry.ts',
+    // Production / `nuxt build` only — Bun.serve + TLS from config.cfg
+    ...(isNuxtDev ? {} : { entry: './entry.ts' }),
   },
   vite: {
     plugins: [tailwindcss()],
@@ -21,14 +25,16 @@ export default defineNuxtConfig({
     ],
   },
   runtimeConfig: {
-    /** Path to acme-dns config.cfg (TOML). Override with NUXT_ACME_DNS_CONFIG. */
-    acmeDnsConfig: '/etc/acme-dns/config.cfg',
+    /** Live file under the project (seeded on first start). Docker overrides to /etc/acme-dns/config.cfg. */
+    acmeDnsConfig: 'config/config.cfg',
+    /** Template copied when live config is missing. */
+    acmeDnsDefaultConfig: 'seed/config.cfg',
     clientstorageData: 'config/clientstorage.json',
     applicationsDataRoot: 'data',
     acmednsUrl: 'http://127.0.0.1',
     administratorPassword: '',
     domainsFile: 'config/host/domains.txt',
-    certbotConfigDir: '/etc/letsencrypt',
+    certbotConfigDir: '.data/letsencrypt',
     certSettingsFile: 'config/cert-settings.json',
     letsencryptEmail: 'admin@example.com',
     renewInterval: 12,
