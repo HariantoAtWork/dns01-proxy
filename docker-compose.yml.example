@@ -9,12 +9,12 @@ services:
       - "8080:80"
       - "8443:443"
     volumes:
-      - ./data/acmedns-server/config:/etc/acme-dns
-      - ./data/acmedns-server/data:/var/lib/acme-dns
-      - acmedns-client:/app/config:rw
-      - acmedns-client-data:/app/data:rw
-      - letsencrypt:/etc/letsencrypt
-      - ./data/acmedns-letsencrypt:/config/host
+      - ./data/acmedns-server/config:/etc/acme-dns  # acme-dns config.cfg, listen address, auth zone
+      - ./data/acmedns-server/data:/var/lib/acme-dns  # SQLite DB for acme-dns accounts and TXT records
+      - acmedns-client:/app/config:rw  # clientstorage.json and cert UI settings
+      - acmedns-client-data:/app/data:rw  # Nuxt app data root and backups
+      - letsencrypt:/etc/letsencrypt  # certbot PEM output (live, staging, trash)
+      - ./data/acmedns-letsencrypt:/config/host  # domains.txt edited on host or in Certs UI
     environment:
       - CLIENTSTORAGE_DATA=/app/config/clientstorage.json
       - NUXT_APPLICATIONS_DATA_ROOT=${NUXT_APPLICATIONS_DATA_ROOT:-/app/data}
