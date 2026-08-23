@@ -28,6 +28,15 @@ function isLoopbackAcmeDnsHost(host: string): boolean {
     || host === 'acmedns-nuxt'
 }
 
+function preferredPublicAcmeHost(): string {
+  const preferred = (
+    process.env.ACMEDNS_URL
+    || process.env.NUXT_ACMEDNS_URL
+    || ''
+  ).replace(/\/$/, '')
+  return hostnameOf(preferred)
+}
+
 /** In-process API (loopback / compose name / this stack's auth zone). */
 function isLocalAcmeDnsBase(base: string): boolean {
   if (!base || base.startsWith('local://')) {
@@ -42,6 +51,24 @@ function isLocalAcmeDnsBase(base: string): boolean {
   }
   const zone = authZoneHost()
   return Boolean(zone && host === zone)
+}
+
+/**
+ * Prefer in-process /update when server_url is the public identity of this
+ * process (ACMEDNS_URL) and the account actually lives in the local DB.
+ * Avoids HTTPS self-fetch via Cloudflare (TLS / admin login) after register
+ * rewrote loopback to the public URL.
+ */
+function useInProcessUpdate(base: string, username: string): boolean {
+  if (isLocalAcmeDnsBase(base)) {
+    return true
+  }
+  const host = hostnameOf(base)
+  const publicHost = preferredPublicAcmeHost()
+  if (!host || !publicHost || host !== publicHost) {
+    return false
+  }
+  return Boolean(getByUsername(username))
 }
 
 /**
@@ -165,7 +192,7 @@ export async function updateAcmeDnsTxt(options: {
 }) {
   const base = resolveAcmeDnsBase(options.serverUrl)
 
-  if (isLocalAcmeDnsBase(base)) {
+  if (useInProcessUpdate(base, options.username)) {
     const user = getByUsername(options.username)
     if (!user) {
       throw createError({
@@ -191,7 +218,7 @@ export async function updateAcmeDnsTxt(options: {
     if (!validTXT(options.txt)) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'acme-dns update failed: bad_txt',
+        statusMessage: 'acme-dns update failed: bad_txt (need exactly 43 chars A–Z a–z 0–9 - _)',
         data: { error: 'bad_txt' },
       })
     }

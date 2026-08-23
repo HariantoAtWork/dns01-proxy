@@ -7,6 +7,10 @@ function isPublicPath(path: string) {
   if (path === '/favicon.ico' || path === '/login') {
     return true
   }
+  // acme-dns protocol endpoints (X-Api-User / X-Api-Key), not admin session
+  if (path === '/health' || path === '/register' || path === '/update') {
+    return true
+  }
   if (path.startsWith('/api/auth/')) {
     return true
   }

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   PhCheckCircle as CheckCircle,
-  PhGlobe as Globe,
   PhTrash as Trash,
   PhArchive as Archive,
 } from '@phosphor-icons/vue'
@@ -18,18 +17,10 @@ const emit = defineEmits<{
 const toasts = useToasts()
 const { deleteDomain } = useClientStorage()
 const { status, attempts, totalAttempts, message, start, cancel, reset } = useDnsValidation()
-const {
-  status: fulldomainStatus,
-  message: fulldomainMessage,
-  pending: fulldomainPending,
-  run: checkFulldomain,
-  reset: resetFulldomain,
-} = useFulldomainCheck()
 const confirmOpen = ref(false)
 
 watch(() => entry.domain, () => {
   reset()
-  resetFulldomain()
 })
 
 async function remove() {
@@ -45,16 +36,6 @@ async function remove() {
 
 function validate() {
   start(entry.domain, entry.details.fulldomain)
-}
-
-async function verifyFulldomain() {
-  await checkFulldomain(entry.details)
-  if (fulldomainStatus.value === 'ok') {
-    toasts.ok(fulldomainMessage.value)
-  }
-  else if (fulldomainStatus.value === 'error') {
-    toasts.error(fulldomainMessage.value)
-  }
 }
 
 watch(status, (value) => {
@@ -78,10 +59,6 @@ watch(status, (value) => {
         <UiButton @click="validate">
           <CheckCircle :size="16" weight="regular" />
           Validate CNAME
-        </UiButton>
-        <UiButton variant="ghost" :disabled="fulldomainPending" @click="verifyFulldomain">
-          <Globe :size="16" weight="regular" />
-          {{ fulldomainPending ? 'Checking…' : 'Verify fulldomain' }}
         </UiButton>
         <UiButton
           variant="ghost"
@@ -116,19 +93,6 @@ watch(status, (value) => {
       {{ message }}
     </p>
 
-    <p
-      v-if="fulldomainStatus === 'ok'"
-      class="text-sm text-ink"
-    >
-      {{ fulldomainMessage }}
-    </p>
-    <p
-      v-else-if="fulldomainStatus === 'error'"
-      class="max-w-[65ch] text-sm text-danger"
-    >
-      {{ fulldomainMessage }}
-    </p>
-
     <section class="flex flex-col gap-4">
       <h2 class="text-base font-semibold">Account secrets</h2>
       <p class="max-w-[65ch] text-sm text-muted">
@@ -139,13 +103,6 @@ watch(status, (value) => {
       <UiSecretField label="Subdomain" :value="entry.details.subdomain" :secret="false" />
       <UiSecretField label="Full domain" :value="entry.details.fulldomain" :secret="false" hint="CNAME target" />
     </section>
-
-    <TxtUpdateForm
-      :server-url="entry.details.server_url"
-      :username="entry.details.username"
-      :password="entry.details.password"
-      :subdomain="entry.details.subdomain"
-    />
 
     <UiConfirmDialog
       v-model:open="confirmOpen"

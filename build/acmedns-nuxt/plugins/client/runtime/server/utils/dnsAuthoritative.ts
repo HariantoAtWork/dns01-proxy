@@ -1,6 +1,6 @@
-import { Resolver } from 'node:dns/promises'
-import type { DnsLookupKind, DnsRecordGroup } from '#shared/types/clientstorage'
+import type { DnsRecordGroup } from '#shared/types/clientstorage'
 import type { DnsResolverOutcome } from '#shared/utils/dnsMatch'
+import { dnsUdpQuery } from './dnsUdpQuery'
 
 const BOOTSTRAP_RESOLVER = '1.1.1.1'
 const QUERY_TIMEOUT_MS = 2000
@@ -10,51 +10,16 @@ function stripDot(value: string) {
   return value.replace(/\.$/, '').toLowerCase()
 }
 
-function withTimeout<T>(promise: Promise<T>, label: string) {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(`Timeout (${label})`)), QUERY_TIMEOUT_MS)
-    }),
-  ])
-}
-
-function classifyEmpty(error: unknown): DnsLookupKind | null {
-  const code = (error as NodeJS.ErrnoException).code
-  if (code === 'ENOTFOUND') {
-    return 'nxdomain'
-  }
-  if (code === 'ENODATA') {
-    return 'nodata'
-  }
-  if (code === 'ETIMEOUT') {
-    return 'timeout'
-  }
-  return null
-}
-
-function bootstrapResolver() {
-  const resolver = new Resolver()
-  resolver.setServers([BOOTSTRAP_RESOLVER])
-  return resolver
-}
-
 /** Walk labels upward until NS records are found for the zone. */
 export async function findZoneNameservers(qname: string): Promise<string[]> {
   const host = stripDot(qname)
   const labels = host.split('.')
-  const resolver = bootstrapResolver()
 
   for (let index = 0; index < labels.length - 1; index += 1) {
     const zone = labels.slice(index).join('.')
-    try {
-      const nameservers = await withTimeout(resolver.resolveNs(zone), zone)
-      if (nameservers.length) {
-        return nameservers.map(stripDot).slice(0, MAX_NAMESERVERS)
-      }
-    }
-    catch {
-      // try parent zone
+    const outcome = await dnsUdpQuery(zone, 'NS', BOOTSTRAP_RESOLVER, QUERY_TIMEOUT_MS)
+    if (outcome.lookup === 'ok' && outcome.records[0]?.data.length) {
+      return outcome.records[0].data.map(stripDot).slice(0, MAX_NAMESERVERS)
     }
   }
 
@@ -62,14 +27,11 @@ export async function findZoneNameservers(qname: string): Promise<string[]> {
 }
 
 async function resolveNameserverAddress(host: string): Promise<string | null> {
-  const resolver = bootstrapResolver()
-  try {
-    const ipv4 = await withTimeout(resolver.resolve4(host), host)
-    return ipv4[0] ?? null
+  const outcome = await dnsUdpQuery(host, 'A', BOOTSTRAP_RESOLVER, QUERY_TIMEOUT_MS)
+  if (outcome.lookup === 'ok' && outcome.records[0]?.data[0]) {
+    return outcome.records[0].data[0]
   }
-  catch {
-    return host.includes(':') ? host : null
-  }
+  return host.includes(':') ? host : null
 }
 
 async function queryViaNameserver(
@@ -78,35 +40,15 @@ async function queryViaNameserver(
   nameserverHost: string,
   serverAddress: string,
 ): Promise<DnsResolverOutcome> {
-  const resolver = new Resolver()
-  resolver.setServers([serverAddress])
   const recordType = type.toUpperCase()
   const label = `auth:${nameserverHost}`
 
-  try {
-    if (recordType === 'CNAME') {
-      const answers = await withTimeout(resolver.resolveCname(name), label)
-      return { server: label, records: [{ name, data: answers }], lookup: 'ok' }
-    }
-
-    if (recordType === 'TXT') {
-      const answers = await withTimeout(resolver.resolveTxt(name), label)
-      return {
-        server: label,
-        records: [{ name, data: answers.map(chunks => chunks.join('')) }],
-        lookup: 'ok',
-      }
-    }
-
-    throw new Error(`Unsupported record type ${recordType}`)
-  }
-  catch (error) {
-    const kind = classifyEmpty(error)
-    if (kind) {
-      return { server: label, records: [], lookup: kind }
-    }
+  if (recordType !== 'CNAME') {
     return { server: label, records: [] as DnsRecordGroup[], lookup: 'timeout' }
   }
+
+  const outcome = await dnsUdpQuery(name, 'CNAME', serverAddress, QUERY_TIMEOUT_MS)
+  return { server: label, ...outcome }
 }
 
 /** Query the zone's authoritative nameservers directly (no public-recursor cache). */

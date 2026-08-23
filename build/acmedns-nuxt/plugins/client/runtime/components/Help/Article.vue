@@ -50,15 +50,10 @@
       <strong class="font-medium text-ink">Validate CNAME</strong> asks public resolvers every 15 seconds (up to 20 tries) whether
       <span class="font-mono text-ink">_acme-challenge.&lt;domain&gt;</span> points at your fulldomain. You can skip and save anyway if you know the record is coming.
     </p>
-    <p class="mt-3 text-muted">
-      <strong class="font-medium text-ink">Verify fulldomain</strong> checks that the UUID name itself exists on public DNS (not NXDOMAIN) and that
-      <span class="font-mono text-ink">server_url</span> matches the fulldomain host. Use this when Let's Encrypt fails with NXDOMAIN on the CNAME target —
-      that usually means the account was registered on the wrong acme-dns server.
-    </p>
 
     <h2 class="mt-10 text-xl font-semibold">Stored fields</h2>
     <p class="mt-3 text-muted">
-      Home lists domains. Open one to copy the CNAME, reveal username and password, check the CNAME again, test <span class="font-mono text-ink">/update</span>, or delete the JSON entry. Deleting here does not delete the acme-dns account on the server.
+      Home lists domains. Open one to copy the CNAME, reveal username and password, check the CNAME again, or delete the JSON entry. Deleting here does not delete the acme-dns account on the server.
     </p>
 
     <h2 class="mt-10 text-xl font-semibold">Backup and restore</h2>
