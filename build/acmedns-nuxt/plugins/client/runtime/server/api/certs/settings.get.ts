@@ -2,7 +2,7 @@ export default defineEventHandler(async () => {
   const settings = await readCertSettings()
   return {
     ...settings,
-    acmeEnabled: isAcmeEnabled(),
+    acmeEnabled: isProductionAcmeEnabled(),
     email: getLetsEncryptEmail(),
     renewIntervalHours: getRenewIntervalHours(),
     letsencryptDir: getLetsencryptDir(),

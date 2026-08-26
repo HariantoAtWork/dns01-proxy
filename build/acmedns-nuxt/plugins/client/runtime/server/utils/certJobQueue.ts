@@ -8,7 +8,7 @@ import type {
 } from '#shared/types/certs'
 import { readDomainsFile } from './domainsFile'
 import { issueCertificate } from './acmeIssue'
-import { isAcmeEnabled } from './certSettings'
+import { isAcmeEnabledForMode } from './certSettings'
 import { appendCertActivity } from './certActivity'
 import { publishCertLive } from './certLiveBus'
 import { buildCertLiveStatus } from './certLivePublish'
@@ -487,10 +487,10 @@ async function createQueuedJob(options: {
   resolve: (results: CertApplyResult[]) => void
   reject: (error: unknown) => void
 }): Promise<InternalJob> {
-  if (!isAcmeEnabled()) {
+  if (!isAcmeEnabledForMode(options.mode)) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'Certificate ACME is disabled (CERTS_ACME_DISABLED=true).',
+      statusMessage: 'Production ACME is disabled (CERTS_ACME_DISABLED=true). Staging Apply still works.',
     })
   }
 

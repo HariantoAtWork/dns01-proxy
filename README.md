@@ -127,7 +127,7 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 | `ACMEDNS_URL` | `https://auth.example.org` | Public identity for register/update. Loopback or a host matching `config.cfg` `domain` still runs in-process. |
 | `LETSENCRYPT_EMAIL` | `admin@example.com` | ACME account contact. |
 | `RENEW_INTERVAL` | `12` | Hours between production renew checks. |
-| `CERTS_ACME_DISABLED` | `false` | Set `true` to disable issue/renew (editor still works). |
+| `CERTS_ACME_DISABLED` | `false` | Set `true` to disable production issue/renew (staging Apply still works). |
 | `TZ` | `UTC` | Clock. |
 | `ADMINISTRATOR_PASSWORD` | _(empty)_ | Lock UI behind username `admin`. |
 
