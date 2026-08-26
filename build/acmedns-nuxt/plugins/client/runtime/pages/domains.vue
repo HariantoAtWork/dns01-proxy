@@ -1,11 +1,22 @@
 <script setup lang="ts">
-import { PhList as List, PhCaretDown as CaretDown, PhX as Close } from '@phosphor-icons/vue'
+import {
+  PhList as List,
+  PhCaretDown as CaretDown,
+  PhX as Close,
+  PhArrowsClockwise as Refresh,
+} from '@phosphor-icons/vue'
 
 useHead({ title: 'Domains' })
 
 const route = useRoute()
 const router = useRouter()
 const { entries, status, error, refresh } = useClientStorage()
+const {
+  results: accountValidity,
+  pending: verifyPending,
+  error: verifyError,
+  verifyAll,
+} = useAccountVerify()
 
 const selected = computed(() => {
   const query = route.query.d
@@ -28,6 +39,17 @@ watch(entries, (list) => {
   }
 }, { immediate: true })
 
+watch(
+  () => entries.value.map(entry => entry.domain).join('\0'),
+  (key) => {
+    if (!key) {
+      return
+    }
+    void verifyAll()
+  },
+  { immediate: true },
+)
+
 watch(sidebarOpen, (open) => {
   if (!import.meta.client) {
     return
@@ -49,6 +71,7 @@ function select(domain: string) {
 function onDeleted() {
   const remaining = entries.value.filter(entry => entry.domain !== selected.value)
   void router.replace({ query: remaining[0] ? { d: remaining[0].domain } : {} })
+  void verifyAll()
 }
 </script>
 
@@ -129,21 +152,39 @@ function onDeleted() {
             class="fixed inset-y-0 left-0 z-[16] flex w-[min(18rem,88vw)] flex-col border-r border-rule bg-paper pt-12 shadow-[0_16px_40px_var(--shadow)] md:hidden"
             aria-label="Domain list"
           >
-            <div class="flex items-center justify-between border-b border-rule px-3 py-2">
+            <div class="flex items-center justify-between gap-2 border-b border-rule px-3 py-2">
               <p class="text-sm font-medium">Domains</p>
-              <button
-                type="button"
-                class="inline-flex rounded-[6px] p-2 text-muted hover:bg-panel hover:text-ink"
-                aria-label="Close domain list"
-                @click="sidebarOpen = false"
-              >
-                <Close :size="16" weight="regular" aria-hidden="true" />
-              </button>
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  class="inline-flex rounded-[6px] p-2 text-muted hover:bg-panel hover:text-ink"
+                  :disabled="verifyPending"
+                  aria-label="Recheck acme-dns accounts"
+                  @click="verifyAll()"
+                >
+                  <Refresh
+                    :size="16"
+                    weight="regular"
+                    aria-hidden="true"
+                    :class="verifyPending && 'animate-spin'"
+                  />
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex rounded-[6px] p-2 text-muted hover:bg-panel hover:text-ink"
+                  aria-label="Close domain list"
+                  @click="sidebarOpen = false"
+                >
+                  <Close :size="16" weight="regular" aria-hidden="true" />
+                </button>
+              </div>
             </div>
             <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <DomainList
                 :entries
                 :selected="current?.domain || ''"
+                :validity="accountValidity"
+                :validity-pending="verifyPending"
                 @select="select"
               />
             </div>
@@ -153,10 +194,30 @@ function onDeleted() {
 
       <div class="grid gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
         <aside class="hidden border-r border-rule md:block">
+          <div class="flex items-center justify-between gap-2 border-b border-rule px-3 py-2">
+            <p class="text-xs font-medium uppercase tracking-wide text-muted">Accounts</p>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 rounded-[6px] px-2 py-1 text-xs text-muted hover:bg-panel hover:text-ink"
+              :disabled="verifyPending"
+              @click="verifyAll()"
+            >
+              <Refresh
+                :size="14"
+                weight="regular"
+                aria-hidden="true"
+                :class="verifyPending && 'animate-spin'"
+              />
+              Recheck
+            </button>
+          </div>
+          <p v-if="verifyError" class="px-3 py-2 text-xs text-danger">{{ verifyError }}</p>
           <DomainList
-            class="max-h-[calc(100dvh-8rem)] min-h-[28rem] overflow-y-auto overscroll-contain"
+            class="max-h-[calc(100dvh-10rem)] min-h-[28rem] overflow-y-auto overscroll-contain"
             :entries
             :selected="current?.domain || ''"
+            :validity="accountValidity"
+            :validity-pending="verifyPending"
             @select="select"
           />
         </aside>

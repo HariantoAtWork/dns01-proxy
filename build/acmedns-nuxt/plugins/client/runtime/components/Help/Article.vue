@@ -53,7 +53,7 @@
 
     <h2 class="mt-10 text-xl font-semibold">Stored fields</h2>
     <p class="mt-3 text-muted">
-      Home shows counts. Domains at <span class="font-mono text-ink">/domains</span> lists accounts — open one to copy the CNAME, reveal username and password, check the CNAME again, or delete the JSON entry. Deleting there does not delete the acme-dns account on the server.
+      Home shows counts. Domains at <span class="font-mono text-ink">/domains</span> lists accounts with a validity mark (credentials still accepted by that acme-dns server). Open one to copy the CNAME, reveal username and password, check the CNAME again, or delete the JSON entry. Deleting there does not delete the acme-dns account on the server.
     </p>
 
     <h2 class="mt-10 text-xl font-semibold">Backup and restore</h2>
