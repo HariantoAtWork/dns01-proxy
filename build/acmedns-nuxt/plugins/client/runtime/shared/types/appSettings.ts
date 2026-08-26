@@ -53,6 +53,9 @@ export interface ConfigApiView {
   port: string
   disable_registration: boolean
   tls: string
+  /** Required when tls = "cert" — paths inside the container. */
+  tls_cert_fullchain: string
+  tls_cert_privkey: string
   corsorigins: string
   use_header: boolean
   header_name: string

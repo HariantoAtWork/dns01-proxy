@@ -49,6 +49,8 @@ const api = reactive({
   port: '80',
   disable_registration: false,
   tls: 'none',
+  tls_cert_fullchain: '',
+  tls_cert_privkey: '',
   corsorigins: '*',
   use_header: false,
   header_name: 'X-Forwarded-For',
@@ -308,11 +310,25 @@ onMounted(() => {
         <UiField label="port">
           <UiInput v-model="api.port" mono :disabled="pending" />
         </UiField>
-        <UiField label="tls">
+        <UiField label="tls" hint='Use "none" behind Cloudflare; "cert" needs PEM paths below'>
           <UiInput v-model="api.tls" mono :disabled="pending" />
         </UiField>
         <UiField label="header_name">
           <UiInput v-model="api.header_name" mono :disabled="pending" />
+        </UiField>
+        <UiField
+          class="md:col-span-2"
+          label="tls_cert_fullchain"
+          hint="Container path — only when tls = cert"
+        >
+          <UiInput v-model="api.tls_cert_fullchain" mono :disabled="pending || api.tls !== 'cert'" />
+        </UiField>
+        <UiField
+          class="md:col-span-2"
+          label="tls_cert_privkey"
+          hint="Container path — only when tls = cert"
+        >
+          <UiInput v-model="api.tls_cert_privkey" mono :disabled="pending || api.tls !== 'cert'" />
         </UiField>
         <label class="flex items-center gap-2 text-sm text-ink">
           <input v-model="api.disable_registration" type="checkbox" class="accent-[var(--signal)]" :disabled="pending">

@@ -27,18 +27,23 @@ function parsePort(value: string | undefined, fallback: string): number {
   return port
 }
 
-function resolveTlsMaterial(): ListenTlsOptions {
+function resolveTlsMaterial(): ListenTlsOptions | null {
   const config = getAcmeConfig()
   const certPath = config.api.tls_cert_fullchain?.trim()
   const keyPath = config.api.tls_cert_privkey?.trim()
   if (!certPath || !keyPath) {
-    throw new Error('api.tls is "cert" but tls_cert_fullchain / tls_cert_privkey are not set')
+    console.warn(
+      '[acmedns] api.tls is "cert" but tls_cert_fullchain / tls_cert_privkey are not set — HTTP only',
+    )
+    return null
   }
   if (!existsSync(certPath)) {
-    throw new Error(`TLS certificate not found: ${certPath}`)
+    console.warn(`[acmedns] TLS certificate not found: ${certPath} — HTTP only`)
+    return null
   }
   if (!existsSync(keyPath)) {
-    throw new Error(`TLS private key not found: ${keyPath}`)
+    console.warn(`[acmedns] TLS private key not found: ${keyPath} — HTTP only`)
+    return null
   }
   return { certPath, keyPath }
 }
@@ -69,32 +74,36 @@ export function resolveListenOptions(): DualListenOptions {
 
   if (config.api.tls === 'cert') {
     const tls = resolveTlsMaterial()
-    // HTTP stays on 80 (or NITRO_PORT/PORT). HTTPS uses api.port (default 443).
-    const httpPort = parsePort(envPort, '80')
-    let httpsPort = parsePort(config.api.port, '443')
-    if (httpsPort === httpPort) {
-      if (httpPort === 80) {
-        httpsPort = 443
+    if (tls) {
+      // HTTP stays on 80 (or NITRO_PORT/PORT). HTTPS uses api.port (default 443).
+      const httpPort = parsePort(envPort, '80')
+      let httpsPort = parsePort(config.api.port, '443')
+      if (httpsPort === httpPort) {
+        if (httpPort === 80) {
+          httpsPort = 443
+        }
+        else {
+          throw new Error(
+            `HTTP and HTTPS cannot share port ${httpPort}; set api.port to a distinct HTTPS port`,
+          )
+        }
       }
-      else {
-        throw new Error(
-          `HTTP and HTTPS cannot share port ${httpPort}; set api.port to a distinct HTTPS port`,
-        )
+      return {
+        http: { host, port: httpPort, tls: null },
+        https: { host, port: httpsPort, tls },
       }
     }
-    return {
-      http: { host, port: httpPort, tls: null },
-      https: { host, port: httpsPort, tls },
-    }
+    // Misconfigured cert mode: keep serving HTTP so the dashboard can fix Settings.
   }
-
-  if (config.api.tls !== 'none') {
-    throw new Error(
-      `api.tls "${config.api.tls}" is not supported in acmedns-nuxt (use "none" or "cert")`,
+  else if (config.api.tls !== 'none') {
+    console.warn(
+      `[acmedns] api.tls "${config.api.tls}" is not supported (use "none" or "cert") — HTTP only`,
     )
   }
 
-  const httpPort = parsePort(envPort, config.api.port || '80')
+  // When tls=cert failed (no PEMs), keep HTTP on 80 — api.port is meant for HTTPS.
+  const httpFallback = config.api.tls === 'cert' ? '80' : (config.api.port || '80')
+  const httpPort = parsePort(envPort, httpFallback)
   return {
     http: { host, port: httpPort, tls: null },
     https: null,
