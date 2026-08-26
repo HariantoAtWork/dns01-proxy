@@ -103,6 +103,8 @@ function configToViews(config: AcmeDnsConfig) {
     port: String(config.api.port),
     disable_registration: config.api.disable_registration,
     tls: config.api.tls,
+    tls_cert_fullchain: config.api.tls_cert_fullchain || '',
+    tls_cert_privkey: config.api.tls_cert_privkey || '',
     corsorigins: config.api.corsorigins.join('\n'),
     use_header: config.api.use_header,
     header_name: config.api.header_name,
@@ -184,7 +186,20 @@ function applyApi(config: AcmeDnsConfig, patch: Partial<ConfigApiView>) {
     config.api.disable_registration = Boolean(patch.disable_registration)
   }
   if (patch.tls !== undefined) {
-    config.api.tls = String(patch.tls).trim() || config.api.tls
+    const tls = String(patch.tls).trim() || config.api.tls
+    if (tls !== 'none' && tls !== 'cert') {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'api.tls must be "none" or "cert" (letsencrypt modes are not supported here)',
+      })
+    }
+    config.api.tls = tls
+  }
+  if (patch.tls_cert_fullchain !== undefined) {
+    config.api.tls_cert_fullchain = String(patch.tls_cert_fullchain).trim()
+  }
+  if (patch.tls_cert_privkey !== undefined) {
+    config.api.tls_cert_privkey = String(patch.tls_cert_privkey).trim()
   }
   if (patch.corsorigins !== undefined) {
     config.api.corsorigins = parseCorsText(String(patch.corsorigins))
@@ -194,6 +209,17 @@ function applyApi(config: AcmeDnsConfig, patch: Partial<ConfigApiView>) {
   }
   if (patch.header_name !== undefined) {
     config.api.header_name = String(patch.header_name).trim() || config.api.header_name
+  }
+
+  if (config.api.tls === 'cert') {
+    const fullchain = (config.api.tls_cert_fullchain || '').trim()
+    const privkey = (config.api.tls_cert_privkey || '').trim()
+    if (!fullchain || !privkey) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'tls = "cert" requires tls_cert_fullchain and tls_cert_privkey (container paths)',
+      })
+    }
   }
 }
 

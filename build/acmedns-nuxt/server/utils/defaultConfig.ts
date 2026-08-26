@@ -20,6 +20,8 @@ ip = "0.0.0.0"
 disable_registration = false
 port = "80"
 tls = "none"
+# tls_cert_fullchain = "/etc/letsencrypt/live/auth.example.org/fullchain.pem"
+# tls_cert_privkey = "/etc/letsencrypt/live/auth.example.org/privkey.pem"
 corsorigins = [
     "*"
 ]
