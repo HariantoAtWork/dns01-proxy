@@ -1,5 +1,6 @@
 export default defineEventHandler(async () => {
   try {
+    seedDataRootSync()
     await ensureStorageExists()
   }
   catch (error) {

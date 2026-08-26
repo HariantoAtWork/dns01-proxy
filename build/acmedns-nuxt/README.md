@@ -32,7 +32,9 @@ bun install
 bun run dev
 ```
 
-Uses `.data/{server,client,backup,letsencrypt}` (`ACMEDNS_DATA_ROOT=.data`). UI + API on `http://127.0.0.1:3000`. DNS defaults to `127.0.0.1:15353` via `.data/server/config.cfg` (seeded from `seed/config.dev.cfg`).
+Uses `.data/{server,client,backup,letsencrypt}` (`ACMEDNS_DATA_ROOT=.data`). First start copies templates from [`seed/`](./seed) (see `seed/README.md`). UI + API on `http://127.0.0.1:3000`. DNS defaults to `127.0.0.1:15353` via `.data/server/config.cfg` (from `seed/server/config.dev.cfg`).
+
+Edit files under `seed/` to change defaults for **new** installs; live files under `.data/` / `/var/lib/acmedns-stack` are never overwritten.
 
 Production Docker reads `[api]` from `config.cfg`:
 
