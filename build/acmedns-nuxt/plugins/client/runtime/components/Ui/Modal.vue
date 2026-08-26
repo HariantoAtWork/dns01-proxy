@@ -17,7 +17,8 @@ const open = defineModel<boolean>('open', { required: true })
 const dialog = useTemplateRef<HTMLDialogElement>('dialog')
 const titleId = useId()
 
-watch(open, (value) => {
+watch(open, async (value) => {
+  await nextTick()
   const el = dialog.value
   if (!el) {
     return
@@ -30,8 +31,20 @@ watch(open, (value) => {
   }
 })
 
-function onClose() {
+function onCancel() {
   open.value = false
+}
+
+function onClose() {
+  // Nested dialog teardown can close this element while v-model still says open.
+  if (open.value) {
+    nextTick(() => {
+      if (open.value && dialog.value && !dialog.value.open) {
+        dialog.value.showModal()
+      }
+    })
+    return
+  }
 }
 
 function onBackdropClick(event: MouseEvent) {
@@ -58,6 +71,7 @@ function onBackdropClick(event: MouseEvent) {
     :class="widthClass"
     style="border-radius: var(--radius-panel)"
     :aria-labelledby="titleId"
+    @cancel="onCancel"
     @close="onClose"
     @click="onBackdropClick"
   >
