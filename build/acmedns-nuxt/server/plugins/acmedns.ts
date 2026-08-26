@@ -1,6 +1,7 @@
 import { closeAcmeDb, initAcmeDb } from '../utils/db'
 import { loadAcmeConfig } from '../utils/config'
 import { createDnsServer } from '../dns/server'
+import { ensureSharedModeGlueRecords } from '../utils/glueRecords'
 import { ensureSharedModeAccount, isSharedMode } from '../utils/sharedMode'
 
 export default defineNitroPlugin(async (nitroApp) => {
@@ -9,6 +10,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     await initAcmeDb(config)
 
     if (isSharedMode(config)) {
+      await ensureSharedModeGlueRecords(config)
       const shared = ensureSharedModeAccount(config)
       console.info(
         `[acmedns] shared mode enabled — CNAME apex target ${config.general.domain}`
