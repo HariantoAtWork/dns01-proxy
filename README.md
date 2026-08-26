@@ -56,6 +56,10 @@ Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt se
 
 `domains.txt` expands nested wildcards (implied parent wildcards). Line order does not matter — shortest apex is the cert-name. Register the line apex in the UI; the issuer walks parent keys in `clientstorage.json`.
 
+### Tiny stack (no Register)
+
+For a slim setup — one CNAME per apex to your auth zone, no UUID accounts — see [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). Minimal env: `ACMEDNS_TINY_DOMAIN` + `LETSENCRYPT_EMAIL`. **`ACMEDNS_SHARED_KEY` is optional** (internal `/update` password; auto-generated for the all-in-one UI).
+
 ## Ports
 
 | Container | Host | Notes |
@@ -125,6 +129,10 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 | Variable | Example | |
 | --- | --- | --- |
 | `ACMEDNS_URL` | `https://auth.example.org` | Public identity for register/update. Loopback or a host matching `config.cfg` `domain` still runs in-process. |
+| `ACMEDNS_TINY_DOMAIN` | `auth.uti.email` | **Tiny only.** Auth zone; enables shared mode. See [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). |
+| `ACMEDNS_SHARED_KEY` | _(omit)_ | **Tiny advanced.** Internal `/update` API password — not DNS. Auto-generated if unset. |
+| `ACMEDNS_PUBLIC_IP` | _(auto)_ | **Tiny.** Glue A record for auth zone. |
+| `ACMEDNS_PUBLIC_IPV6` | _(auto)_ | **Tiny.** Glue AAAA when IPv6 is available. |
 | `LETSENCRYPT_EMAIL` | `admin@example.com` | ACME account contact. |
 | `RENEW_INTERVAL` | `12` | Hours between production renew checks. |
 | `CERTS_ACME_DISABLED` | `false` | Set `true` to disable production issue/renew (staging Apply still works). Overridable in Settings → `client/app-settings.json`. |

@@ -1,4 +1,5 @@
 - [Home](Home)
+- [Tiny stack (shared mode)](Tiny-stack)
 - [Working Synology setup](Working-Synology-setup)
 - [Test this stack on the Synology](Test-on-Synology)
 - [Public DNS and port 53](Public-DNS-and-port-53)
