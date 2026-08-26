@@ -1,7 +1,9 @@
 import { useClipboard } from '@vueuse/core'
 
 export function useClipboardCopy() {
-  const { copy, copied, isSupported } = useClipboard()
+  // legacy: true falls back to execCommand when Clipboard API is missing
+  // (non-secure HTTP origins, older browsers).
+  const { copy, copied, isSupported } = useClipboard({ legacy: true })
   const toasts = useToasts()
 
   async function copyText(value: string, label = 'Value') {
@@ -15,8 +17,13 @@ export function useClipboardCopy() {
       return
     }
 
-    await copy(value)
-    toasts.info(`${label} copied`)
+    try {
+      await copy(value)
+      toasts.info(`${label} copied`)
+    }
+    catch {
+      toasts.error('Could not copy to clipboard')
+    }
   }
 
   return { copyText, copied }
