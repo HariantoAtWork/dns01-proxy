@@ -1,0 +1,5 @@
+# domains.txt — one certificate per line (apex + SANs).
+# Lines starting with # or ; are comments.
+# Example:
+# example.com *.example.com
+# nested.example.com *.nested.example.com

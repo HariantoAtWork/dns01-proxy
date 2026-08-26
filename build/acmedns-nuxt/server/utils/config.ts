@@ -1,15 +1,13 @@
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
-  statSync,
-  writeFileSync,
 } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { parse } from 'smol-toml'
 import type { AcmeDnsConfig, ParsedListen } from './types'
 import { DEFAULT_ACME_DNS_CONFIG_TEXT } from './defaultConfig'
-import { findPackageRoot, getServerConfigPath } from './paths'
+import { findPackageRoot } from './paths'
+import { ensureServerConfigSeeded, seedDataRootSync } from './seedData'
 
 const DEFAULTS: AcmeDnsConfig = {
   general: {
@@ -133,16 +131,6 @@ function prepareConfig(raw: Record<string, unknown>): AcmeDnsConfig {
   }
 }
 
-function resolvePath(path: string, root = findPackageRoot()) {
-  if (!path) {
-    return path
-  }
-  if (path.startsWith('/')) {
-    return path
-  }
-  return resolve(root, path)
-}
-
 function tryRuntimeDefaultConfig(): string | undefined {
   try {
     const value = useRuntimeConfig().acmeDnsDefaultConfig
@@ -153,54 +141,18 @@ function tryRuntimeDefaultConfig(): string | undefined {
   }
 }
 
-function pathHasContent(path: string) {
-  try {
-    const st = statSync(path)
-    return st.isFile() && st.size > 0
-  }
-  catch {
-    return false
-  }
-}
-
-function seedLiveConfig(target: string, root: string, runtimeDefault?: string) {
-  if (pathHasContent(target)) {
-    return
-  }
-
-  const candidates = [
-    runtimeDefault,
-    resolve(root, 'seed/config.cfg'),
-  ].filter((value): value is string => Boolean(value))
-
-  let body = DEFAULT_ACME_DNS_CONFIG_TEXT
-  let source = 'embedded default'
-  for (const candidate of candidates) {
-    const src = resolvePath(candidate, root)
-    if (src === target || !pathHasContent(src)) {
-      continue
-    }
-    body = readFileSync(src, 'utf8')
-    source = src
-    break
-  }
-
-  mkdirSync(dirname(target), { recursive: true })
-  writeFileSync(target, body.endsWith('\n') ? body : `${body}\n`, 'utf8')
-  console.info(`[acmedns] seeded ${target} from ${source}`)
-}
-
 export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
   if (cached) {
     return cached
   }
 
   const root = findPackageRoot()
-  const resolved = configPath
-    ? resolvePath(configPath, root)
-    : getServerConfigPath()
-
-  seedLiveConfig(resolved, root, tryRuntimeDefaultConfig())
+  seedDataRootSync()
+  const resolved = ensureServerConfigSeeded(
+    tryRuntimeDefaultConfig(),
+    DEFAULT_ACME_DNS_CONFIG_TEXT,
+    configPath,
+  )
 
   if (!existsSync(resolved)) {
     throw new Error(`Configuration file not found: ${resolved} (root ${root})`)

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 export function findPackageRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url))
   for (const dir of [process.cwd(), resolve(here, '../..'), resolve(here, '../../..')]) {
-    if (existsSync(resolve(dir, 'nuxt.config.ts')) || existsSync(resolve(dir, 'seed/config.cfg'))) {
+    if (existsSync(resolve(dir, 'nuxt.config.ts')) || existsSync(resolve(dir, 'seed/server/config.cfg'))) {
       return dir
     }
   }
