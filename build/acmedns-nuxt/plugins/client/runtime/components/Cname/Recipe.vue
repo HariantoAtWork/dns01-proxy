@@ -33,7 +33,7 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
             <h2 class="text-base font-semibold tracking-tight">CNAME to publish</h2>
             <p class="mt-1 text-sm text-muted">Full DNS Name and Content for the apex challenge.</p>
           </div>
-          <UiButton variant="ghost" @click="copyText(zoneLine, 'Apex zone line')">
+          <UiButton variant="ghost" @click="copyText(zoneLine, 'Apex zone line', $event)">
             <Copy :size="16" weight="regular" />
             Copy zone line
           </UiButton>
@@ -74,7 +74,7 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
               Apex challenge goes to this UUID. Nested names open in the drawer below.
             </p>
           </div>
-          <UiButton @click="copyText(zoneLine, 'Apex zone line')">
+          <UiButton @click="copyText(zoneLine, 'Apex zone line', $event)">
             <Copy :size="16" weight="regular" />
             Copy apex line
           </UiButton>

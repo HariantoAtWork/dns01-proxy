@@ -60,7 +60,7 @@ const inputPadClass = computed(() => (secret ? 'pr-16' : 'pr-10'))
           type="button"
           class="inline-flex h-8 w-8 items-center justify-center rounded-[4px] text-muted hover:bg-panel hover:text-ink"
           :aria-label="`Copy ${label}`"
-          @click="copyText(value, label)"
+          @click="copyText(value, label, $event)"
         >
           <Copy :size="16" weight="regular" aria-hidden="true" />
         </button>

@@ -21,7 +21,7 @@ const zoneLine = computed(() => `${record.name}. IN CNAME ${record.target}.`)
       <button
         type="button"
         class="inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-xs text-muted hover:bg-panel hover:text-ink"
-        @click="copyText(zoneLine, 'Zone line')"
+        @click="copyText(zoneLine, 'Zone line', $event)"
       >
         <Copy :size="14" weight="regular" />
         Copy
