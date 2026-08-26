@@ -488,7 +488,7 @@ async function createQueuedJob(options: {
   if (!isAcmeEnabled()) {
     throw createError({
       statusCode: 503,
-      statusMessage: 'Certificate ACME is disabled (CERTS_ACME_ENABLED=false).',
+      statusMessage: 'Certificate ACME is disabled (CERTS_ACME_DISABLED=true).',
     })
   }
 

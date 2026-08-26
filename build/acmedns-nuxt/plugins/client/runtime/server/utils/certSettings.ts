@@ -37,10 +37,10 @@ export async function writeCertSettings(settings: CertSettings) {
 
 export function isAcmeEnabled() {
   const config = useRuntimeConfig()
-  const raw = process.env.CERTS_ACME_ENABLED
-    ?? process.env.NUXT_CERTS_ACME_ENABLED
-    ?? String(config.certsAcmeEnabled ?? 'true')
-  return !['0', 'false', 'no', 'off'].includes(raw.toLowerCase())
+  const raw = process.env.CERTS_ACME_DISABLED
+    ?? process.env.NUXT_CERTS_ACME_DISABLED
+    ?? String(config.certsAcmeDisabled ?? 'false')
+  return !['1', 'true', 'yes', 'on'].includes(raw.toLowerCase())
 }
 
 export function getLetsEncryptEmail() {

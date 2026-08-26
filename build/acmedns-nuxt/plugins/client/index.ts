@@ -18,7 +18,7 @@ export interface AcmednsClientModuleOptions {
   administratorPassword: string
   letsencryptEmail: string
   renewInterval: number
-  certsAcmeEnabled: boolean
+  certsAcmeDisabled: boolean
   defaultAcmednsUrl: string
   restrictMode: boolean
 }
@@ -81,7 +81,7 @@ export default defineNuxtModule<AcmednsClientModuleOptions>({
     administratorPassword: '',
     letsencryptEmail: 'admin@example.com',
     renewInterval: 12,
-    certsAcmeEnabled: true,
+    certsAcmeDisabled: false,
     defaultAcmednsUrl: 'http://127.0.0.1',
     restrictMode: false,
   },
@@ -156,7 +156,7 @@ export default defineNuxtModule<AcmednsClientModuleOptions>({
     runtimeConfig.administratorPassword = options.administratorPassword
     runtimeConfig.letsencryptEmail = options.letsencryptEmail
     runtimeConfig.renewInterval = options.renewInterval
-    runtimeConfig.certsAcmeEnabled = options.certsAcmeEnabled
+    runtimeConfig.certsAcmeDisabled = options.certsAcmeDisabled
     publicConfig.defaultAcmednsUrl = options.defaultAcmednsUrl
     publicConfig.restrictMode = options.restrictMode
     runtimeConfig.public = publicConfig
