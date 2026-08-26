@@ -4,7 +4,9 @@ import type {
   CertJobQueueSnapshot,
   CertJobStatus,
   CertRateLimit,
+  DomainsDnsCheck,
   LetsEncryptDirectoryMode,
+  ParsedDomainsLine,
 } from '#shared/types/certs'
 import { readDomainsFile } from './domainsFile'
 import { issueCertificate } from './acmeIssue'
@@ -16,6 +18,7 @@ import { buildCertStatus, needsRenewal, readCertMeta } from './certStatus'
 import { clearRateLimitAfterSuccess } from './acmeLogger'
 import { getCertRateLimits, rateLimitForCert } from './certRateLimit'
 import { enrichLetsEncryptDnsError } from './enrichLeDnsError'
+import { checkDomainsDns } from './domainsDnsCheck'
 
 const QUIET_MESSAGES = new Set([
   'Not due for renewal',
@@ -26,6 +29,43 @@ const QUIET_MESSAGES = new Set([
 function rateLimitSkipMessage(limit: CertRateLimit) {
   const when = new Date(limit.until).toLocaleString()
   return `Skipped — Let's Encrypt rate limited until ${when}`
+}
+
+function formatDnsPreflightFailure(checks: DomainsDnsCheck[]): string {
+  const bad = checks.filter(check => check.status !== 'ok')
+  if (!bad.length) {
+    return 'DNS preflight failed'
+  }
+  const parts = bad.map((check) => {
+    if (check.status === 'no_account') {
+      return check.message || `no acme-dns account for ${check.zone}`
+    }
+    if (check.status === 'mismatch') {
+      const found = check.actual ? ` found ${check.actual}` : ''
+      return `${check.name} mismatch (expected ${check.expected}${found})`
+    }
+    if (check.status === 'missing') {
+      return `${check.name} missing (expected ${check.expected})`
+    }
+    if (check.message) {
+      return `${check.name} ${check.status}: ${check.message}`
+    }
+    return `${check.name} ${check.status}`
+  })
+  return `DNS preflight failed: ${parts.join('; ')}`
+}
+
+async function dnsPreflightForLine(line: ParsedDomainsLine): Promise<{
+  ok: boolean
+  message: string
+  checks: DomainsDnsCheck[]
+}> {
+  const checks = await checkDomainsDns([line])
+  const failed = checks.filter(check => check.status !== 'ok')
+  if (!failed.length) {
+    return { ok: true, message: '', checks }
+  }
+  return { ok: false, message: formatDnsPreflightFailure(checks), checks }
 }
 
 /** Per-certificate ACME wall clock (production dns-01 can exceed proxy timeouts). */
@@ -260,6 +300,32 @@ async function executeApplyCertificates(options: {
         level: 'warn',
         certName: line.certName,
         message: `Force Apply — retrying despite rate limit until ${activeLimit.until}`,
+      })
+    }
+
+    const preflight = await dnsPreflightForLine(line)
+    if (!preflight.ok && !options.force) {
+      const result: CertApplyResult = {
+        certName: line.certName,
+        ok: false,
+        message: preflight.message,
+        notAfter: meta?.notAfter,
+      }
+      results.push(result)
+      appendCertActivity({
+        source: options.source,
+        level: 'warn',
+        certName: line.certName,
+        message: result.message,
+      })
+      continue
+    }
+    if (!preflight.ok && options.force) {
+      appendCertActivity({
+        source: options.source,
+        level: 'warn',
+        certName: line.certName,
+        message: `Force Apply — bypassing DNS preflight (${preflight.message})`,
       })
     }
 

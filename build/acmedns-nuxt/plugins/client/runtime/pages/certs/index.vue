@@ -456,6 +456,7 @@ function rateLimitLabel(limit: CertRateLimit) {
         <p class="mt-1 text-sm text-muted">
           Edit <span class="font-mono text-ink">domains.txt</span>, save to validate, then Apply to issue.
           Production writes <span class="font-mono">live/</span>; Staging writes <span class="font-mono">staging/</span> only.
+          Apply checks challenge CNAMEs first and skips Let's Encrypt when DNS is not ready; Force re-issue bypasses that preflight.
         </p>
         <p v-if="loaded" class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
           <span
