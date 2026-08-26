@@ -24,8 +24,8 @@ services:
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
       - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
       - CERTS_ACME_DISABLED=${CERTS_ACME_DISABLED:-false}
-      # ── Frontend ────────────────────────────────────────────────────────────────
-      - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-http://127.0.0.1}
+      # ── Frontend (Register form; inherits ACMEDNS_URL unless overridden) ────────
+      - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-${ACMEDNS_URL:-http://127.0.0.1}}
     # NET_BIND_SERVICE only needed when not running as root; omit cap_add if the process runs as root.
     cap_add:
       - NET_BIND_SERVICE

@@ -3,6 +3,15 @@ import tailwindcss from '@tailwindcss/vite'
 // `nuxt dev` runs Nitro under Node — do not use the Bun.serve entry there.
 const isNuxtDev = process.argv.includes('dev')
 
+// Prefer ACMEDNS_URL so a single .env key drives server + Register form.
+// Docker still needs NUXT_PUBLIC_DEFAULT_ACMEDNS_URL at runtime (see compose).
+const acmednsUrl = process.env.NUXT_ACMEDNS_URL
+  || process.env.ACMEDNS_URL
+  || 'http://127.0.0.1'
+const defaultAcmednsUrl = process.env.NUXT_PUBLIC_DEFAULT_ACMEDNS_URL
+  || process.env.ACMEDNS_URL
+  || 'http://127.0.0.1'
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
@@ -29,21 +38,21 @@ export default defineNuxtConfig({
     letsencryptDir: '.data/letsencrypt',
     /** Template copied when live server config is missing. */
     acmeDnsDefaultConfig: isNuxtDev ? 'seed/server/config.dev.cfg' : 'seed/server/config.cfg',
-    acmednsUrl: 'http://127.0.0.1',
+    acmednsUrl,
     administratorPassword: '',
     letsencryptEmail: 'admin@example.com',
     renewInterval: 12,
     certsAcmeDisabled: false,
     public: {
-      defaultAcmednsUrl: 'http://127.0.0.1',
+      defaultAcmednsUrl,
       restrictMode: false,
     },
   },
   acmednsClient: {
     dataRoot: '.data',
     letsencryptDir: '.data/letsencrypt',
-    acmednsUrl: 'http://127.0.0.1',
-    defaultAcmednsUrl: 'http://127.0.0.1',
+    acmednsUrl,
+    defaultAcmednsUrl,
   },
   app: {
     head: {
