@@ -34,37 +34,16 @@ const zoneLine = computed(() => `${record.name}. IN CNAME ${record.target}.`)
 
       <dt class="text-xs uppercase tracking-wide text-muted">Name</dt>
       <dd>
-        <button
-          type="button"
-          class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
-          :title="record.name"
-          @click="copyText(record.name, 'Name')"
-        >
-          {{ record.name }}
-        </button>
+        <UiCopyable :value="record.name" label="Name" />
         <p class="mt-0.5 font-sans text-xs text-muted">
           Full DNS name · Cloudflare Name in zone {{ zone }}:
-          <button
-            type="button"
-            class="cursor-copy font-mono text-ink hover:text-signal"
-            :title="record.cloudflareName"
-            @click="copyText(record.cloudflareName, 'Cloudflare Name')"
-          >
-            {{ record.cloudflareName }}
-          </button>
+          <UiCopyable inline :value="record.cloudflareName" label="Cloudflare Name" />
         </p>
       </dd>
 
       <dt class="text-xs uppercase tracking-wide text-muted">Content</dt>
       <dd>
-        <button
-          type="button"
-          class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
-          :title="record.target"
-          @click="copyText(record.target, 'Content')"
-        >
-          {{ record.target }}
-        </button>
+        <UiCopyable :value="record.target" label="Content" />
       </dd>
 
       <dt class="text-xs uppercase tracking-wide text-muted">Proxy</dt>

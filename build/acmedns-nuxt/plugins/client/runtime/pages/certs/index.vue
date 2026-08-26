@@ -15,7 +15,6 @@ import { useCertLiveStream } from '#client/composables/useCertLiveStream'
 useHead({ title: 'Certificates' })
 
 const toasts = useToasts()
-const { copyText } = useClipboardCopy()
 const {
   text,
   parsed,
@@ -185,17 +184,6 @@ function notifyDnsCheckResult(dnsChecks: DomainsDnsCheck[] | undefined) {
       'DNS',
     )
   }
-}
-
-function copyDnsRecordName(check: DomainsDnsCheck) {
-  void copyText(check.name, 'DNS record name')
-}
-
-function copyDnsRecordContent(check: DomainsDnsCheck) {
-  if (!check.expected) {
-    return
-  }
-  void copyText(check.expected, 'DNS content')
 }
 
 async function onDeleteJob(id: number) {
@@ -738,26 +726,21 @@ function rateLimitLabel(limit: CertRateLimit) {
                 >
                   {{ dnsCheckLabel(check.status) }}
                 </span>
-                <button
+                <UiCopyable
                   v-if="check.status === 'mismatch'"
-                  type="button"
-                  class="cursor-copy break-all text-ink hover:text-signal"
-                  :title="`Copy ${check.name}`"
-                  @click="copyDnsRecordName(check)"
-                >
-                  {{ check.name }}
-                </button>
+                  inline
+                  :value="check.name"
+                  label="DNS record name"
+                />
                 <span v-else class="break-all text-ink">{{ check.name }}</span>
                 <span class="text-muted"> → </span>
-                <button
+                <UiCopyable
                   v-if="check.expected && check.status === 'mismatch'"
-                  type="button"
-                  class="cursor-copy break-all text-muted hover:text-signal"
-                  :title="`Copy ${check.expected}`"
-                  @click="copyDnsRecordContent(check)"
-                >
-                  {{ check.expected }}
-                </button>
+                  inline
+                  muted
+                  :value="check.expected"
+                  label="DNS content"
+                />
                 <span v-else class="break-all text-muted">{{ check.expected || '—' }}</span>
                 <span v-if="check.actual && check.status === 'mismatch'" class="text-danger">
                   (found {{ check.actual }})

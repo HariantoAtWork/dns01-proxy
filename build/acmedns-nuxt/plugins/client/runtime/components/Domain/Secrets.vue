@@ -69,14 +69,7 @@ function mask(value: string) {
 
       <dt class="text-xs uppercase tracking-wide text-muted">Subdomain</dt>
       <dd class="flex min-w-0 items-center gap-1">
-        <button
-          type="button"
-          class="block min-w-0 flex-1 cursor-copy break-all text-left text-ink hover:text-signal"
-          :title="details.subdomain"
-          @click="copyText(details.subdomain, 'Subdomain')"
-        >
-          {{ details.subdomain }}
-        </button>
+        <UiCopyable class="min-w-0 flex-1" :value="details.subdomain" label="Subdomain" />
         <button
           type="button"
           class="inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-ink"
@@ -89,14 +82,7 @@ function mask(value: string) {
 
       <dt class="text-xs uppercase tracking-wide text-muted">Full domain</dt>
       <dd class="flex min-w-0 items-center gap-1">
-        <button
-          type="button"
-          class="block min-w-0 flex-1 cursor-copy break-all text-left text-ink hover:text-signal"
-          :title="details.fulldomain"
-          @click="copyText(details.fulldomain, 'Full domain')"
-        >
-          {{ details.fulldomain }}
-        </button>
+        <UiCopyable class="min-w-0 flex-1" :value="details.fulldomain" label="Full domain" />
         <button
           type="button"
           class="inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-ink"

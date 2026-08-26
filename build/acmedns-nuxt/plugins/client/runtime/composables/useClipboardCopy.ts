@@ -3,35 +3,59 @@ export function useClipboardCopy() {
   const copied = ref(false)
   let copiedTimer: ReturnType<typeof setTimeout> | undefined
 
+  function clipboardHost(): HTMLElement {
+    // Modal <dialog showModal()> traps focus. A temp field on document.body
+    // often cannot focus, so execCommand copies whatever was selected in the
+    // dialog (e.g. one UUID segment) instead of the JS string.
+    const active = document.activeElement
+    if (active instanceof Element) {
+      const fromActive = active.closest('dialog[open]')
+      if (fromActive instanceof HTMLElement) {
+        return fromActive
+      }
+    }
+    const open = document.querySelector('dialog[open]')
+    if (open instanceof HTMLElement) {
+      return open
+    }
+    return document.body
+  }
+
   function legacyWrite(text: string) {
+    document.getSelection()?.removeAllRanges()
+
     const el = document.createElement('textarea')
     el.value = text
     el.setAttribute('readonly', '')
-    el.style.position = 'fixed'
-    el.style.top = '0'
-    el.style.left = '-9999px'
-    el.style.opacity = '0'
-    document.body.appendChild(el)
-    el.focus()
+    el.setAttribute('aria-hidden', 'true')
+    el.tabIndex = -1
+    el.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;'
+
+    const host = clipboardHost()
+    host.appendChild(el)
+    el.focus({ preventScroll: true })
     el.select()
     el.setSelectionRange(0, text.length)
-    const ok = document.execCommand('copy')
-    document.body.removeChild(el)
-    if (!ok) {
-      throw new Error('execCommand copy failed')
+    try {
+      const ok = document.execCommand('copy')
+      if (!ok) {
+        throw new Error('execCommand copy failed')
+      }
+    }
+    finally {
+      host.removeChild(el)
     }
   }
 
   async function writeClipboard(text: string) {
-    // Always write the argument string — never read from selection or a
-    // cached VueUse source (that was pasting stale DNS names).
+    // Always write the argument string — never read from selection.
     if (import.meta.client && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(text)
         return
       }
       catch {
-        // Fall through to legacy (HTTP / permission denied).
+        // Fall through to legacy (HTTP / permission denied / modal focus).
       }
     }
     legacyWrite(text)

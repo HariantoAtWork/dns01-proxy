@@ -42,37 +42,16 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
         <dl class="mt-3 grid grid-cols-[5.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 font-mono text-sm">
           <dt class="text-xs uppercase tracking-wide text-muted">Name</dt>
           <dd>
-            <button
-              type="button"
-              class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
-              :title="apex.name"
-              @click="copyText(apex.name, 'Name')"
-            >
-              {{ apex.name }}
-            </button>
+            <UiCopyable :value="apex.name" label="Name" />
             <p class="mt-0.5 font-sans text-xs text-muted">
               Cloudflare Name in zone {{ domain }}:
-              <button
-                type="button"
-                class="cursor-copy font-mono text-ink hover:text-signal"
-                :title="apex.cloudflareName"
-                @click="copyText(apex.cloudflareName, 'Cloudflare Name')"
-              >
-                {{ apex.cloudflareName }}
-              </button>
+              <UiCopyable inline :value="apex.cloudflareName" label="Cloudflare Name" />
             </p>
           </dd>
 
           <dt class="text-xs uppercase tracking-wide text-muted">Content</dt>
           <dd>
-            <button
-              type="button"
-              class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
-              :title="apex.target"
-              @click="copyText(apex.target, 'Content')"
-            >
-              {{ apex.target }}
-            </button>
+            <UiCopyable :value="apex.target" label="Content" />
             <p class="mt-0.5 font-sans text-xs text-muted">DNS only</p>
           </dd>
         </dl>

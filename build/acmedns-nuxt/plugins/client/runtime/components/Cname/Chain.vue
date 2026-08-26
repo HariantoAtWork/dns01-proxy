@@ -6,8 +6,6 @@ const { apex, fulldomain, nested } = defineProps<{
   fulldomain: string
   nested: readonly string[]
 }>()
-
-const apexChallenge = computed(() => `${CHALLENGE_LABEL}.${apex}`)
 </script>
 
 <template>
@@ -36,7 +34,7 @@ const apexChallenge = computed(() => `${CHALLENGE_LABEL}.${apex}`)
           <span class="font-semibold text-signal">{{ CHALLENGE_LABEL }}</span>.{{ apex }}
         </span>
         <span class="text-muted" aria-hidden="true">→</span>
-        <span class="break-all text-ink">{{ fulldomain }}</span>
+        <UiCopyable :value="fulldomain" label="Full domain" />
       </li>
     </ol>
   </figure>
