@@ -6,12 +6,12 @@ import {
   PhArrowsClockwise as Refresh,
 } from '@phosphor-icons/vue'
 
-useHead({ title: 'Domains' })
-
-const route = useRoute()
-const router = useRouter()
 const { sharedMode } = useSharedMode()
 const { entries, status, error, refresh } = useClientStorage()
+
+useHead({
+  title: computed(() => (sharedMode.value ? 'DNS setup' : 'Domains')),
+})
 const {
   results: accountValidity,
   pending: verifyPending,

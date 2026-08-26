@@ -11,14 +11,20 @@ import {
 const open = defineModel<boolean>('open', { default: false })
 
 const route = useRoute()
+const { sharedMode } = useSharedMode()
 
-const links = [
+const links = computed(() => [
   { to: '/', label: 'Home', icon: House, exact: true },
-  { to: '/domains', label: 'Domains', icon: Globe, exact: true },
+  {
+    to: '/domains',
+    label: sharedMode.value ? 'DNS setup' : 'Domains',
+    icon: Globe,
+    exact: true,
+  },
   { to: '/certs', label: 'Certificates', icon: Certificate, exact: false },
   { to: '/settings', label: 'Settings', icon: Gear, exact: true },
   { to: '/help', label: 'Help', icon: Question, exact: false },
-] as const
+] as const)
 
 watch(() => route.fullPath, () => {
   open.value = false
@@ -37,7 +43,7 @@ onBeforeUnmount(() => {
   }
 })
 
-function isActive(link: (typeof links)[number]) {
+function isActive(link: { to: string, exact: boolean }) {
   return link.exact ? route.path === link.to : route.path.startsWith(link.to)
 }
 </script>
