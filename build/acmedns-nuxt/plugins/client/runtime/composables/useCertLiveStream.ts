@@ -10,6 +10,7 @@ import { useIntervalFn } from '@vueuse/core'
 
 export type CertLiveTransport = 'off' | 'connecting' | 'live' | 'polling' | 'paused'
 
+const RECONNECT_DELAY_MS = 1_000
 const RECONNECT_GRACE_MS = 15_000
 const POLL_FALLBACK_MS = 20_000
 
@@ -108,7 +109,7 @@ export function useCertLiveStream(options: {
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null
       connect()
-    }, 3000)
+    }, RECONNECT_DELAY_MS)
   }
 
   function schedulePollingFallback() {
