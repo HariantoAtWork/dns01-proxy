@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { PhCopy as Copy } from '@phosphor-icons/vue'
-import { CHALLENGE_LABEL } from '#client/utils/domain'
 import type { CnameExample } from '#client/utils/domain'
 
 const { record, zone } = defineProps<{
@@ -11,16 +10,6 @@ const { record, zone } = defineProps<{
 const { copyText } = useClipboardCopy()
 
 const zoneLine = computed(() => `${record.name}. IN CNAME ${record.target}.`)
-
-function splitName(value: string) {
-  if (value === CHALLENGE_LABEL || value.startsWith(`${CHALLENGE_LABEL}.`)) {
-    return { prefix: CHALLENGE_LABEL, rest: value.slice(CHALLENGE_LABEL.length) }
-  }
-  return { prefix: '', rest: value }
-}
-
-const fqdnParts = computed(() => splitName(record.name))
-const cfParts = computed(() => splitName(record.cloudflareName))
 </script>
 
 <template>
@@ -47,22 +36,32 @@ const cfParts = computed(() => splitName(record.cloudflareName))
       <dd>
         <button
           type="button"
-          class="block max-w-full cursor-copy truncate text-left hover:text-signal"
-          :title="record.cloudflareName"
-          @click="copyText(record.cloudflareName, 'Cloudflare Name')"
+          class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
+          :title="record.name"
+          @click="copyText(record.name, 'Name')"
         >
-          <span class="font-semibold text-signal">{{ cfParts.prefix }}</span><span>{{ cfParts.rest }}</span>
+          {{ record.name }}
         </button>
-        <p class="mt-0.5 font-sans text-xs text-muted">In zone {{ zone }} (Cloudflare Name)</p>
+        <p class="mt-0.5 font-sans text-xs text-muted">
+          Full DNS name · Cloudflare Name in zone {{ zone }}:
+          <button
+            type="button"
+            class="cursor-copy font-mono text-ink hover:text-signal"
+            :title="record.cloudflareName"
+            @click="copyText(record.cloudflareName, 'Cloudflare Name')"
+          >
+            {{ record.cloudflareName }}
+          </button>
+        </p>
       </dd>
 
       <dt class="text-xs uppercase tracking-wide text-muted">Content</dt>
       <dd>
         <button
           type="button"
-          class="block max-w-full cursor-copy truncate text-left hover:text-signal"
+          class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
           :title="record.target"
-          @click="copyText(record.target, 'CNAME content')"
+          @click="copyText(record.target, 'Content')"
         >
           {{ record.target }}
         </button>
@@ -71,13 +70,5 @@ const cfParts = computed(() => splitName(record.cloudflareName))
       <dt class="text-xs uppercase tracking-wide text-muted">Proxy</dt>
       <dd class="font-sans text-ink">DNS only</dd>
     </dl>
-
-    <p class="mt-3 break-all font-mono text-xs text-muted">
-      Publishes as
-      <span class="text-ink">
-        <span class="font-semibold text-signal">{{ fqdnParts.prefix }}</span>{{ fqdnParts.rest }}
-      </span>
-      CNAME {{ record.target }}
-    </p>
   </article>
 </template>

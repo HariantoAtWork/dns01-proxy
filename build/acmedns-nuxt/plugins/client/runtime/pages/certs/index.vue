@@ -191,6 +191,13 @@ function copyDnsRecordName(check: DomainsDnsCheck) {
   void copyText(check.name, 'DNS record name')
 }
 
+function copyDnsRecordContent(check: DomainsDnsCheck) {
+  if (!check.expected) {
+    return
+  }
+  void copyText(check.expected, 'DNS content')
+}
+
 async function onDeleteJob(id: number) {
   jobActionPending.value = true
   try {
@@ -734,14 +741,24 @@ function rateLimitLabel(limit: CertRateLimit) {
                 <button
                   v-if="check.status === 'mismatch'"
                   type="button"
-                  class="cursor-copy text-ink hover:text-signal"
+                  class="cursor-copy break-all text-ink hover:text-signal"
                   :title="`Copy ${check.name}`"
                   @click="copyDnsRecordName(check)"
                 >
                   {{ check.name }}
                 </button>
-                <span v-else class="text-ink">{{ check.name }}</span>
-                <span class="text-muted"> → {{ check.expected || '—' }}</span>
+                <span v-else class="break-all text-ink">{{ check.name }}</span>
+                <span class="text-muted"> → </span>
+                <button
+                  v-if="check.expected && check.status === 'mismatch'"
+                  type="button"
+                  class="cursor-copy break-all text-muted hover:text-signal"
+                  :title="`Copy ${check.expected}`"
+                  @click="copyDnsRecordContent(check)"
+                >
+                  {{ check.expected }}
+                </button>
+                <span v-else class="break-all text-muted">{{ check.expected || '—' }}</span>
                 <span v-if="check.actual && check.status === 'mismatch'" class="text-danger">
                   (found {{ check.actual }})
                 </span>

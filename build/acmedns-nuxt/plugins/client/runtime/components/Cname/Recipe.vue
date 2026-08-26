@@ -31,7 +31,7 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 class="text-base font-semibold tracking-tight">CNAME to publish</h2>
-            <p class="mt-1 text-sm text-muted">Cloudflare Name and Content for the apex challenge.</p>
+            <p class="mt-1 text-sm text-muted">Full DNS Name and Content for the apex challenge.</p>
           </div>
           <UiButton variant="ghost" @click="copyText(zoneLine, 'Apex zone line')">
             <Copy :size="16" weight="regular" />
@@ -44,20 +44,30 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
           <dd>
             <button
               type="button"
-              class="block max-w-full cursor-copy truncate text-left text-ink hover:text-signal"
-              :title="apex.cloudflareName"
-              @click="copyText(apex.cloudflareName, 'Name')"
+              class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
+              :title="apex.name"
+              @click="copyText(apex.name, 'Name')"
             >
-              {{ apex.cloudflareName }}
+              {{ apex.name }}
             </button>
-            <p class="mt-0.5 font-sans text-xs text-muted">In zone {{ domain }}</p>
+            <p class="mt-0.5 font-sans text-xs text-muted">
+              Cloudflare Name in zone {{ domain }}:
+              <button
+                type="button"
+                class="cursor-copy font-mono text-ink hover:text-signal"
+                :title="apex.cloudflareName"
+                @click="copyText(apex.cloudflareName, 'Cloudflare Name')"
+              >
+                {{ apex.cloudflareName }}
+              </button>
+            </p>
           </dd>
 
           <dt class="text-xs uppercase tracking-wide text-muted">Content</dt>
           <dd>
             <button
               type="button"
-              class="block max-w-full cursor-copy truncate text-left text-ink hover:text-signal"
+              class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
               :title="apex.target"
               @click="copyText(apex.target, 'Content')"
             >

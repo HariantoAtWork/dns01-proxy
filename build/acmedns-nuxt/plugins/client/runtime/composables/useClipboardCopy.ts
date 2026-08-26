@@ -7,7 +7,8 @@ export function useClipboardCopy() {
   const toasts = useToasts()
 
   async function copyText(value: string, label = 'Value') {
-    if (!value) {
+    const text = typeof value === 'string' ? value : String(value ?? '')
+    if (!text) {
       toasts.error('Nothing to copy')
       return
     }
@@ -18,7 +19,10 @@ export function useClipboardCopy() {
     }
 
     try {
-      await copy(value)
+      // Clear any partial text selection (e.g. only `_acme-challenge`) so
+      // legacy execCommand cannot prefer the visible selection over `text`.
+      document.getSelection()?.removeAllRanges()
+      await copy(text)
       toasts.info(`${label} copied`)
     }
     catch {

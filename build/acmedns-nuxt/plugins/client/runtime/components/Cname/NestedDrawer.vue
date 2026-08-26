@@ -77,22 +77,32 @@ const chainFulldomain = computed(() => {
           <div v-for="record in records" :key="record.host" class="min-w-0">
             <button
               type="button"
-              class="block max-w-full cursor-copy truncate text-left text-ink hover:text-signal"
-              :title="record.cloudflareName"
-              @click="copyText(record.cloudflareName, 'Name')"
+              class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
+              :title="record.name"
+              @click="copyText(record.name, 'Name')"
             >
-              {{ record.cloudflareName }}
+              {{ record.name }}
             </button>
-            <p class="mt-0.5 font-sans text-xs text-muted">*.{{ record.host }}</p>
+            <p class="mt-0.5 font-sans text-xs text-muted">
+              *.{{ record.host }} · Cloudflare:
+              <button
+                type="button"
+                class="cursor-copy font-mono text-ink hover:text-signal"
+                :title="record.cloudflareName"
+                @click="copyText(record.cloudflareName, 'Cloudflare Name')"
+              >
+                {{ record.cloudflareName }}
+              </button>
+            </p>
           </div>
-          <p class="font-sans text-xs text-muted">In zone {{ apex }}</p>
+          <p class="font-sans text-xs text-muted">Zone {{ apex }}</p>
         </dd>
 
         <dt class="text-xs uppercase tracking-wide text-muted">Content</dt>
         <dd>
           <button
             type="button"
-            class="block max-w-full cursor-copy truncate text-left text-ink hover:text-signal"
+            class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
             :title="content"
             @click="copyText(content, 'Content')"
           >
