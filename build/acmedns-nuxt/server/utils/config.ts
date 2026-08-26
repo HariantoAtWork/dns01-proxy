@@ -8,6 +8,7 @@ import type { AcmeDnsConfig, ParsedListen } from './types'
 import { DEFAULT_ACME_DNS_CONFIG_TEXT } from './defaultConfig'
 import { findPackageRoot } from './paths'
 import { ensureServerConfigSeeded, seedDataRootSync } from './seedData'
+import { tinyDomainFromEnv } from '../../plugins/client/runtime/shared/utils/tinyDomain'
 
 const DEFAULTS: AcmeDnsConfig = {
   general: {
@@ -180,6 +181,14 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
     cached.general.listen = `${host}:${Number.isFinite(port) ? port : parsed.port}`
   }
 
+  const tinyDomain = tinyDomainFromEnv()
+  if (tinyDomain) {
+    cached.general.domain = tinyDomain
+    cached.general.nsname = tinyDomain
+    cached.api.shared_mode = true
+    cached.api.disable_registration = true
+  }
+
   const sharedEnv = process.env.ACMEDNS_SHARED_MODE
   if (sharedEnv === 'true' || sharedEnv === '1') {
     cached.api.shared_mode = true
@@ -195,7 +204,8 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
 
   console.info(
     `[acmedns] config ${resolved} domain=${cached.general.domain} listen=${cached.general.listen}`
-    + (cached.api.shared_mode ? ' shared_mode=true' : ''),
+    + (cached.api.shared_mode ? ' shared_mode=true' : '')
+    + (tinyDomain ? ` tiny_domain=${tinyDomain}` : ''),
   )
   return cached
 }
