@@ -11,8 +11,8 @@ services:
     volumes:
       - ./data/acmedns-server/config:/etc/acme-dns  # acme-dns config.cfg, listen address, auth zone
       - ./data/acmedns-server/data:/var/lib/acme-dns  # SQLite DB for acme-dns accounts and TXT records
-      - acmedns-client:/app/config:rw  # clientstorage.json and cert UI settings
-      - acmedns-client-data:/app/data:rw  # Nuxt app data root and backups
+      - acmedns-nuxt-config:/app/config:rw  # clientstorage.json and cert UI settings
+      - acmedns-nuxt-data:/app/data:rw  # Nuxt app data root and backups
       - letsencrypt:/etc/letsencrypt  # certbot PEM output (live, staging, trash)
       - ./data/acmedns-letsencrypt:/config/host  # domains.txt edited on host or in Certs UI
     environment:
@@ -38,7 +38,7 @@ services:
 volumes:
   letsencrypt:
     name: letsencrypt
-  acmedns-client:
-    name: acmedns-client
-  acmedns-client-data:
-    name: acmedns-client-data
+  acmedns-nuxt-config:
+    name: acmedns-nuxt-config
+  acmedns-nuxt-data:
+    name: acmedns-nuxt-data
