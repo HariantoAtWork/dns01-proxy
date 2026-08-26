@@ -196,8 +196,11 @@ export function useCerts() {
     }
   }
 
-  async function apply(options?: { certNames?: string[], force?: boolean }) {
-    pending.value = true
+  async function apply(options?: { certNames?: string[], force?: boolean, trackPending?: boolean }) {
+    const trackPending = options?.trackPending !== false
+    if (trackPending) {
+      pending.value = true
+    }
     error.value = ''
     try {
       const data = await $fetch<{
@@ -224,7 +227,9 @@ export function useCerts() {
       throw caught
     }
     finally {
-      pending.value = false
+      if (trackPending) {
+        pending.value = false
+      }
     }
   }
 
