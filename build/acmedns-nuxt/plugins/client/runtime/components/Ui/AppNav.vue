@@ -54,7 +54,7 @@ async function signOut() {
           <List :size="16" weight="regular" aria-hidden="true" />
           <span>Menu</span>
         </button>
-        <NuxtLink to="/" class="min-w-0 text-ink no-underline md:hidden">
+        <NuxtLink to="/domains" class="min-w-0 text-ink no-underline md:hidden">
           <span class="text-sm font-semibold tracking-tight">ACME DNS</span>
         </NuxtLink>
         <span class="hidden text-sm text-muted md:inline">client storage</span>
