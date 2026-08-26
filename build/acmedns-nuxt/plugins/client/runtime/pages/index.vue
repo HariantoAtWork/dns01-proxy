@@ -29,6 +29,7 @@ const { data: domainsFile, status: domainsFileStatus } = useFetch<DomainsParseRe
 })
 
 const accountCount = computed(() => entries.value.length)
+const { sharedMode, cnameTarget } = useSharedMode()
 
 const serverBreakdown = computed(() => {
   const counts = new Map<string, number>()
@@ -110,7 +111,10 @@ async function refreshAll() {
         >
           <p class="text-xs uppercase tracking-wide text-muted">Accounts</p>
           <p class="mt-2 font-mono text-3xl font-semibold tabular-nums">{{ accountCount }}</p>
-          <p class="mt-1 text-sm text-muted">in clientstorage.json</p>
+          <p v-if="sharedMode" class="mt-1 text-sm text-muted">
+            Shared mode — CNAME to {{ cnameTarget || 'auth zone' }}
+          </p>
+          <p v-else class="mt-1 text-sm text-muted">in clientstorage.json</p>
         </NuxtLink>
 
         <NuxtLink
@@ -159,7 +163,12 @@ async function refreshAll() {
               Open domains
             </NuxtLink>
           </div>
-          <p v-if="!serverBreakdown.length" class="mt-3 text-sm text-muted">
+          <p v-if="sharedMode" class="mt-3 text-sm text-muted">
+            No per-domain accounts.
+            <NuxtLink to="/domains" class="text-ink underline-offset-2 hover:underline">DNS setup</NuxtLink>
+            shows CNAME rows from domains.txt.
+          </p>
+          <p v-else-if="!serverBreakdown.length" class="mt-3 text-sm text-muted">
             No accounts yet.
             <NuxtLink to="/register" class="text-ink underline-offset-2 hover:underline">Register</NuxtLink>
             to store credentials.

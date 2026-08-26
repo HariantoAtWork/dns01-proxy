@@ -16,6 +16,11 @@ export interface AcmeDnsConfig {
     ip: string
     port: string
     disable_registration: boolean
+    /** No per-domain UUID accounts — one shared /update key, CNAME to zone apex. */
+    shared_mode: boolean
+    shared_username: string
+    /** Plaintext shared API key (optional; env ACMEDNS_SHARED_KEY or auto-generated). */
+    shared_password: string
     tls: string
     tls_cert_privkey?: string
     tls_cert_fullchain?: string

@@ -1,5 +1,6 @@
 import { collectChallengeChecks } from '#shared/utils/challengeDns'
 import type { DomainsDnsCheck, ParsedDomainsLine } from '#shared/types/certs'
+import { getSharedModeContext } from '../../../../../server/utils/sharedMode'
 import { dnsQueryCnameAnyMatch } from './dnsQuery'
 import { readStorage } from './storage'
 
@@ -9,7 +10,8 @@ export async function checkDomainsDns(lines: ParsedDomainsLine[]): Promise<Domai
   }
 
   const storage = await readStorage()
-  const expected = collectChallengeChecks(lines, storage)
+  const shared = getSharedModeContext()
+  const expected = collectChallengeChecks(lines, storage, shared)
 
   const noAccount = expected.filter(check => check.status === 'no_account')
   const toQuery = expected.filter(check => check.status !== 'no_account')

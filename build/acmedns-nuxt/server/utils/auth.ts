@@ -1,13 +1,15 @@
 import { compareSync } from 'bcryptjs'
 import type { H3Event } from 'h3'
 import type { AcmeTxtAccount, AcmeTxtPost } from './types'
-import { getByUsername } from './db'
+import { ensureTXTSlotsForSubdomain, getByUsername } from './db'
 import { getAcmeConfig } from './config'
 import { acmeDnsError, isAcmeDnsError } from './errors'
+import { sharedModeUsername } from './sharedMode'
 import {
   getValidUsername,
   ipInCidrs,
   validKey,
+  validSubdomain,
 } from './validation'
 
 /** Dummy bcrypt hash to keep timing closer on unknown users (Go parity). */
@@ -82,6 +84,11 @@ function getUserFromRequest(event: H3Event): AcmeTxtAccount {
 }
 
 export function authenticateUpdate(event: H3Event, body: { subdomain?: string, txt?: string }): AcmeTxtPost & { account: AcmeTxtAccount } {
+  const config = getAcmeConfig()
+  if (config.api.shared_mode) {
+    return authenticateSharedUpdate(event, body)
+  }
+
   const user = getUserFromRequest(event)
 
   if (!updateAllowedFromIP(event, user)) {
@@ -101,5 +108,69 @@ export function authenticateUpdate(event: H3Event, body: { subdomain?: string, t
     subdomain,
     txt,
     account: user,
+  }
+}
+
+function authenticateSharedUpdate(
+  event: H3Event,
+  body: { subdomain?: string, txt?: string },
+): AcmeTxtPost & { account: AcmeTxtAccount } {
+  const config = getAcmeConfig()
+  const uname = getRequestHeader(event, 'X-Api-User') || ''
+  const passwd = getRequestHeader(event, 'X-Api-Key') || ''
+
+  let username: string
+  try {
+    username = getValidUsername(uname)
+  }
+  catch {
+    throw acmeDnsError(401, 'invalid_username')
+  }
+
+  if (username !== sharedModeUsername(config)) {
+    compareSync(passwd, DUMMY_HASH)
+    throw acmeDnsError(401, 'account_not_found')
+  }
+
+  if (!validKey(passwd)) {
+    throw acmeDnsError(401, 'invalid_api_key')
+  }
+
+  const dbuser = getByUsername(username)
+  if (!dbuser) {
+    compareSync(passwd, DUMMY_HASH)
+    throw acmeDnsError(401, 'account_not_found')
+  }
+
+  try {
+    if (!compareSync(passwd, dbuser.password)) {
+      throw acmeDnsError(401, 'forbidden')
+    }
+  }
+  catch (error) {
+    if (isAcmeDnsError(error)) {
+      throw error
+    }
+    throw acmeDnsError(401, 'forbidden')
+  }
+
+  if (!updateAllowedFromIP(event, dbuser)) {
+    console.error('[acmedns] shared update not allowed from IP')
+    throw acmeDnsError(401, 'ip_not_allowed')
+  }
+
+  const subdomain = typeof body.subdomain === 'string' ? body.subdomain : ''
+  const txt = typeof body.txt === 'string' ? body.txt : ''
+
+  if (!validSubdomain(subdomain)) {
+    throw acmeDnsError(400, 'bad_subdomain')
+  }
+
+  ensureTXTSlotsForSubdomain(subdomain)
+
+  return {
+    subdomain,
+    txt,
+    account: dbuser,
   }
 }

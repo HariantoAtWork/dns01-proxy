@@ -27,6 +27,9 @@ const DEFAULTS: AcmeDnsConfig = {
     ip: '0.0.0.0',
     port: '80',
     disable_registration: false,
+    shared_mode: false,
+    shared_username: '00000000-0000-4000-8000-000000000001',
+    shared_password: '',
     tls: 'none',
     corsorigins: ['*'],
     use_header: false,
@@ -114,6 +117,9 @@ function prepareConfig(raw: Record<string, unknown>): AcmeDnsConfig {
       ip: asString(api.ip, DEFAULTS.api.ip),
       port: asString(api.port, DEFAULTS.api.port),
       disable_registration: asBool(api.disable_registration, DEFAULTS.api.disable_registration),
+      shared_mode: asBool(api.shared_mode, DEFAULTS.api.shared_mode),
+      shared_username: asString(api.shared_username, DEFAULTS.api.shared_username),
+      shared_password: asString(api.shared_password, DEFAULTS.api.shared_password),
       tls: asString(api.tls, DEFAULTS.api.tls),
       tls_cert_privkey: asString(api.tls_cert_privkey, ''),
       tls_cert_fullchain: asString(api.tls_cert_fullchain, ''),
@@ -174,7 +180,23 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
     cached.general.listen = `${host}:${Number.isFinite(port) ? port : parsed.port}`
   }
 
-  console.info(`[acmedns] config ${resolved} domain=${cached.general.domain} listen=${cached.general.listen}`)
+  const sharedEnv = process.env.ACMEDNS_SHARED_MODE
+  if (sharedEnv === 'true' || sharedEnv === '1') {
+    cached.api.shared_mode = true
+    cached.api.disable_registration = true
+  }
+  const sharedKey = process.env.ACMEDNS_SHARED_KEY?.trim()
+  if (sharedKey) {
+    cached.api.shared_password = sharedKey
+  }
+  if (cached.api.shared_mode) {
+    cached.api.disable_registration = true
+  }
+
+  console.info(
+    `[acmedns] config ${resolved} domain=${cached.general.domain} listen=${cached.general.listen}`
+    + (cached.api.shared_mode ? ' shared_mode=true' : ''),
+  )
   return cached
 }
 

@@ -1,6 +1,7 @@
 import { compareSync } from 'bcryptjs'
 import type { AcmeDnsCredentials } from '#shared/types/clientstorage'
 import { fulldomainForAccount } from '#shared/utils/fulldomain'
+import { isSharedMode, sharedModeUsername } from '../../../../../server/utils/sharedMode'
 import { resolveAcmednsUrl } from './appSettings'
 
 function hostnameOf(base: string): string {
@@ -179,7 +180,7 @@ export async function updateAcmeDnsTxt(options: {
 }) {
   const base = resolveAcmeDnsBase(options.serverUrl)
 
-  if (useInProcessUpdate(base, options.username)) {
+  if (useInProcessUpdate(base, options.username) || isSharedMode()) {
     const user = getByUsername(options.username)
     if (!user) {
       throw createError({
@@ -195,7 +196,7 @@ export async function updateAcmeDnsTxt(options: {
         data: { error: 'forbidden' },
       })
     }
-    if (user.subdomain !== options.subdomain) {
+    if (!isSharedMode() && user.subdomain !== options.subdomain) {
       throw createError({
         statusCode: 401,
         statusMessage: 'acme-dns update failed: subdomain_mismatch',
@@ -298,21 +299,24 @@ export async function verifyAcmeDnsCredentials(
 ): Promise<AcmeDnsAccountVerifyResult> {
   const base = resolveAcmeDnsBase(details.server_url)
 
-  if (useInProcessUpdate(base, details.username) || isLocalAcmeDnsBase(base)) {
-    const user = getByUsername(details.username)
+  if (useInProcessUpdate(base, details.username) || isLocalAcmeDnsBase(base) || isSharedMode()) {
+    const expectedUser = isSharedMode() ? sharedModeUsername() : details.username
+    const user = getByUsername(expectedUser)
     if (!user) {
       return verifyResultFromCode('account_not_found')
     }
     if (!compareSync(details.password, user.password)) {
       return verifyResultFromCode('forbidden')
     }
-    if (user.subdomain !== details.subdomain) {
+    if (!isSharedMode() && user.subdomain !== details.subdomain) {
       return verifyResultFromCode('subdomain_mismatch')
     }
     return {
       ok: true,
       status: 'ok',
-      message: 'Credentials match the local acme-dns account',
+      message: isSharedMode()
+        ? 'Shared acme-dns credentials match the local server'
+        : 'Credentials match the local acme-dns account',
     }
   }
 

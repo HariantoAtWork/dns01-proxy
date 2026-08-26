@@ -97,4 +97,42 @@ describe('challengeDns', () => {
       message: 'No acme-dns account for example.com',
     }])
   })
+
+  test('shared mode targets auth zone apex', () => {
+    const shared = {
+      authZone: 'auth.uti.email',
+      serverUrl: 'https://auth.uti.email',
+      account: {
+        fulldomain: 'auth.uti.email',
+        subdomain: 'auth',
+        username: '00000000-0000-4000-8000-000000000001',
+        password: 'x'.repeat(40),
+        server_url: 'https://auth.uti.email',
+      },
+    }
+
+    expect(expectedChallengeTarget(
+      'mdstn.com',
+      'mdstn.com',
+      'mdstn.com',
+      shared.account.fulldomain,
+      shared.authZone,
+    )).toBe('auth.uti.email')
+
+    const checks = collectChallengeChecks([
+      {
+        line: 1,
+        names: ['mdstn.com'],
+        certName: 'mdstn.com',
+        expanded: ['mdstn.com'],
+        raw: 'mdstn.com',
+      },
+    ], {}, shared)
+
+    expect(checks).toHaveLength(1)
+    expect(checks[0]).toMatchObject({
+      expected: 'auth.uti.email',
+      status: 'pending',
+    })
+  })
 })
