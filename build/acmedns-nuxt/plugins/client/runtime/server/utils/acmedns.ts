@@ -1,6 +1,7 @@
 import { compareSync } from 'bcryptjs'
 import type { AcmeDnsCredentials } from '#shared/types/clientstorage'
 import { fulldomainForAccount } from '#shared/utils/fulldomain'
+import { resolveAcmednsUrl } from './appSettings'
 
 function hostnameOf(base: string): string {
   try {
@@ -29,12 +30,7 @@ function isLoopbackAcmeDnsHost(host: string): boolean {
 }
 
 function preferredPublicAcmeHost(): string {
-  const preferred = (
-    process.env.ACMEDNS_URL
-    || process.env.NUXT_ACMEDNS_URL
-    || ''
-  ).replace(/\/$/, '')
-  return hostnameOf(preferred)
+  return hostnameOf(resolveAcmednsUrl().value)
 }
 
 /** In-process API (loopback / compose name / this stack's auth zone). */
@@ -83,11 +79,7 @@ function identityServerUrl(resolvedBase: string): string {
     return cleaned
   }
 
-  const preferred = (
-    process.env.ACMEDNS_URL
-    || process.env.NUXT_ACMEDNS_URL
-    || ''
-  ).replace(/\/$/, '')
+  const preferred = resolveAcmednsUrl().value
   if (preferred && !isLoopbackAcmeDnsHost(hostnameOf(preferred))) {
     return preferred
   }
@@ -107,12 +99,7 @@ function identityServerUrl(resolvedBase: string): string {
 }
 
 export function resolveAcmeDnsBase(requestedUrl?: string) {
-  const config = useRuntimeConfig()
-  const fallback = process.env.ACMEDNS_URL
-    || process.env.NUXT_ACMEDNS_URL
-    || (config.acmednsUrl as string)
-    || defaultLocalAcmeDnsBase()
-
+  const fallback = resolveAcmednsUrl().value || defaultLocalAcmeDnsBase()
   return (requestedUrl || fallback).replace(/\/$/, '')
 }
 

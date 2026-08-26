@@ -6,11 +6,15 @@ const {
   invalid = false,
   autocomplete = 'current-password',
   name = 'password',
+  disabled = false,
+  placeholder,
 } = defineProps<{
   id?: string
   invalid?: boolean
   autocomplete?: string
   name?: string
+  disabled?: boolean
+  placeholder?: string
 }>()
 
 const model = defineModel<string>({ default: '' })
@@ -32,6 +36,8 @@ const inputId = computed(() => id || generatedId)
       :type="revealed ? 'text' : 'password'"
       :autocomplete
       :name
+      :disabled
+      :placeholder
       spellcheck="false"
       :aria-invalid="invalid || undefined"
     >

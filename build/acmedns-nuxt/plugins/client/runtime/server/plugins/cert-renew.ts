@@ -1,22 +1,16 @@
 export default defineNitroPlugin(() => {
-  if (!isAcmeEnabled()) {
-    appendCertActivity({
-      source: 'system',
-      level: 'info',
-      message: 'CERTS_ACME_DISABLED is set; production renew timer idle (staging Apply still allowed)',
-    })
-    return
-  }
-
-  const hours = getRenewIntervalHours()
-  const ms = hours * 60 * 60 * 1000
   appendCertActivity({
     source: 'system',
     level: 'info',
-    message: `Scheduling production renew every ${hours}h`,
+    message: isAcmeEnabled()
+      ? `Scheduling production renew (interval from settings, currently ${getRenewIntervalHours()}h)`
+      : 'CERTS_ACME_DISABLED is set; production renew timer idle (staging Apply still allowed)',
   })
 
   const tick = async () => {
+    if (!isAcmeEnabled()) {
+      return
+    }
     try {
       await applyCertificates({
         mode: 'production',
@@ -36,11 +30,15 @@ export default defineNitroPlugin(() => {
     }
   }
 
-  // First check shortly after boot, then on interval
-  setTimeout(() => {
-    void tick()
-    setInterval(() => {
-      void tick()
-    }, ms)
-  }, 15_000)
+  const scheduleNext = (delayMs: number) => {
+    setTimeout(() => {
+      void tick().finally(() => {
+        const hours = getRenewIntervalHours()
+        scheduleNext(Math.max(1, hours) * 60 * 60 * 1000)
+      })
+    }, delayMs)
+  }
+
+  // First check shortly after boot, then on settings-driven interval
+  scheduleNext(15_000)
 })

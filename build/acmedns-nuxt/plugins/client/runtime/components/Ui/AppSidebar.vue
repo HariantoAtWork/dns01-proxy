@@ -3,6 +3,7 @@ import {
   PhHouse as House,
   PhGlobe as Globe,
   PhCertificate as Certificate,
+  PhGear as Gear,
   PhQuestion as Question,
   PhX as Close,
 } from '@phosphor-icons/vue'
@@ -15,6 +16,7 @@ const links = [
   { to: '/', label: 'Home', icon: House, exact: true },
   { to: '/domains', label: 'Domains', icon: Globe, exact: true },
   { to: '/certs', label: 'Certificates', icon: Certificate, exact: false },
+  { to: '/settings', label: 'Settings', icon: Gear, exact: true },
   { to: '/help', label: 'Help', icon: Question, exact: false },
 ] as const
 

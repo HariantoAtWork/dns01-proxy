@@ -82,6 +82,10 @@ export function getCertSettingsPath(): string {
   return dataPath('client', 'cert-settings.json')
 }
 
+export function getAppSettingsPath(): string {
+  return dataPath('client', 'app-settings.json')
+}
+
 export function getDomainsFilePath(): string {
   return dataPath('client', 'domains.txt')
 }
