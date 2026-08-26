@@ -4,7 +4,7 @@ import {
   challengeHost,
   collectChallengeChecks,
   expectedChallengeTarget,
-} from '../shared/utils/challengeDns'
+} from '../runtime/shared/utils/challengeDns'
 
 const LOCAL = {
   username: 'u',
@@ -63,7 +63,7 @@ describe('challengeDns', () => {
         expanded: ['mdstn.com', '*.mdstn.com', '*.oib.mdstn.com'],
         raw: 'mdstn.com *.mdstn.com *.oib.mdstn.com',
       },
-    ], { 'mdstn.com': LOCAL }, 'https://auth.uti.email')
+    ], { 'mdstn.com': LOCAL })
 
     expect(checks).toHaveLength(2)
     expect(checks.find(c => c.zone === 'mdstn.com')).toMatchObject({
@@ -86,7 +86,7 @@ describe('challengeDns', () => {
         expanded: ['example.com'],
         raw: 'example.com',
       },
-    ], {}, '')
+    ], {})
 
     expect(checks).toEqual([{
       line: 2,
