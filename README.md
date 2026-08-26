@@ -97,7 +97,7 @@ Manual migrate from older layouts: move server config/DB into `/var/lib/acmedns-
 | `ACMEDNS_URL` | `https://auth.example.org` | Public identity for register/update. Loopback or a host matching `config.cfg` `domain` still runs in-process; that public URL is what gets stored. Compose also uses this as the Register form default unless `NUXT_PUBLIC_DEFAULT_ACMEDNS_URL` is set. |
 | `LETSENCRYPT_EMAIL` | `admin@example.com` | ACME account contact. |
 | `RENEW_INTERVAL` | `12` | Hours between production renew checks. |
-| `CERTS_ACME_ENABLED` | `true` | Set `false` to disable issue/renew (editor still works). |
+| `CERTS_ACME_DISABLED` | `false` | Set `true` to disable issue/renew (editor still works). |
 | `TZ` | `UTC` | Clock. |
 
 Set `ADMINISTRATOR_PASSWORD` to lock the UI behind username `admin`.

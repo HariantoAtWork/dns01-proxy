@@ -33,7 +33,7 @@ export default defineNuxtConfig({
     administratorPassword: '',
     letsencryptEmail: 'admin@example.com',
     renewInterval: 12,
-    certsAcmeEnabled: true,
+    certsAcmeDisabled: false,
     public: {
       defaultAcmednsUrl: 'http://127.0.0.1',
       restrictMode: false,
