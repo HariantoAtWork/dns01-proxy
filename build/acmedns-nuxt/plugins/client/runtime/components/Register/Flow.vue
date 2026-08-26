@@ -121,7 +121,7 @@ async function persist(shouldSave: boolean) {
     reset()
     emit('done', saved)
     if (!embedded) {
-      await router.push({ path: '/', query: { d: saved } })
+      await router.push({ path: '/domains', query: { d: saved } })
     }
   }
   catch (error) {

@@ -3,7 +3,7 @@ const route = useRoute()
 const domain = String(route.params.domain || '')
 
 await navigateTo(
-  { path: '/', query: domain ? { d: domain } : {} },
+  { path: '/domains', query: domain ? { d: domain } : {} },
   { replace: true },
 )
 </script>

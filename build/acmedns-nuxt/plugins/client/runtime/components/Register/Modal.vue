@@ -6,7 +6,7 @@ const dialogId = useId()
 function onDone(domain?: string) {
   hide()
   if (domain) {
-    void router.push({ path: '/', query: { d: domain } })
+    void router.push({ path: '/domains', query: { d: domain } })
   }
 }
 </script>

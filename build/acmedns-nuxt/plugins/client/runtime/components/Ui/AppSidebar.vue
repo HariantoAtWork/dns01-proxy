@@ -11,7 +11,7 @@ const open = defineModel<boolean>('open', { default: false })
 const route = useRoute()
 
 const links = [
-  { to: '/', label: 'Home', icon: House, exact: true },
+  { to: '/domains', label: 'Domains', icon: House, exact: true },
   { to: '/certs', label: 'Certificates', icon: Certificate, exact: false },
   { to: '/help', label: 'Help', icon: Question, exact: false },
 ] as const
@@ -45,7 +45,7 @@ function isActive(link: (typeof links)[number]) {
     aria-label="Primary"
   >
     <div class="flex h-16 items-center border-b border-rule px-4">
-      <NuxtLink to="/" class="min-w-0 text-ink no-underline">
+      <NuxtLink to="/domains" class="min-w-0 text-ink no-underline">
         <span class="text-base font-semibold tracking-tight">ACME DNS</span>
       </NuxtLink>
     </div>
