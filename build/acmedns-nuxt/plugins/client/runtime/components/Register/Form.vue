@@ -57,7 +57,7 @@ const serverError = computed(() => {
         v-model="server"
         mono
         :invalid="Boolean(serverError)"
-        placeholder="http://acmedns-server"
+        placeholder="http://127.0.0.1"
         autocomplete="off"
         spellcheck="false"
       />

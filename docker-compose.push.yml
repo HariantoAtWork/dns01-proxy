@@ -1,4 +1,4 @@
-# Overlay for Hub publishes. Merge after docker-compose.build.yml.
+# Overlay for Hub multi-arch publishes (self-contained; not merged with build.yml).
 # Multi-arch cannot be loaded into the local Docker engine, so local
 # `docker:build` stays on docker-compose.build.yml only.
 services:

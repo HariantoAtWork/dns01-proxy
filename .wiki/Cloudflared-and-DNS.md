@@ -20,6 +20,6 @@ A grey-cloud A `auth.uti.email â†’ 84.86.220.240` is the opposite of a tunnel: â
 
 ## In this compose
 
-The external `cloudflared` network is attached to `acmedns-server` and `acmedns-client` so the **UI and HTTP API** can have hostnames. Port 53 stays on the host.
+The external `cloudflared` network is attached to `acmedns-nuxt` so the **UI and HTTP API** can have hostnames. Port 53 stays on the host.
 
-Certbot can still `/update` through Docker DNS (`http://acmedns-server`) even when public 53 is wrong. The hook succeeds; the **outside** TXT check fails.
+In-process `/update` works even when public 53 is wrong for Let's Encrypt. The API path can succeed while the **outside** TXT check fails.
