@@ -1,4 +1,4 @@
-import { dirname, resolve } from 'node:path'
+import { dirname } from 'node:path'
 import { promises as fs } from 'node:fs'
 import {
   expandLine,
@@ -11,21 +11,9 @@ import type {
   ParsedDomainsLine,
 } from '#shared/types/certs'
 import { checkDomainsDns } from './domainsDnsCheck'
+import { getDomainsFilePath } from '../../../../../server/utils/paths'
 
 const COMMENT_LINE = /^\s*[#;]/
-
-export function getDomainsFilePath() {
-  const config = useRuntimeConfig()
-  const envPath = process.env.DOMAINS_FILE
-    || process.env.NUXT_DOMAINS_FILE
-    || config.domainsFile
-    || 'config/host/domains.txt'
-
-  if (envPath.startsWith('/')) {
-    return envPath
-  }
-  return resolve(process.cwd(), envPath)
-}
 
 export async function ensureDomainsFileExists() {
   const filePath = getDomainsFilePath()

@@ -140,7 +140,7 @@ async function confirmDelete() {
       <p class="max-w-[65ch] text-muted">
         Operator copies of <span class="font-mono text-ink">clientstorage.json</span>.
         Full dumps replace the live file. Domain dumps merge one hostname.
-        You can also download or upload the live <span class="font-mono text-ink">CLIENTSTORAGE_DATA</span> file.
+        You can also download or upload the live <span class="font-mono text-ink">clientstorage.json</span> file.
         Server copies sit under <span class="font-mono text-ink">acmedns-client/backups</span>
         inside the data root.
       </p>

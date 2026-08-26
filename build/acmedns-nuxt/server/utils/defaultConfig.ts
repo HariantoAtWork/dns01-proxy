@@ -1,2 +1,33 @@
-/** Embedded fallback if seed/config.cfg is missing. */
-export const DEFAULT_ACME_DNS_CONFIG_TEXT = "[general]\n# Copied to config/config.cfg on first `bun run dev` if that file is missing.\n# Code defaults (when a key is omitted) live in server/utils/config.ts DEFAULTS.\n\n# listen — optional; code default \"0.0.0.0:53\". Seed \"127.0.0.1:15353\" for local bun run dev.\n# Docker/production: typically \"0.0.0.0:53\" (or :53 with CAP_NET_BIND_SERVICE).\n# Note that systemd-resolved may reserve port 53 on 127.0.0.53.\n# Override host/port via ACME_DNS_LISTEN / DNS_LISTEN or ACME_DNS_PORT / DNS_PORT.\nlisten = \"127.0.0.1:15353\"\n# protocol — optional; code default \"both\".\n# Values: \"both\", \"both4\", \"both6\", \"udp\", \"udp4\", \"udp6\", \"tcp\", \"tcp4\", \"tcp6\".\nprotocol = \"both\"\n# domain — optional to parse (code default \"auth.example.org\"); set your real zone for production.\n# Seed uses *.test for local bun run dev.\ndomain = \"auth.example.test\"\n# nsname — optional to parse (code default \"auth.example.org\"); set to match your zone NS for production.\nnsname = \"auth.example.test\"\n# nsadmin — optional; code default \"admin.example.org\". SOA RNAME; @ becomes .\nnsadmin = \"admin.example.test\"\n# records — optional; code default [] (empty). For ACME DNS-01 include A + NS for the auth domain.\nrecords = [\n    # domain pointing to the public IP of your acme-dns server\n    # Replace 198.51.100.1 (TEST-NET-2 docs example) with your real public internet IP\n    # so Let's Encrypt can follow NS glue / A for auth.example.test (or your domain).\n    # Local listen may stay 127.0.0.1 — this A record must be public for ACME DNS-01.\n    \"auth.example.test. A 198.51.100.1\",\n    # specify that auth.example.test will resolve any *.auth.example.test records\n    \"auth.example.test. NS auth.example.test.\",\n]\n# debug — optional; code default false. Seed true for verbose local bun run dev.\ndebug = true\n\n[database]\n# engine — optional; code default \"sqlite\". Empty value throws. Only sqlite supported (sqlite3 accepted).\nengine = \"sqlite\"\n# connection — optional; code default \"/var/lib/acme-dns/acme-dns.db\". Empty value throws.\n# Seed \"./.data/acme-dns.db\" for local bun run dev (resolved relative to package root).\n# Relative paths are resolved from the package root; absolute paths are used as-is.\nconnection = \"./.data/acme-dns.db\"\n# connection = \"postgres://user:password@localhost/acmedns_db\"\n\n[api]\n# ip — optional; code default \"0.0.0.0\". Overridable by NITRO_HOST / HOST.\nip = \"0.0.0.0\"\n# disable_registration — optional; code default false.\ndisable_registration = false\n# port — optional; code default \"80\". Seed \"3000\" for local bun run dev / Nuxt.\n# With tls = \"none\": HTTP listen port (unless NITRO_PORT / PORT is set).\n# With tls = \"cert\": HTTPS listen port (HTTP stays on 80 or NITRO_PORT / PORT).\nport = \"3000\"\n# tls — optional; code default \"none\". Supported: \"none\", \"cert\" (letsencrypt* not supported here).\ntls = \"none\"\n# corsorigins — optional; code default [\"*\"].\ncorsorigins = [\n    \"*\"\n]\n# use_header — optional; code default false. When true, client IP comes from header_name.\nuse_header = false\n# header_name — optional; code default \"X-Forwarded-For\". Used only if use_header is true.\nheader_name = \"X-Forwarded-For\"\n\n[logconfig]\n# loglevel — optional; code default \"info\". Seed \"debug\" for local bun run dev.\n# Values: \"error\", \"warning\", \"info\", \"debug\".\nloglevel = \"debug\"\n# logtype — optional; code default \"stdout\". (file & integrations TODO)\nlogtype = \"stdout\"\n# logformat — optional; code default \"text\". Values: \"json\", \"text\".\nlogformat = \"text\"\n"
+/** Embedded fallback if seed/config.cfg is missing (production-oriented). */
+export const DEFAULT_ACME_DNS_CONFIG_TEXT = `[general]
+listen = "0.0.0.0:53"
+protocol = "both"
+domain = "auth.example.org"
+nsname = "auth.example.org"
+nsadmin = "admin.example.org"
+records = [
+    "auth.example.org. A 198.51.100.1",
+    "auth.example.org. NS auth.example.org.",
+]
+debug = false
+
+[database]
+engine = "sqlite"
+connection = "/var/lib/acmedns-stack/server/acme-dns.db"
+
+[api]
+ip = "0.0.0.0"
+disable_registration = false
+port = "80"
+tls = "none"
+corsorigins = [
+    "*"
+]
+use_header = false
+header_name = "X-Forwarded-For"
+
+[logconfig]
+loglevel = "info"
+logtype = "stdout"
+logformat = "text"
+`

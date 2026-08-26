@@ -1,19 +1,10 @@
-import { dirname, resolve } from 'node:path'
+import { dirname } from 'node:path'
 import { promises as fs } from 'node:fs'
 import type { ClientStorageMap } from '#shared/types/clientstorage'
+import { getClientstoragePath } from '../../../../../server/utils/paths'
 
 export function getStoragePath() {
-  const config = useRuntimeConfig()
-  const envPath = process.env.CLIENTSTORAGE_DATA
-    || process.env.NUXT_CLIENTSTORAGE_DATA
-    || config.clientstorageData
-    || 'config/clientstorage.json'
-
-  if (envPath.startsWith('/')) {
-    return envPath
-  }
-
-  return resolve(process.cwd(), envPath)
+  return getClientstoragePath()
 }
 
 export async function ensureStorageExists() {

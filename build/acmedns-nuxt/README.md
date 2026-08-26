@@ -29,10 +29,10 @@ modules: ['./plugins/client']
 
 ```bash
 bun install
-ACME_DNS_CONFIG=./config/config.cfg bun run dev
+bun run dev
 ```
 
-UI + API on `http://127.0.0.1:3000` in dev (`bun run dev`). DNS defaults to `127.0.0.1:15353` via `config/config.cfg`.
+Uses `.data/{server,client,backup,letsencrypt}` (`ACMEDNS_DATA_ROOT=.data`). UI + API on `http://127.0.0.1:3000`. DNS defaults to `127.0.0.1:15353` via `.data/server/config.cfg` (seeded from `seed/config.dev.cfg`).
 
 Production Docker reads `[api]` from `config.cfg`:
 
@@ -49,10 +49,14 @@ Local ACME register/update from the UI plugin calls host utils **in-process** (n
 
 ## Docker
 
-Image always listens on **80** (HTTP). With `api.tls = "cert"` it also listens on **443** (HTTPS), plus **53** TCP/UDP (DNS). Mount:
+Image always listens on **80** (HTTP). With `api.tls = "cert"` it also listens on **443** (HTTPS), plus **53** TCP/UDP (DNS).
 
-- `/etc/acme-dns` → `config.cfg`
-- `/var/lib/acme-dns` → SQLite DB
-- `/app/config` → clientstorage
-- `/etc/letsencrypt` → PEMs
-- `/config/host` → `domains.txt`
+Path ENV (only these for storage):
+
+- `ACMEDNS_DATA_ROOT=/var/lib/acmedns-stack` → `server/`, `client/`, `backup/`
+- `ACMEDNS_LETSENCRYPT_DIR=/etc/letsencrypt`
+
+Mount:
+
+- `/var/lib/acmedns-stack` → stack data
+- `./data/letsencrypt` or named `letsencrypt` → `/etc/letsencrypt`

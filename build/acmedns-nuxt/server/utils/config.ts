@@ -6,10 +6,10 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { parse } from 'smol-toml'
 import type { AcmeDnsConfig, ParsedListen } from './types'
 import { DEFAULT_ACME_DNS_CONFIG_TEXT } from './defaultConfig'
+import { findPackageRoot, getServerConfigPath } from './paths'
 
 const DEFAULTS: AcmeDnsConfig = {
   general: {
@@ -23,7 +23,7 @@ const DEFAULTS: AcmeDnsConfig = {
   },
   database: {
     engine: 'sqlite',
-    connection: '/var/lib/acme-dns/acme-dns.db',
+    connection: '/var/lib/acmedns-stack/server/acme-dns.db',
   },
   api: {
     ip: '0.0.0.0',
@@ -133,17 +133,6 @@ function prepareConfig(raw: Record<string, unknown>): AcmeDnsConfig {
   }
 }
 
-/** Folder that contains `nuxt.config.ts` / `seed/` when you `cd build/acmedns-nuxt && bun run dev`. */
-export function findPackageRoot(): string {
-  const here = dirname(fileURLToPath(import.meta.url))
-  for (const dir of [process.cwd(), resolve(here, '../..'), resolve(here, '../../..')]) {
-    if (existsSync(resolve(dir, 'nuxt.config.ts')) || existsSync(resolve(dir, 'seed/config.cfg'))) {
-      return dir
-    }
-  }
-  return process.cwd()
-}
-
 function resolvePath(path: string, root = findPackageRoot()) {
   if (!path) {
     return path
@@ -154,16 +143,13 @@ function resolvePath(path: string, root = findPackageRoot()) {
   return resolve(root, path)
 }
 
-function tryRuntimePaths(): { config?: string, defaultConfig?: string } {
+function tryRuntimeDefaultConfig(): string | undefined {
   try {
-    const runtime = useRuntimeConfig()
-    return {
-      config: runtime.acmeDnsConfig as string | undefined,
-      defaultConfig: runtime.acmeDnsDefaultConfig as string | undefined,
-    }
+    const value = useRuntimeConfig().acmeDnsDefaultConfig
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined
   }
   catch {
-    return {}
+    return undefined
   }
 }
 
@@ -183,11 +169,8 @@ function seedLiveConfig(target: string, root: string, runtimeDefault?: string) {
   }
 
   const candidates = [
-    process.env.ACME_DNS_DEFAULT_CONFIG,
-    process.env.NUXT_ACME_DNS_DEFAULT_CONFIG,
     runtimeDefault,
     resolve(root, 'seed/config.cfg'),
-    '/app/config.cfg.default',
   ].filter((value): value is string => Boolean(value))
 
   let body = DEFAULT_ACME_DNS_CONFIG_TEXT
@@ -213,17 +196,11 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
   }
 
   const root = findPackageRoot()
-  const runtime = tryRuntimePaths()
-  const resolved = resolvePath(
-    configPath
-    || process.env.ACME_DNS_CONFIG
-    || process.env.NUXT_ACME_DNS_CONFIG
-    || runtime.config
-    || 'config/config.cfg',
-    root,
-  )
+  const resolved = configPath
+    ? resolvePath(configPath, root)
+    : getServerConfigPath()
 
-  seedLiveConfig(resolved, root, runtime.defaultConfig)
+  seedLiveConfig(resolved, root, tryRuntimeDefaultConfig())
 
   if (!existsSync(resolved)) {
     throw new Error(`Configuration file not found: ${resolved} (root ${root})`)

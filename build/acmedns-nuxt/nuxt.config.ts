@@ -25,17 +25,12 @@ export default defineNuxtConfig({
     ],
   },
   runtimeConfig: {
-    /** Live file under the project (seeded on first start). Docker overrides to /etc/acme-dns/config.cfg. */
-    acmeDnsConfig: 'config/config.cfg',
-    /** Template copied when live config is missing. */
-    acmeDnsDefaultConfig: 'seed/config.cfg',
-    clientstorageData: 'config/clientstorage.json',
-    applicationsDataRoot: 'data',
+    dataRoot: '.data',
+    letsencryptDir: '.data/letsencrypt',
+    /** Template copied when live server config is missing. */
+    acmeDnsDefaultConfig: isNuxtDev ? 'seed/config.dev.cfg' : 'seed/config.cfg',
     acmednsUrl: 'http://127.0.0.1',
     administratorPassword: '',
-    domainsFile: 'config/host/domains.txt',
-    certbotConfigDir: '.data/letsencrypt',
-    certSettingsFile: 'config/cert-settings.json',
     letsencryptEmail: 'admin@example.com',
     renewInterval: 12,
     certsAcmeEnabled: true,
@@ -45,6 +40,8 @@ export default defineNuxtConfig({
     },
   },
   acmednsClient: {
+    dataRoot: '.data',
+    letsencryptDir: '.data/letsencrypt',
     acmednsUrl: 'http://127.0.0.1',
     defaultAcmednsUrl: 'http://127.0.0.1',
   },
