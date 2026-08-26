@@ -35,12 +35,22 @@ export async function writeCertSettings(settings: CertSettings) {
   await fs.rename(tmp, path)
 }
 
-export function isAcmeEnabled() {
+/** False when CERTS_ACME_DISABLED — blocks production issue/renew only. */
+export function isProductionAcmeEnabled() {
   const config = useRuntimeConfig()
   const raw = process.env.CERTS_ACME_DISABLED
     ?? process.env.NUXT_CERTS_ACME_DISABLED
     ?? String(config.certsAcmeDisabled ?? 'false')
   return !['1', 'true', 'yes', 'on'].includes(raw.toLowerCase())
+}
+
+/** Alias for renew timer / settings: production ACME on/off. */
+export function isAcmeEnabled() {
+  return isProductionAcmeEnabled()
+}
+
+export function isAcmeEnabledForMode(mode: LetsEncryptDirectoryMode) {
+  return mode === 'staging' || isProductionAcmeEnabled()
 }
 
 export function getLetsEncryptEmail() {

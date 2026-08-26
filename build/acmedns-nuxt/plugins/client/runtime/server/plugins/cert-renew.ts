@@ -3,7 +3,7 @@ export default defineNitroPlugin(() => {
     appendCertActivity({
       source: 'system',
       level: 'info',
-      message: 'CERTS_ACME_DISABLED is set; renew timer idle',
+      message: 'CERTS_ACME_DISABLED is set; production renew timer idle (staging Apply still allowed)',
     })
     return
   }

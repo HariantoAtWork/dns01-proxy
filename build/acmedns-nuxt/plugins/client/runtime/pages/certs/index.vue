@@ -653,17 +653,26 @@ function rateLimitLabel(limit: CertRateLimit) {
             v-if="!acmeEnabled"
             class="rounded-[4px] border border-danger px-2 py-0.5 text-xs text-danger"
           >
-            ACME off
+            Production ACME off
           </span>
         </div>
         <div class="flex flex-wrap gap-2">
           <UiButton variant="ghost" size="sm" :disabled="pending || !dirty" @click="onSave">
             Save
           </UiButton>
-          <UiButton size="sm" :disabled="pending || dirty || !acmeEnabled" @click="onApply(false)">
+          <UiButton
+            size="sm"
+            :disabled="pending || dirty || (directoryMode === 'production' && !acmeEnabled)"
+            @click="onApply(false)"
+          >
             Apply
           </UiButton>
-          <UiButton variant="ghost" size="sm" :disabled="pending || dirty || !acmeEnabled" @click="onApply(true)">
+          <UiButton
+            variant="ghost"
+            size="sm"
+            :disabled="pending || dirty || (directoryMode === 'production' && !acmeEnabled)"
+            @click="onApply(true)"
+          >
             Force re-issue
           </UiButton>
         </div>
