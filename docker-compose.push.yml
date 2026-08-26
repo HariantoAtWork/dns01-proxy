@@ -4,9 +4,13 @@
 services:
   acmedns-nuxt:
     build:
+      context: build/acmedns-nuxt
+      dockerfile: Dockerfile.platform
       platforms:
         - linux/amd64
         - linux/arm64
+    image: harianto/acmedns-nuxt:latest
+
   # acmedns-server:
   #   build:
   #     platforms:
