@@ -10,11 +10,13 @@ export interface AccountVerifyResult {
 export function useAccountVerify() {
   const results = useState<Record<string, AccountVerifyResult>>('acmedns-account-verify', () => ({}))
   const pending = ref(false)
+  const checking = ref<string[]>([])
   const error = ref('')
 
   async function verifyAll(domains?: string[]) {
     pending.value = true
     error.value = ''
+    checking.value = domains?.length ? [...domains] : []
     try {
       const data = await $fetch<{ results: Record<string, AccountVerifyResult> }>(
         '/api/acmedns/verify',
@@ -32,6 +34,7 @@ export function useAccountVerify() {
     }
     finally {
       pending.value = false
+      checking.value = []
     }
   }
 
@@ -39,11 +42,17 @@ export function useAccountVerify() {
     return results.value[domain]
   }
 
+  function isChecking(domain: string) {
+    return checking.value.includes(domain)
+  }
+
   return {
     results,
     pending,
+    checking,
     error,
     verifyAll,
     statusFor,
+    isChecking,
   }
 }

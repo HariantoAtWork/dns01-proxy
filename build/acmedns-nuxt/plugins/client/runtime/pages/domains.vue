@@ -14,6 +14,7 @@ const { entries, status, error, refresh } = useClientStorage()
 const {
   results: accountValidity,
   pending: verifyPending,
+  checking: verifyChecking,
   error: verifyError,
   verifyAll,
 } = useAccountVerify()
@@ -185,7 +186,9 @@ function onDeleted() {
                 :selected="current?.domain || ''"
                 :validity="accountValidity"
                 :validity-pending="verifyPending"
+                :checking="verifyChecking"
                 @select="select"
+                @recheck="verifyAll([$event])"
               />
             </div>
           </aside>
@@ -218,7 +221,9 @@ function onDeleted() {
             :selected="current?.domain || ''"
             :validity="accountValidity"
             :validity-pending="verifyPending"
+            :checking="verifyChecking"
             @select="select"
+            @recheck="verifyAll([$event])"
           />
         </aside>
 
