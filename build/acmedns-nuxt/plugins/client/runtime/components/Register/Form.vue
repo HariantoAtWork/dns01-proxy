@@ -40,7 +40,7 @@ const serverError = computed(() => {
 </script>
 
 <template>
-  <form class="flex flex-col gap-4" @submit.prevent="emit('submit')">
+  <form class="flex flex-col gap-4" @submit.prevent.stop="emit('submit')">
     <UiField label="Domain" for="domain" :error="domainError">
       <UiInput
         id="domain"
