@@ -12,6 +12,7 @@ import {
 
 useHead({ title: 'Settings' })
 
+const { sharedMode } = useSharedMode()
 const toasts = useToasts()
 const pending = ref(false)
 const loaded = ref(false)
@@ -232,7 +233,11 @@ onMounted(() => {
         <UiField label="ACMEDNS_URL" :hint="sourceLabel(operator.sources.acmednsUrl)">
           <UiInput v-model="operator.acmednsUrl" mono :disabled="pending" />
         </UiField>
-        <UiField label="Register default URL" :hint="sourceLabel(operator.sources.defaultAcmednsUrl)">
+        <UiField
+          v-if="!sharedMode"
+          label="Register default URL"
+          :hint="sourceLabel(operator.sources.defaultAcmednsUrl)"
+        >
           <UiInput v-model="operator.defaultAcmednsUrl" mono :disabled="pending" />
         </UiField>
         <UiField label="LETSENCRYPT_EMAIL" :hint="sourceLabel(operator.sources.letsencryptEmail)">

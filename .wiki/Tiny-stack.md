@@ -156,7 +156,9 @@ curl -sS -X POST "https://auth.uti.email/update" \
 3. Delegate **NS** for the auth zone; let boot fill **A** / **AAAA** or set `ACMEDNS_PUBLIC_IP`.
 4. Add CNAME `_acme-challenge.<apex>` → `<ACMEDNS_TINY_DOMAIN>` on each site zone (DNS only).
 5. Add certificate lines in **Certs** → **Apply** (staging first if you prefer).
-6. UI **Domains** → **DNS setup** shows copy-paste CNAME rows from `domains.txt`.
+6. **DNS setup** (`/domains`) shows copy-paste CNAME rows from `domains.txt`.
+
+The **Register** page, nav button, and modal are hidden in tiny mode; `/register` redirects to DNS setup.
 
 ## Related
 

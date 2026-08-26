@@ -5,6 +5,7 @@ export type BreadcrumbItem = {
 
 export function useBreadcrumbs() {
   const route = useRoute()
+  const { sharedMode } = useSharedMode()
 
   const items = computed<BreadcrumbItem[]>(() => {
     const crumbs: BreadcrumbItem[] = [{ label: 'Home', to: '/' }]
@@ -15,7 +16,10 @@ export function useBreadcrumbs() {
     }
 
     if (path === '/domains') {
-      crumbs.push({ label: 'Domains', to: '/domains' })
+      crumbs.push({
+        label: sharedMode.value ? 'DNS setup' : 'Domains',
+        to: '/domains',
+      })
       const domain = route.query.d
       if (typeof domain === 'string' && domain) {
         crumbs.push({ label: domain })
