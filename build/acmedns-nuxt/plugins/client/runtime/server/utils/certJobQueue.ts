@@ -15,6 +15,7 @@ import { buildCertLiveStatus } from './certLivePublish'
 import { buildCertStatus, needsRenewal, readCertMeta } from './certStatus'
 import { clearRateLimitAfterSuccess } from './acmeLogger'
 import { getCertRateLimits, rateLimitForCert } from './certRateLimit'
+import { enrichLetsEncryptDnsError } from './enrichLeDnsError'
 
 const QUIET_MESSAGES = new Set([
   'Not due for renewal',
@@ -342,7 +343,8 @@ async function executeApplyCertificates(options: {
         }
         return { results, cancelled: true }
       }
-      const message = error instanceof Error ? error.message : 'Issue failed'
+      const rawMessage = error instanceof Error ? error.message : 'Issue failed'
+      const message = await enrichLetsEncryptDnsError(rawMessage, line)
       const result: CertApplyResult = {
         certName: line.certName,
         ok: false,
