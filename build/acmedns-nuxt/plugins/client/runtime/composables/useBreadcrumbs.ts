@@ -7,10 +7,15 @@ export function useBreadcrumbs() {
   const route = useRoute()
 
   const items = computed<BreadcrumbItem[]>(() => {
-    const crumbs: BreadcrumbItem[] = [{ label: 'Home', to: '/domains' }]
+    const crumbs: BreadcrumbItem[] = [{ label: 'Home', to: '/' }]
     const path = route.path
 
-    if (path === '/' || path === '/domains') {
+    if (path === '/') {
+      return crumbs
+    }
+
+    if (path === '/domains') {
+      crumbs.push({ label: 'Domains', to: '/domains' })
       const domain = route.query.d
       if (typeof domain === 'string' && domain) {
         crumbs.push({ label: domain })
