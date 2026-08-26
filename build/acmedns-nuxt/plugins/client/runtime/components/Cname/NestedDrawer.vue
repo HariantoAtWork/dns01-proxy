@@ -18,8 +18,6 @@ const {
   flush?: boolean
 }>()
 
-const { copyText } = useClipboardCopy()
-
 const labelsInput = ref('')
 
 const apex = computed(() => {
@@ -75,24 +73,10 @@ const chainFulldomain = computed(() => {
         <dt class="text-xs uppercase tracking-wide text-muted">Name</dt>
         <dd class="flex min-w-0 flex-col gap-2">
           <div v-for="record in records" :key="record.host" class="min-w-0">
-            <button
-              type="button"
-              class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
-              :title="record.name"
-              @click="copyText(record.name, 'Name')"
-            >
-              {{ record.name }}
-            </button>
+            <UiCopyable :value="record.name" label="Name" />
             <p class="mt-0.5 font-sans text-xs text-muted">
               *.{{ record.host }} · Cloudflare:
-              <button
-                type="button"
-                class="cursor-copy font-mono text-ink hover:text-signal"
-                :title="record.cloudflareName"
-                @click="copyText(record.cloudflareName, 'Cloudflare Name')"
-              >
-                {{ record.cloudflareName }}
-              </button>
+              <UiCopyable inline :value="record.cloudflareName" label="Cloudflare Name" />
             </p>
           </div>
           <p class="font-sans text-xs text-muted">Zone {{ apex }}</p>
@@ -100,14 +84,7 @@ const chainFulldomain = computed(() => {
 
         <dt class="text-xs uppercase tracking-wide text-muted">Content</dt>
         <dd>
-          <button
-            type="button"
-            class="block max-w-full cursor-copy break-all text-left text-ink hover:text-signal"
-            :title="content"
-            @click="copyText(content, 'Content')"
-          >
-            {{ content }}
-          </button>
+          <UiCopyable :value="content" label="Content" />
           <p class="mt-0.5 font-sans text-xs text-muted">Same for every Name · DNS only</p>
         </dd>
       </dl>
