@@ -24,7 +24,7 @@ const { copyText } = useClipboardCopy()
       muted ? 'text-muted' : 'text-ink',
     ]"
     :title="`Copy ${value}`"
-    @click="copyText(value, label)"
+    @click="copyText(value, label, $event)"
   >
     {{ value }}
   </button>

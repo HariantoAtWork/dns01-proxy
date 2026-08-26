@@ -29,7 +29,7 @@ function mask(value: string) {
           type="button"
           class="block min-w-0 flex-1 cursor-copy truncate text-left text-ink hover:text-signal"
           :title="showUsername ? details.username : 'Username'"
-          @click="copyText(details.username, 'Username')"
+          @click="copyText(details.username, 'Username', $event)"
         >
           {{ showUsername ? details.username : mask(details.username) }}
         </button>
@@ -51,7 +51,7 @@ function mask(value: string) {
           type="button"
           class="block min-w-0 flex-1 cursor-copy truncate text-left text-ink hover:text-signal"
           :title="showPassword ? details.password : 'Password'"
-          @click="copyText(details.password, 'Password')"
+          @click="copyText(details.password, 'Password', $event)"
         >
           {{ showPassword ? details.password : mask(details.password) }}
         </button>
@@ -74,7 +74,7 @@ function mask(value: string) {
           type="button"
           class="inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-ink"
           aria-label="Copy Subdomain"
-          @click="copyText(details.subdomain, 'Subdomain')"
+          @click="copyText(details.subdomain, 'Subdomain', $event)"
         >
           <Copy :size="14" weight="regular" aria-hidden="true" />
         </button>
@@ -87,7 +87,7 @@ function mask(value: string) {
           type="button"
           class="inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-ink"
           aria-label="Copy Full domain"
-          @click="copyText(details.fulldomain, 'Full domain')"
+          @click="copyText(details.fulldomain, 'Full domain', $event)"
         >
           <Copy :size="14" weight="regular" aria-hidden="true" />
         </button>

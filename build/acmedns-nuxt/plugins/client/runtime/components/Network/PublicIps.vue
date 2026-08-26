@@ -136,7 +136,7 @@ function visitHint(item: VisitIpAddress) {
           <button
             type="button"
             class="inline-flex items-center gap-1 rounded-[4px] border border-rule px-2 py-1 text-sm text-muted hover:text-ink"
-            @click="copyText(item.address, familyLabel(item.family))"
+            @click="copyText(item.address, familyLabel(item.family), $event)"
           >
             <Copy :size="14" weight="regular" aria-hidden="true" />
             Copy
@@ -172,7 +172,7 @@ function visitHint(item: VisitIpAddress) {
         <button
           type="button"
           class="font-mono text-ink hover:underline"
-          @click="copyText(visit.address, 'Visit address')"
+          @click="copyText(visit.address, 'Visit address', $event)"
         >
           {{ visit.address }}
         </button>
