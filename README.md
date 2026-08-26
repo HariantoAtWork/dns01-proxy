@@ -19,7 +19,7 @@ flowchart LR
 
 ## Certificates in the client
 
-Edit `data/acmedns-letsencrypt/domains.txt` on the host or in the **Certs** UI. **Save** validates format only. **Apply** runs ACME (DNS-01 via acme-dns).
+Edit `domains.txt` on the host (`/var/lib/acmedns-stack/client/domains.txt`) or in the **Certs** UI. **Save** validates format only. **Apply** runs ACME (DNS-01 via acme-dns).
 
 - **Production** (default) writes `/etc/letsencrypt/live/<cert-name>/`
 - **Staging** writes `/etc/letsencrypt/staging/<cert-name>/` and never touches `live/`
@@ -30,7 +30,8 @@ Consumers bind the same Certbot-style paths:
 
 ```yaml
 volumes:
-  - letsencrypt:/etc/letsencrypt:ro
+  - ./data/letsencrypt:/etc/letsencrypt:ro
+  # or: letsencrypt:/etc/letsencrypt:ro
 ```
 
 Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt server keeps **100 rolling TXT slots** (same as the vendored Go tree). Rebuild `acmedns-nuxt` when issuing many SANs on one account.
@@ -61,11 +62,12 @@ cp docker-compose.override.yml.example docker-compose.override.yml
 docker compose up -d --build
 ```
 
-Docker creates `data/` for you. On first start the containers write:
+Docker seeds on first start under `/var/lib/acmedns-stack`:
 
-- `data/acmedns-server/config/config.cfg`
-- `data/acmedns-letsencrypt/domains.txt` (seeded by the client if missing)
-- `clientstorage.json` on the `acmedns-client` volume (`{}` if empty)
+- `server/config.cfg` + `server/acme-dns.db`
+- `client/domains.txt`, `client/clientstorage.json`, `client/cert-settings.json`
+- `backup/` for JSON backups
+- PEMs under `/etc/letsencrypt` (host `./data/letsencrypt` or named volume)
 
 1. `config.cfg` — your auth hostname, NS, admin, public IP.
 2. `domains.txt` — one certificate per line. Edit in the Certs UI or on disk; Save validates; Apply issues. Example: `mdstn.com *.mdstn.com *.oib.mdstn.com *.admin.mdstn.com`. `#` and `;` start comments.
@@ -73,7 +75,7 @@ Docker creates `data/` for you. On first start the containers write:
 4. CNAME `_acme-challenge.<apex>` → `fulldomain` in `clientstorage.json`. Nested zones CNAME to `_acme-challenge.<apex>`.
 5. You need the `cloudflared` Docker network (see `docker-compose.override.yml.example`).
 
-If Docker created a *directory* named `domains.txt`, remove it (`rm -rf data/acmedns-letsencrypt/domains.txt`) and start again.
+Manual migrate from older layouts: move server config/DB into `/var/lib/acmedns-stack/server/`, client files into `…/client/`, backups into `…/backup/`, and PEMs into the letsencrypt mount.
 
 ## Config
 
@@ -82,14 +84,16 @@ If Docker created a *directory* named `domains.txt`, remove it (`rm -rf data/acm
 | `.env` | Copy from `.env.example`. Gitignored. |
 | `docker-compose.yml` | Copy from `docker-compose.yml.example`. Gitignored. |
 | `docker-compose.override.yml` | Copy from `docker-compose.override.yml.example`. Gitignored. |
-| `data/acmedns-server/config/config.cfg` | Listen address, zone, API. |
-| `data/acmedns-letsencrypt/domains.txt` | What to issue (also edited in the Certs UI). |
-| `clientstorage.json` (volume `acmedns-client`) | acme-dns logins. Not Let's Encrypt. |
+| `/var/lib/acmedns-stack/server/config.cfg` | Listen address, zone, API, SQLite path. |
+| `/var/lib/acmedns-stack/client/domains.txt` | What to issue (also edited in the Certs UI). |
+| `/var/lib/acmedns-stack/client/clientstorage.json` | acme-dns logins. Not Let's Encrypt. |
 
 ### Environment (`.env` → `acmedns-nuxt`)
 
 | Variable | Example | |
 | --- | --- | --- |
+| `ACMEDNS_DATA_ROOT` | `/var/lib/acmedns-stack` | Flat tree: `server/`, `client/`, `backup/`. Local dev uses `.data`. |
+| `ACMEDNS_LETSENCRYPT_DIR` | `/etc/letsencrypt` | PEM tree. Local dev uses `.data/letsencrypt`. |
 | `ACMEDNS_URL` | `https://auth.example.org` | Public identity for register/update. Loopback or a host matching `config.cfg` `domain` still runs in-process; that public URL is what gets stored. Compose also uses this as the Register form default unless `NUXT_PUBLIC_DEFAULT_ACMEDNS_URL` is set. |
 | `LETSENCRYPT_EMAIL` | `admin@example.com` | ACME account contact. |
 | `RENEW_INTERVAL` | `12` | Hours between production renew checks. |
@@ -98,18 +102,14 @@ If Docker created a *directory* named `domains.txt`, remove it (`rm -rf data/acm
 
 Set `ADMINISTRATOR_PASSWORD` to lock the UI behind username `admin`.
 
-`NUXT_APPLICATIONS_DATA_ROOT` defaults to `/app/data` in Compose. Backups go to `/app/data/acmedns-client/backups`.
+Backups live at `$ACMEDNS_DATA_ROOT/backup`.
 
 ## Volumes
 
-| Volume | Who | Inside the container |
-| --- | --- | --- |
-| `letsencrypt` | `acmedns-nuxt` rw | `/etc/letsencrypt` (`live/`, `staging/`, `trash/`) |
-| `acmedns-client` | `acmedns-nuxt` rw | `/app/config` (`clientstorage.json`, cert settings) |
-| `acmedns-client-data` | `acmedns-nuxt` rw | `/app/data` |
-| `./data/acmedns-server/config` | `acmedns-nuxt` | `/etc/acme-dns` |
-| `./data/acmedns-server/data` | `acmedns-nuxt` | `/var/lib/acme-dns` |
-| `./data/acmedns-letsencrypt` | `acmedns-nuxt` | `/config/host` — `domains.txt` |
+| Host / volume | Inside the container |
+| --- | --- |
+| `/var/lib/acmedns-stack` | `/var/lib/acmedns-stack` (`server/`, `client/`, `backup/`) |
+| `./data/letsencrypt` (or named `letsencrypt`) | `/etc/letsencrypt` (`live/`, `staging/`, `trash/`, `accounts/`) |
 
 ## Networks
 
@@ -134,5 +134,6 @@ docker-compose.override.yml.example
 build/acmedns-nuxt/        # DNS + API + UI plugin (plugins/client)
 build/acmedns-server/      # Go reference / rollback
 build/acmedns-client/      # legacy standalone client (reference)
-data/                      # gitignored
+# Host: /var/lib/acmedns-stack + ./data/letsencrypt (compose)
+# Local: build/acmedns-nuxt/.data/{server,client,backup,letsencrypt}
 ```

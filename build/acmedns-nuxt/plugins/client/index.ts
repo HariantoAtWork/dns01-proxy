@@ -12,13 +12,10 @@ import {
 } from 'nuxt/kit'
 
 export interface AcmednsClientModuleOptions {
-  clientstorageData: string
-  applicationsDataRoot: string
+  dataRoot: string
+  letsencryptDir: string
   acmednsUrl: string
   administratorPassword: string
-  domainsFile: string
-  certbotConfigDir: string
-  certSettingsFile: string
   letsencryptEmail: string
   renewInterval: number
   certsAcmeEnabled: boolean
@@ -78,13 +75,10 @@ export default defineNuxtModule<AcmednsClientModuleOptions>({
     configKey: 'acmednsClient',
   },
   defaults: {
-    clientstorageData: 'config/clientstorage.json',
-    applicationsDataRoot: 'data',
+    dataRoot: '.data',
+    letsencryptDir: '.data/letsencrypt',
     acmednsUrl: 'http://127.0.0.1',
     administratorPassword: '',
-    domainsFile: 'config/host/domains.txt',
-    certbotConfigDir: '/etc/letsencrypt',
-    certSettingsFile: 'config/cert-settings.json',
     letsencryptEmail: 'admin@example.com',
     renewInterval: 12,
     certsAcmeEnabled: true,
@@ -156,13 +150,10 @@ export default defineNuxtModule<AcmednsClientModuleOptions>({
     const runtimeConfig = nuxt.options.runtimeConfig as Record<string, unknown>
     const publicConfig = (runtimeConfig.public || {}) as Record<string, unknown>
 
-    runtimeConfig.clientstorageData = options.clientstorageData
-    runtimeConfig.applicationsDataRoot = options.applicationsDataRoot
+    runtimeConfig.dataRoot = options.dataRoot
+    runtimeConfig.letsencryptDir = options.letsencryptDir
     runtimeConfig.acmednsUrl = options.acmednsUrl
     runtimeConfig.administratorPassword = options.administratorPassword
-    runtimeConfig.domainsFile = options.domainsFile
-    runtimeConfig.certbotConfigDir = options.certbotConfigDir
-    runtimeConfig.certSettingsFile = options.certSettingsFile
     runtimeConfig.letsencryptEmail = options.letsencryptEmail
     runtimeConfig.renewInterval = options.renewInterval
     runtimeConfig.certsAcmeEnabled = options.certsAcmeEnabled

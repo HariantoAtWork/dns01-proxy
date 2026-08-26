@@ -1,4 +1,4 @@
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { promises as fs } from 'node:fs'
 import type { H3Event } from 'h3'
 import type { AcmeDnsCredentials, ClientStorageMap } from '#shared/types/clientstorage'
@@ -8,30 +8,12 @@ import type {
   BackupMutationResult,
   DomainBackupPayload,
 } from '#shared/types/backup'
+import { getBackupDir } from '../../../../../server/utils/paths'
 
 const BACKUP_NAME_PATTERN = /^(full|domain)-[a-z0-9._-]+\.json$/i
 
-export function getApplicationsDataRoot(event?: H3Event) {
-  const config = event ? useRuntimeConfig(event) : useRuntimeConfig()
-  const raw = String(
-    process.env.NUXT_APPLICATIONS_DATA_ROOT
-    || config.applicationsDataRoot
-    || '',
-  ).trim()
-
-  if (raw) {
-    return raw.startsWith('/') ? raw : resolve(process.cwd(), raw)
-  }
-
-  return dirname(getStoragePath())
-}
-
-export function getBackupDir(event?: H3Event) {
-  return resolve(getApplicationsDataRoot(event), 'acmedns-client', 'backups')
-}
-
-export async function ensureBackupDir(event?: H3Event) {
-  const dir = getBackupDir(event)
+export async function ensureBackupDir(_event?: H3Event) {
+  const dir = getBackupDir()
   await fs.mkdir(dir, { recursive: true })
   return dir
 }
@@ -64,7 +46,7 @@ export function resolveBackupFile(filename: string, event?: H3Event) {
     })
   }
 
-  const dir = getBackupDir(event)
+  const dir = getBackupDir()
   const resolved = resolve(dir, base)
   const rel = relative(dir, resolved)
 

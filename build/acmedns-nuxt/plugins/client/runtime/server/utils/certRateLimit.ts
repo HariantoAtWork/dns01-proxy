@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path'
 import { promises as fs } from 'node:fs'
 import type { CertRateLimit, LetsEncryptDirectoryMode } from '#shared/types/certs'
-import { getCertSettingsPath } from './certSettings'
+import { getCertSettingsPath } from '../../../../../server/utils/paths'
 import { publishCertLive } from './certLiveBus'
 
 interface StoreFile {

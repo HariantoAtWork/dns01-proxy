@@ -1,36 +1,24 @@
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 import { promises as fs } from 'node:fs'
 import type { LetsEncryptDirectoryMode } from '#shared/types/certs'
+import { getLetsencryptDir } from '../../../../../server/utils/paths'
 
 const PEM_NAMES = ['cert.pem', 'chain.pem', 'fullchain.pem', 'privkey.pem'] as const
-
-export function getCertbotConfigDir() {
-  const config = useRuntimeConfig()
-  const envPath = process.env.CERTBOT_CONFIG_DIR
-    || process.env.NUXT_CERTBOT_CONFIG_DIR
-    || config.certbotConfigDir
-    || '/etc/letsencrypt'
-
-  if (envPath.startsWith('/')) {
-    return envPath
-  }
-  return resolve(process.cwd(), envPath)
-}
 
 export function treeDirName(mode: LetsEncryptDirectoryMode) {
   return mode === 'staging' ? 'staging' : 'live'
 }
 
 export function certTreePath(mode: LetsEncryptDirectoryMode, certName: string) {
-  return join(getCertbotConfigDir(), treeDirName(mode), certName)
+  return join(getLetsencryptDir(), treeDirName(mode), certName)
 }
 
 export function trashTreePath(certName: string) {
-  return join(getCertbotConfigDir(), 'trash', certName)
+  return join(getLetsencryptDir(), 'trash', certName)
 }
 
 export function lastSavedTreePath(fromTree: 'live' | 'staging', certName: string) {
-  return join(getCertbotConfigDir(), 'last-saved', fromTree, certName)
+  return join(getLetsencryptDir(), 'last-saved', fromTree, certName)
 }
 
 async function pathExists(path: string) {
@@ -44,7 +32,7 @@ async function pathExists(path: string) {
 }
 
 export async function listCertNamesInTree(tree: 'live' | 'staging' | 'trash') {
-  const root = join(getCertbotConfigDir(), tree)
+  const root = join(getLetsencryptDir(), tree)
   try {
     const entries = await fs.readdir(root, { withFileTypes: true })
     return entries.filter(e => e.isDirectory() && e.name !== 'README').map(e => e.name).sort()
@@ -59,7 +47,7 @@ export async function listCertNamesInTree(tree: 'live' | 'staging' | 'trash') {
 }
 
 export async function listCertNamesInLastSaved(fromTree: 'live' | 'staging') {
-  const root = join(getCertbotConfigDir(), 'last-saved', fromTree)
+  const root = join(getLetsencryptDir(), 'last-saved', fromTree)
   try {
     const entries = await fs.readdir(root, { withFileTypes: true })
     return entries.filter(e => e.isDirectory() && e.name !== 'README').map(e => e.name).sort()

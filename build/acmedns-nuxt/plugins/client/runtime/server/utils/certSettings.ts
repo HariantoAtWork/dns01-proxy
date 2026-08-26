@@ -1,23 +1,10 @@
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 import { promises as fs } from 'node:fs'
 import type { CertSettings, LetsEncryptDirectoryMode } from '#shared/types/certs'
-import { getCertbotConfigDir } from './letsencryptFs'
+import { getLetsencryptDir, getCertSettingsPath } from '../../../../../server/utils/paths'
 
 const DEFAULT: CertSettings = {
   directoryMode: 'production',
-}
-
-export function getCertSettingsPath() {
-  const config = useRuntimeConfig()
-  const envPath = process.env.CERT_SETTINGS_FILE
-    || process.env.NUXT_CERT_SETTINGS_FILE
-    || config.certSettingsFile
-    || 'config/cert-settings.json'
-
-  if (envPath.startsWith('/')) {
-    return envPath
-  }
-  return resolve(process.cwd(), envPath)
 }
 
 export async function readCertSettings(): Promise<CertSettings> {
@@ -85,5 +72,5 @@ export function assertDirectoryMode(value: unknown): LetsEncryptDirectoryMode {
 }
 
 export function accountsDir() {
-  return join(getCertbotConfigDir(), 'accounts')
+  return join(getLetsencryptDir(), 'accounts')
 }

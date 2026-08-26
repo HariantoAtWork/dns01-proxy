@@ -5,7 +5,7 @@ export default defineEventHandler(async () => {
     acmeEnabled: isAcmeEnabled(),
     email: getLetsEncryptEmail(),
     renewIntervalHours: getRenewIntervalHours(),
-    certbotConfigDir: getCertbotConfigDir(),
+    letsencryptDir: getLetsencryptDir(),
     domainsFile: getDomainsFilePath(),
   }
 })

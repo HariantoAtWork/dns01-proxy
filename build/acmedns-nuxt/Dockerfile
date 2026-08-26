@@ -15,12 +15,10 @@ FROM oven/bun:canary-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NITRO_HOST=0.0.0.0
-ENV NUXT_ACME_DNS_CONFIG=/etc/acme-dns/config.cfg
-ENV CLIENTSTORAGE_DATA=/app/config/clientstorage.json
-ENV NUXT_APPLICATIONS_DATA_ROOT=/app/data
-ENV DOMAINS_FILE=/config/host/domains.txt
-ENV CERTBOT_CONFIG_DIR=/etc/letsencrypt
+ENV ACMEDNS_DATA_ROOT=/var/lib/acmedns-stack
+ENV ACMEDNS_LETSENCRYPT_DIR=/etc/letsencrypt
 COPY --from=build /app/.output .output
+COPY --from=build /app/seed ./seed
 EXPOSE 53 80 443
 EXPOSE 53/udp
-CMD ["/bin/sh", "-c", "set -e; file=\"${CLIENTSTORAGE_DATA:?CLIENTSTORAGE_DATA is required}\"; mkdir -p \"$(dirname \"$file\")\" /config/host /etc/letsencrypt /app/data; if [ ! -s \"$file\" ]; then echo '{}' > \"$file\"; fi; exec bun .output/server/index.mjs"]
+CMD ["/bin/sh", "-c", "set -e; root=\"${ACMEDNS_DATA_ROOT:?ACMEDNS_DATA_ROOT is required}\"; le=\"${ACMEDNS_LETSENCRYPT_DIR:?ACMEDNS_LETSENCRYPT_DIR is required}\"; mkdir -p \"$root/server\" \"$root/client\" \"$root/backup\" \"$le\"; file=\"$root/client/clientstorage.json\"; if [ ! -s \"$file\" ]; then echo '{}' > \"$file\"; fi; exec bun .output/server/index.mjs"]

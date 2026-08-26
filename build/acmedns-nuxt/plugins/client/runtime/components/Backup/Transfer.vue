@@ -136,7 +136,7 @@ function cancelUpload() {
   <UiPanel class="flex flex-col gap-3">
     <h2 class="text-base font-semibold">Live file</h2>
     <p class="text-sm text-muted">
-      Download or replace the live <span class="font-mono text-ink">CLIENTSTORAGE_DATA</span> file.
+      Download or replace the live <span class="font-mono text-ink">clientstorage.json</span> file.
       Upload overwrites every stored hostname after you confirm.
     </p>
     <p v-if="storagePath" class="font-mono text-xs text-muted">
