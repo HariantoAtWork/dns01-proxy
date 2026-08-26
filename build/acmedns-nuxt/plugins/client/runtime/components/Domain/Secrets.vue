@@ -71,7 +71,7 @@ function mask(value: string) {
       <dd class="flex min-w-0 items-center gap-1">
         <button
           type="button"
-          class="block min-w-0 flex-1 cursor-copy truncate text-left text-ink hover:text-signal"
+          class="block min-w-0 flex-1 cursor-copy break-all text-left text-ink hover:text-signal"
           :title="details.subdomain"
           @click="copyText(details.subdomain, 'Subdomain')"
         >
@@ -91,7 +91,7 @@ function mask(value: string) {
       <dd class="flex min-w-0 items-center gap-1">
         <button
           type="button"
-          class="block min-w-0 flex-1 cursor-copy truncate text-left text-ink hover:text-signal"
+          class="block min-w-0 flex-1 cursor-copy break-all text-left text-ink hover:text-signal"
           :title="details.fulldomain"
           @click="copyText(details.fulldomain, 'Full domain')"
         >
