@@ -13,6 +13,8 @@ const {
 } = defineProps<{
   domain: string
   fulldomain: string
+  /** When true, CNAME targets the auth zone apex (shared / tiny stack). */
+  sharedTarget?: boolean
   /** Apex fields + drawers in one panel (domain detail / register). */
   compact?: boolean
   embedded?: boolean
@@ -71,7 +73,12 @@ const zoneLine = computed(() => zoneCnameLine(domain, fulldomain))
           <div>
             <h2 class="text-base font-semibold tracking-tight">CNAME to publish</h2>
             <p class="mt-1 max-w-[65ch] text-sm text-muted">
-              Apex challenge goes to this UUID. Nested names open in the drawer below.
+              <template v-if="sharedTarget">
+                Point the apex challenge at your auth zone — no UUID subdomain.
+              </template>
+              <template v-else>
+                Apex challenge goes to this UUID. Nested names open in the drawer below.
+              </template>
             </p>
           </div>
           <UiButton @click="copyText(zoneLine, 'Apex zone line', $event)">

@@ -52,6 +52,11 @@ export interface ConfigApiView {
   ip: string
   port: string
   disable_registration: boolean
+  shared_mode: boolean
+  shared_username: string
+  /** Never returned after save — use sharedPasswordSet. */
+  shared_password: string
+  sharedPasswordSet: boolean
   tls: string
   /** Required when tls = "cert" — paths inside the container. */
   tls_cert_fullchain: string

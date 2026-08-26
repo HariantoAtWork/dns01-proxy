@@ -15,6 +15,7 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const { restrictMode, authenticated, logout } = useAuth()
+const { sharedMode } = useSharedMode()
 const { show: showRegister } = useRegisterModal()
 
 const accountOpen = ref(false)
@@ -62,6 +63,7 @@ async function signOut() {
 
       <div class="flex items-center gap-0.5 sm:gap-2">
         <button
+          v-if="!sharedMode"
           type="button"
           class="inline-flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm text-muted transition-colors hover:bg-panel hover:text-ink md:px-3 md:py-2"
           aria-haspopup="dialog"

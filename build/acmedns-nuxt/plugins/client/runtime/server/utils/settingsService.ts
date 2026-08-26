@@ -102,6 +102,13 @@ function configToViews(config: AcmeDnsConfig) {
     ip: config.api.ip,
     port: String(config.api.port),
     disable_registration: config.api.disable_registration,
+    shared_mode: config.api.shared_mode,
+    shared_username: config.api.shared_username,
+    shared_password: '',
+    sharedPasswordSet: Boolean(
+      config.api.shared_password
+      || process.env.ACMEDNS_SHARED_KEY?.trim(),
+    ),
     tls: config.api.tls,
     tls_cert_fullchain: config.api.tls_cert_fullchain || '',
     tls_cert_privkey: config.api.tls_cert_privkey || '',
@@ -184,6 +191,18 @@ function applyApi(config: AcmeDnsConfig, patch: Partial<ConfigApiView>) {
   }
   if (patch.disable_registration !== undefined) {
     config.api.disable_registration = Boolean(patch.disable_registration)
+  }
+  if (patch.shared_mode !== undefined) {
+    config.api.shared_mode = Boolean(patch.shared_mode)
+    if (config.api.shared_mode) {
+      config.api.disable_registration = true
+    }
+  }
+  if (patch.shared_username !== undefined) {
+    config.api.shared_username = String(patch.shared_username).trim() || config.api.shared_username
+  }
+  if (patch.shared_password !== undefined) {
+    config.api.shared_password = String(patch.shared_password).trim()
   }
   if (patch.tls !== undefined) {
     const tls = String(patch.tls).trim() || config.api.tls

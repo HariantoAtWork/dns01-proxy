@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs'
 import acme from 'acme-client'
 import type { LetsEncryptDirectoryMode } from '#shared/types/certs'
 import { findAccount } from '#shared/utils/domains'
+import { getSharedModeContext } from '../../../../../server/utils/sharedMode'
 import { readStorage } from './storage'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
 import { accountsDir, getLetsEncryptEmail } from './certSettings'
@@ -106,6 +107,7 @@ export async function issueCertificate(options: {
 
       const preferUrl = resolveAcmeDnsBase()
       const storage = await readStorage()
+      const shared = getSharedModeContext()
       const client = await createAcmeClient(options.mode)
       const email = getLetsEncryptEmail()
       const directory = directoryUrl(options.mode)
@@ -136,14 +138,18 @@ export async function issueCertificate(options: {
               throw new Error(`Unsupported challenge type: ${challenge.type}`)
             }
             const domain = authz.identifier.value
-            const { key: storageKey, account } = findAccount(storage, domain)
-            if (!account || !storageKey) {
+            const { key: storageKey, account } = shared
+              ? { key: domain, account: shared.account }
+              : findAccount(storage, domain)
+            if (!account || (!shared && !storageKey)) {
               throw new Error(`No acme-dns account for ${domain}`)
             }
 
             logAcmeStep(
               options.certName,
-              `Publishing dns-01 TXT for ${domain} via acme-dns (${account.subdomain})`,
+              shared
+                ? `Publishing dns-01 TXT for ${domain} via shared acme-dns (${account.subdomain})`
+                : `Publishing dns-01 TXT for ${domain} via acme-dns (${account.subdomain})`,
             )
 
             await updateAcmeDnsTxt({

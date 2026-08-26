@@ -5,6 +5,7 @@ useHead({
 
 const navOpen = ref(false)
 const route = useRoute()
+const { sharedMode } = useSharedMode()
 
 watch(() => route.fullPath, () => {
   navOpen.value = false
@@ -30,7 +31,7 @@ watch(() => route.fullPath, () => {
       </main>
     </div>
 
-    <RegisterModal />
+    <RegisterModal v-if="!sharedMode" />
     <UiToastStack />
   </div>
 </template>

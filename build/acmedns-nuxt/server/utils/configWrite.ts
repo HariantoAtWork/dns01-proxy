@@ -52,7 +52,9 @@ connection = ${quoteTomlString(d.connection)}
 ip = ${quoteTomlString(a.ip)}
 port = ${quoteTomlString(a.port)}
 disable_registration = ${a.disable_registration}
-tls = ${quoteTomlString(a.tls)}
+shared_mode = ${a.shared_mode}
+shared_username = ${quoteTomlString(a.shared_username)}
+${a.shared_password ? `shared_password = ${quoteTomlString(a.shared_password)}\n` : ''}tls = ${quoteTomlString(a.tls)}
 ${apiExtra.length ? `${apiExtra.join('\n')}\n` : ''}corsorigins = ${formatTomlArray(a.corsorigins)}
 use_header = ${a.use_header}
 header_name = ${quoteTomlString(a.header_name)}

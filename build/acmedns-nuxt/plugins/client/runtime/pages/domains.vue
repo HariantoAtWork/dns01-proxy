@@ -10,6 +10,7 @@ useHead({ title: 'Domains' })
 
 const route = useRoute()
 const router = useRouter()
+const { sharedMode } = useSharedMode()
 const { entries, status, error, refresh } = useClientStorage()
 const {
   results: accountValidity,
@@ -77,7 +78,9 @@ function onDeleted() {
 </script>
 
 <template>
-  <div>
+  <SharedDnsSetup v-if="sharedMode" />
+
+  <div v-else>
     <div v-if="status === 'pending'" class="grid gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
       <div class="h-64 animate-pulse bg-panel" style="border-radius: var(--radius-panel)" />
       <div class="h-64 animate-pulse bg-panel" style="border-radius: var(--radius-panel)" />
