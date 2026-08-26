@@ -32,6 +32,8 @@ bun run dev
 
 Or inside this package: `bun install && bun run dev`.
 
+Same stack in Docker (compose profile `dev` from the repo root): `bun run docker:dev` — mounts this package, runs `bun run dev`, UI on `http://127.0.0.1:3000`, DNS published on `:15353` (`ACME_DNS_LISTEN=0.0.0.0`).
+
 Uses `.data/{server,client,backup,letsencrypt}` (`ACMEDNS_DATA_ROOT=.data`). First start copies templates from [`seed/`](./seed/README.md). UI + API on `http://127.0.0.1:3000`. DNS defaults to `127.0.0.1:15353` via `.data/server/config.cfg` (from `seed/server/config.dev.cfg`).
 
 Edit `seed/` for **new-install** defaults only; live `.data/` files are never overwritten.
