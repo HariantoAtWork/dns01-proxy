@@ -27,7 +27,7 @@ const toneClass: Record<string, string> = {
       <Copy v-else :size="18" class="mt-0.5 text-muted" weight="regular" />
       <div class="min-w-0 flex-1">
         <p class="text-sm font-medium">{{ item.title }}</p>
-        <p class="text-sm text-muted">{{ item.detail }}</p>
+        <p v-if="item.detail" class="break-all text-sm text-muted">{{ item.detail }}</p>
       </div>
       <button
         type="button"

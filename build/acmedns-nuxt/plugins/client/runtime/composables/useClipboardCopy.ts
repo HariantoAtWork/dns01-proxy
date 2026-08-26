@@ -61,6 +61,10 @@ export function useClipboardCopy() {
     legacyWrite(text)
   }
 
+  function isPasswordLabel(label: string) {
+    return /^password$/i.test(label.trim())
+  }
+
   async function copyText(value: string, label = 'Value') {
     const text = typeof value === 'string' ? value : String(value ?? '')
     if (!text) {
@@ -82,7 +86,9 @@ export function useClipboardCopy() {
       copiedTimer = setTimeout(() => {
         copied.value = false
       }, 1500)
-      toasts.info(`${label} copied`)
+      // Show the copied string so you can verify it — never echo passwords.
+      const detail = isPasswordLabel(label) ? '' : text
+      toasts.info(detail, `${label} copied`)
     }
     catch {
       toasts.error('Could not copy to clipboard')
