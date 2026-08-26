@@ -8,6 +8,7 @@ import {
   PhDotsThreeVertical as Actions,
   PhDownload as Download,
   PhFloppyDisk as FloppyDisk,
+  PhLightning as Lightning,
   PhTrash as Trash,
 } from '@phosphor-icons/vue'
 import { useCertLiveStream } from '#client/composables/useCertLiveStream'
@@ -80,6 +81,8 @@ const hasQueue = computed(() =>
 const jobActionPending = ref(false)
 const dnsRecheckPending = ref(false)
 const downloadPending = ref<string | null>(null)
+/** Certs with an in-flight Issue POST (allows several apexes to queue quickly). */
+const issuingCerts = ref<string[]>([])
 const actionsMenuOpen = ref<string | null>(null)
 const trashConfirmName = ref<string | null>(null)
 const trashConfirmOpen = computed({
@@ -341,6 +344,55 @@ async function onApply(force = false) {
   }
   catch {
     toasts.error(error.value || 'Apply failed')
+  }
+}
+
+function canIssueCert(entry: { inDomainsFile: boolean, status: string }) {
+  return entry.inDomainsFile && entry.status !== 'orphan'
+}
+
+function certInFlightOrQueued(certName: string) {
+  if (issuingCerts.value.includes(certName)) {
+    return true
+  }
+  const running = certQueue.value.running
+  if (running?.certNames?.includes(certName) || running?.currentCert === certName) {
+    return true
+  }
+  if (certJob.value.running && certJob.value.currentCert === certName) {
+    return true
+  }
+  return certQueue.value.queued.some(job => job.certNames?.includes(certName))
+}
+
+function issueDisabled(entry: { certName: string, inDomainsFile: boolean, status: string }) {
+  return dirty.value
+    || !canIssueCert(entry)
+    || certInFlightOrQueued(entry.certName)
+    || (directoryMode.value === 'production' && !acmeEnabled.value)
+}
+
+async function onIssueCert(certName: string, force = false) {
+  actionsMenuOpen.value = null
+  if (certInFlightOrQueued(certName)) {
+    toasts.info(`${certName} is already queued or running`, 'Certificates')
+    return
+  }
+  issuingCerts.value = [...issuingCerts.value, certName]
+  try {
+    const data = await apply({ certNames: [certName], force, trackPending: false })
+    toasts.ok(
+      force
+        ? `Force Issue queued for ${certName} (job #${data.job.id})`
+        : `Issue queued for ${certName} (job #${data.job.id})`,
+      'Certificates',
+    )
+  }
+  catch {
+    toasts.error(error.value || `Issue failed for ${certName}`)
+  }
+  finally {
+    issuingCerts.value = issuingCerts.value.filter(name => name !== certName)
   }
 }
 
@@ -774,6 +826,10 @@ function rateLimitLabel(limit: CertRateLimit) {
       <h2 class="text-sm font-semibold text-ink">
         Status ({{ directoryMode === 'staging' ? 'staging/' : 'live/' }})
       </h2>
+      <p class="mt-1 text-xs text-muted">
+        Issue queues one Let's Encrypt job per apex; click several in a row and they run one after another.
+        Force Issue is in the ⋮ menu.
+      </p>
       <div v-if="!statusEntries.length" class="mt-3 text-sm text-muted">
         No certificates indexed yet.
       </div>
@@ -813,6 +869,16 @@ function rateLimitLabel(limit: CertRateLimit) {
           </div>
           <div class="flex shrink-0 flex-wrap items-center gap-2">
             <UiButton
+              v-if="canIssueCert(entry)"
+              size="sm"
+              title="Queue Let's Encrypt issue / renew for this apex only"
+              :disabled="issueDisabled(entry)"
+              @click="onIssueCert(entry.certName, false)"
+            >
+              <Lightning :size="14" weight="regular" aria-hidden="true" />
+              {{ issuingCerts.includes(entry.certName) ? 'Queuing…' : (certInFlightOrQueued(entry.certName) ? 'Queued' : 'Issue') }}
+            </UiButton>
+            <UiButton
               v-if="entry.liveOnDisk"
               variant="ghost"
               size="sm"
@@ -824,7 +890,7 @@ function rateLimitLabel(limit: CertRateLimit) {
               {{ downloadPending === entry.certName ? 'Downloading…' : 'Download' }}
             </UiButton>
             <UiMenu
-              v-if="entry.tree !== 'none'"
+              v-if="entry.tree !== 'none' || canIssueCert(entry)"
               :open="actionsMenuOpen === entry.certName"
               align="right"
               @update:open="setActionsMenuOpen(entry.certName, $event)"
@@ -847,6 +913,18 @@ function rateLimitLabel(limit: CertRateLimit) {
               </template>
               <template #default="{ close }">
                 <button
+                  v-if="canIssueCert(entry)"
+                  type="button"
+                  role="menuitem"
+                  class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+                  :disabled="issueDisabled(entry)"
+                  @click="close(); onIssueCert(entry.certName, true)"
+                >
+                  <Lightning :size="16" weight="regular" aria-hidden="true" />
+                  Force Issue
+                </button>
+                <button
+                  v-if="entry.tree !== 'none'"
                   type="button"
                   role="menuitem"
                   class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-danger hover:bg-paper"
