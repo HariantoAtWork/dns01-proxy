@@ -1,10 +1,16 @@
 {
   "name": "acmedns-stack",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "bun run --cwd build/acmedns-nuxt dev",
+    "build": "bun run --cwd build/acmedns-nuxt build",
+    "typecheck": "bun run --cwd build/acmedns-nuxt typecheck",
+    "prepare:nuxt": "bun run --cwd build/acmedns-nuxt postinstall",
     "docker:build": "docker compose -f docker-compose.build.yml build",
-    "docker:push": "docker compose -f docker-compose.build.yml -f docker-compose.build-push.yml build --push",
-    "docker:build-push": "docker compose -f docker-compose.build.yml -f docker-compose.build-push.yml build --push --no-cache"
+    "docker:push": "docker compose -f docker-compose.push.yml build --push",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f acmedns-nuxt"
   }
 }
