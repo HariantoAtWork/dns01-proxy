@@ -1,8 +1,5 @@
 import type { AcmeDnsCredentials, ClientStorageMap } from '#shared/types/clientstorage'
 
-export const PUBLIC_ACME_DNS_HOSTS = new Set(['auth.acme-dns.io'])
-export const INTERNAL_API_HOSTS = new Set(['acmedns-server', 'localhost', '127.0.0.1'])
-
 const APEX_RE = /^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$/
 
 export function apexName(domain: string): string {
@@ -125,55 +122,16 @@ export function storageCandidates(domain: string): string[] {
   return keys
 }
 
-export function hostnameFromUrl(url: string): string {
-  if (!url) {
-    return ''
-  }
-  try {
-    return (new URL(url).hostname || '').replace(/\.$/, '').toLowerCase()
-  }
-  catch {
-    return ''
-  }
-}
-
-export function accountMatchesPreferred(
-  account: Pick<AcmeDnsCredentials, 'server_url'> | { server_url?: string },
-  preferUrl: string,
-): boolean {
-  const prefer = hostnameFromUrl(preferUrl)
-  const stored = hostnameFromUrl(account.server_url || '')
-  if (!prefer) {
-    return true
-  }
-  if (PUBLIC_ACME_DNS_HOSTS.has(stored) && !PUBLIC_ACME_DNS_HOSTS.has(prefer)) {
-    return false
-  }
-  if (INTERNAL_API_HOSTS.has(stored) || !stored) {
-    return true
-  }
-  if (INTERNAL_API_HOSTS.has(prefer)) {
-    return !PUBLIC_ACME_DNS_HOSTS.has(stored)
-  }
-  return stored === prefer
-}
-
+/** Most-specific clientstorage row for a challenge host (any server_url). */
 export function findAccount(
   storage: ClientStorageMap,
   domain: string,
-  preferUrl = '',
-  skipped?: string[],
 ): { key: string | null, account: AcmeDnsCredentials | null } {
   for (const key of storageCandidates(domain)) {
     const account = storage[key]
-    if (!account) {
-      continue
+    if (account) {
+      return { key, account }
     }
-    if (preferUrl && !accountMatchesPreferred(account, preferUrl)) {
-      skipped?.push(key)
-      continue
-    }
-    return { key, account }
   }
   return { key: null, account: null }
 }

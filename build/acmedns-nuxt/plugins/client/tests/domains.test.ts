@@ -7,7 +7,7 @@ import {
   impliedParentWildcards,
   lineApex,
   storageCandidates,
-} from '../shared/utils/domains'
+} from '../runtime/shared/utils/domains'
 
 const CREDS = {
   username: 'u',
@@ -73,7 +73,7 @@ describe('domains', () => {
     expect(account).toEqual(CREDS)
   })
 
-  test('storage walk skips public acmedns.io', () => {
+  test('storage walk keeps specific public acmedns.io', () => {
     const local = {
       username: 'local',
       password: 'p',
@@ -89,16 +89,9 @@ describe('domains', () => {
       server_url: 'https://auth.acme-dns.io',
     }
     const storage = { 'oib.mdstn.com': pub, 'mdstn.com': local }
-    const skipped: string[] = []
-    const { key, account } = findAccount(
-      storage,
-      'oib.mdstn.com',
-      'https://auth.uti.email',
-      skipped,
-    )
-    expect(skipped).toEqual(['oib.mdstn.com'])
-    expect(key).toBe('mdstn.com')
-    expect(account).toEqual(local)
+    const { key, account } = findAccount(storage, 'oib.mdstn.com')
+    expect(key).toBe('oib.mdstn.com')
+    expect(account).toEqual(pub)
   })
 
   test('storage candidates order', () => {

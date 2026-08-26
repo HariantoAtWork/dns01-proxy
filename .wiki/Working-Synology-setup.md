@@ -331,7 +331,7 @@ Still valid as a Register **Server URL**. It is upstream acme-dns: **two TXT slo
 
 For more names on the public service: register a **separate** account per nested zone and CNAME `_acme-challenge.oib.mdstn.com` at **that** fulldomain — do not chain to the apex UUID.
 
-This NAS client uses `ACMEDNS_URL` for your server (`https://auth.uti.email`). The issuer then **skips** `auth.acme-dns.io` rows and uses the local apex account. Keep public-service logins for tools that actually talk to acme-dns.io; grouped SANs on this stack stay on `auth.uti.email`.
+This NAS client can mix `ACMEDNS_URL` for your server (`https://auth.uti.email`) with public-service rows on `auth.acme-dns.io`. The issuer uses each storage row’s own `server_url` (most-specific key first). Grouped multi-wildcard SANs still need this stack’s 100-slot server; keep public-service accounts at apex + one wildcard.
 
 ---
 

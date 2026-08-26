@@ -136,7 +136,7 @@ export async function issueCertificate(options: {
               throw new Error(`Unsupported challenge type: ${challenge.type}`)
             }
             const domain = authz.identifier.value
-            const { key: storageKey, account } = findAccount(storage, domain, preferUrl)
+            const { key: storageKey, account } = findAccount(storage, domain)
             if (!account || !storageKey) {
               throw new Error(`No acme-dns account for ${domain}`)
             }

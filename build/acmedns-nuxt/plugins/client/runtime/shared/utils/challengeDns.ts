@@ -38,7 +38,6 @@ export function expectedChallengeTarget(
 export function collectChallengeChecks(
   lines: ParsedDomainsLine[],
   storage: ClientStorageMap,
-  preferUrl = '',
 ): DomainsDnsCheck[] {
   const seen = new Map<string, DomainsDnsCheck>()
 
@@ -53,7 +52,7 @@ export function collectChallengeChecks(
       }
 
       const sample = line.expanded.find(entry => apexName(entry) === zone) ?? zone
-      const { key, account } = findAccount(storage, sample, preferUrl)
+      const { key, account } = findAccount(storage, sample)
 
       if (!account || !key) {
         seen.set(name, {

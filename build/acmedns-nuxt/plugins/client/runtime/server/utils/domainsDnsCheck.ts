@@ -1,6 +1,5 @@
 import { collectChallengeChecks } from '#shared/utils/challengeDns'
 import type { DomainsDnsCheck, ParsedDomainsLine } from '#shared/types/certs'
-import { resolveAcmeDnsBase } from './acmedns'
 import { dnsQueryCnameAnyMatch } from './dnsQuery'
 import { readStorage } from './storage'
 
@@ -10,8 +9,7 @@ export async function checkDomainsDns(lines: ParsedDomainsLine[]): Promise<Domai
   }
 
   const storage = await readStorage()
-  const preferUrl = resolveAcmeDnsBase()
-  const expected = collectChallengeChecks(lines, storage, preferUrl)
+  const expected = collectChallengeChecks(lines, storage)
 
   const noAccount = expected.filter(check => check.status === 'no_account')
   const toQuery = expected.filter(check => check.status !== 'no_account')
