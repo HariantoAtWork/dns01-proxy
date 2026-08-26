@@ -1,6 +1,6 @@
 services:
   acmedns-nuxt:
-    image: harianto/acmedns-nuxt
+    image: harianto/acmedns-nuxt:latest
     container_name: acmedns-nuxt
     restart: unless-stopped
     ports:
@@ -9,17 +9,17 @@ services:
       - "8080:80"
       - "8443:443"
     volumes:
-      - ./data/acmedns-stack:/var/lib/acmedns-stack
-      - ./data/letsencrypt:/etc/letsencrypt
-      # alternative: named volume instead of the bind above
-      # - letsencrypt:/etc/letsencrypt
+      - ./data/acmedns-stack:/var/lib/acmedns-stack  # server/, client/, backup/ (or host /var/lib/acmedns-stack:…)
+      - ./data/letsencrypt:/etc/letsencrypt  # live/, staging/, trash/, accounts/
+      # - letsencrypt:/etc/letsencrypt  # named-volume alternative
     environment:
+      # ── Paths (must match volumes) ──────────────────────────────────────────────
+      - ACMEDNS_DATA_ROOT=/var/lib/acmedns-stack
+      - ACMEDNS_LETSENCRYPT_DIR=/etc/letsencrypt
       # ── System ──────────────────────────────────────────────────────────────────
       - TZ=${TZ:-UTC}
       - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
-      # ── Backend ─────────────────────────────────────────────────────────────────
-      - ACMEDNS_DATA_ROOT=/var/lib/acmedns-stack
-      - ACMEDNS_LETSENCRYPT_DIR=/etc/letsencrypt
+      # ── ACME / certs ────────────────────────────────────────────────────────────
       - ACMEDNS_URL=${ACMEDNS_URL:-http://127.0.0.1}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
       - RENEW_INTERVAL=${RENEW_INTERVAL:-12}

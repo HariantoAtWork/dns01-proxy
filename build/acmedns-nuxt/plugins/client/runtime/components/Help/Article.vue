@@ -17,7 +17,7 @@
     <h2 class="mt-10 text-xl font-semibold">Register a domain</h2>
     <ol class="mt-3 list-decimal space-y-2 pl-5 text-muted">
       <li>Open Register and enter the <strong>line apex</strong> (e.g. <span class="font-mono text-ink">mdstn.com</span>) — not each nested wildcard.</li>
-      <li>Keep the server URL as <span class="font-mono text-ink">http://acmedns-server</span> when this app runs in the compose stack, or <span class="font-mono text-ink">http://auth.uti.email</span> from the NAS. <span class="font-mono text-ink">https://auth.acme-dns.io</span> still works, but that public service only keeps two TXT slots per account (<span class="font-mono text-ink">mdstn.com *.mdstn.com</span>). Nested wildcards on one UUID need this stack’s 100-slot server.</li>
+      <li>Keep the server URL as <span class="font-mono text-ink">http://127.0.0.1</span> or your public auth hostname (e.g. <span class="font-mono text-ink">http://auth.uti.email</span>) when this app runs in the compose stack. <span class="font-mono text-ink">https://auth.acme-dns.io</span> still works, but that public service only keeps two TXT slots per account (<span class="font-mono text-ink">mdstn.com *.mdstn.com</span>). Nested wildcards on one UUID need this stack’s 100-slot server.</li>
       <li>Register creates a new acme-dns account (username, password, fulldomain).</li>
       <li>Publish the CNAME on the real DNS, then Validate or Skip.</li>
       <li>Save. Without a save, the new account is not in the JSON file.</li>
@@ -59,7 +59,7 @@
     <h2 class="mt-10 text-xl font-semibold">Backup and restore</h2>
     <p class="mt-3 text-muted">
       Open Backup to copy the live file or one hostname into
-      <span class="font-mono text-ink">{data root}/acmedns-client/backups</span>.
+      <span class="font-mono text-ink">$ACMEDNS_DATA_ROOT/backup</span>.
       You can also download the live <span class="font-mono text-ink">clientstorage.json</span>
       file, or upload a <span class="font-mono text-ink">clientstorage.json</span> to replace it
       (you will confirm if live storage already has hostnames).

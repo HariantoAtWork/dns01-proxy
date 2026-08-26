@@ -22,7 +22,7 @@ Cloudflare orange-cloud on `auth.uti.email` is fine for a website. It is wrong f
 
 ## 1. `config.cfg` (acme-dns)
 
-File: `data/acmedns-server/config/config.cfg`
+File: `data/acmedns-stack/server/config.cfg` (bind-mounted at `/var/lib/acmedns-stack/server/config.cfg`)
 
 The important bits: listen on all interfaces for DNS, serve the `auth.uti.email` zone, expose the API on HTTP port 80 inside the container (TLS off — Synology terminates HTTPS), and publish A/NS glue that matches Cloudflare.
 
@@ -56,8 +56,8 @@ debug = false
 # Database engine to use, sqlite or postgres (sqlite3 is still accepted)
 engine = "sqlite"
 # Connection string, filename for sqlite and postgres://$username:$password@$host/$db_name for postgres
-# Please note that the default Docker image uses path /var/lib/acme-dns/acme-dns.db for sqlite
-connection = "/var/lib/acme-dns/acme-dns.db"
+# Please note that the Docker stack uses path /var/lib/acmedns-stack/server/acme-dns.db for sqlite
+connection = "/var/lib/acmedns-stack/server/acme-dns.db"
 # connection = "postgres://user:password@localhost/acmedns_db"
 
 [api]
@@ -205,14 +205,14 @@ Publish the API on the host, then let DSM terminate TLS:
 
 | Description | Source | Destination |
 | --- | --- | --- |
-| `acmedns-server http` | `http://auth.uti.email:80` | `http://localhost:8080` |
-| `acmedns-server https` | `https://auth.uti.email:443` | `http://localhost:8080` |
+| `acmedns-nuxt http` | `http://auth.uti.email:80` | `http://localhost:8080` |
+| `acmedns-nuxt https` | `https://auth.uti.email:443` | `http://localhost:8080` |
 
 Compose maps container `:80` → host `8080` (see below). Nothing fancy — hostname in, localhost out.
 
 ---
 
-## 4. Register the domain in acmedns-client
+## 4. Register the domain in the UI
 
 | Field | Value that worked |
 | --- | --- |
@@ -227,11 +227,11 @@ After register, copy the `fulldomain` into the `_acme-challenge.<apex>` CNAME at
 
 ## 5. Docker Compose ports on the NAS
 
-`acmedns-server` needs DNS on the host **and** the API reachable for the reverse proxy:
+`acmedns-nuxt` needs DNS on the host **and** the API reachable for the reverse proxy:
 
 ```yml
 services:
-  acmedns-server:
+  acmedns-nuxt:
     ports:
       - "53:53"
       - "53:53/udp"
@@ -243,13 +243,13 @@ services:
 - `8080:80` — what the reverse proxy targets.
 - `8443:443` — optional HTTPS when `api.tls = "cert"` (HTTP `:80` stays up either way).
 
-`acmedns-client` issues certificates (nothing published for ACME). It talks out to Let's Encrypt and to the API. Prefer the compose service name when you can (`http://acmedns-server`); if `clientstorage` already has `http://auth.uti.email`, the reverse proxy path above is what made that work on Synology.
+Certificate issuance runs in the same process (nothing published for ACME). Prefer loopback / reverse-proxy `http://auth.uti.email` for `ACMEDNS_URL` / `server_url` when that is what works on Synology.
 
 ---
 
 ## 6. `domains.txt`
 
-File: `data/acmedns-letsencrypt/domains.txt`
+File: `data/acmedns-stack/client/domains.txt` (or `/var/lib/acmedns-stack/client/domains.txt` inside the container)
 
 One certificate per line. Edit in the Certs UI or on disk, Save, then Apply — no restart.
 
@@ -262,8 +262,8 @@ One certificate per line. Edit in the Certs UI or on disk, Save, then Apply — 
 # - One certificate per line
 # - Names are separated by spaces or commas; order on the line does not matter
 # - Group related names on one line: one ACME order, one renew, one PEM
-# - Register only the line apex (e.g. mdstn.com) in acmedns-client; nested
-#   wildcards reuse that account via parent-walk in the Certbot hook
+# - Register only the line apex (e.g. mdstn.com) in the UI; nested
+#   wildcards reuse that account via parent-walk
 # - Nested wildcards imply parent wildcards on the cert automatically, e.g.
 #     *.label.parent.example.com  also adds  *.parent.example.com
 #     *.fail.label.parent.example.com  also adds  *.parent and *.label.parent
@@ -323,7 +323,7 @@ Both should follow into `87eb4f67-….auth.uti.email` (then TXT from acme-dns). 
 
 ### Multi-wildcard status
 
-This tree’s `acmedns-server` keeps **100** TXT records per account. The `mdstn.com` grouped line above issued on the NAS with those CNAMEs. Do not re-register `mdstn.com` to “fix” slots — that would mint a new UUID and you would have to edit `_acme-challenge.mdstn.com` only (the nested chains stay).
+This tree’s `acmedns-nuxt` keeps **100** TXT records per account. The `mdstn.com` grouped line above issued on the NAS with those CNAMEs. Do not re-register `mdstn.com` to “fix” slots — that would mint a new UUID and you would have to edit `_acme-challenge.mdstn.com` only (the nested chains stay).
 
 ### Public `auth.acme-dns.io`
 

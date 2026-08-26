@@ -876,7 +876,7 @@ function rateLimitLabel(limit: CertRateLimit) {
       </div>
       <p v-if="!filteredActivity.length" class="text-sm text-muted">
         ACME communication with Let's Encrypt appears here during Apply or renewal — HTTP requests,
-        dns-01 challenges, and validation. Also in <span class="font-mono">docker logs acmedns-client</span>
+        dns-01 challenges, and validation. Also in <span class="font-mono">docker logs acmedns-nuxt</span>
         (lines prefixed <span class="font-mono">[acme]</span>).
       </p>
       <ul v-else class="max-h-[420px] space-y-1 overflow-y-auto font-mono text-xs">
