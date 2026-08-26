@@ -79,7 +79,16 @@ bun run docker:up
 # or: docker compose up -d --build
 ```
 
-Useful root scripts (`package.json`): `dev`, `build`, `typecheck`, `docker:build`, `docker:push`, `docker:up` / `down` / `logs`.
+Useful root scripts (`package.json`): `dev`, `build`, `typecheck`, `docker:build`, `docker:push`, `docker:up` / `docker:dev` / `down` / `logs`.
+
+Docker Nuxt hot-reload (compose profile `dev`, UI on `:3000`, DNS on `:15353`):
+
+```bash
+bun run docker:dev
+# or: docker compose --profile dev up acmedns-nuxt-dev
+```
+
+Requires a local `docker-compose.yml` copied from the `.example` (same as production). Does not start the production `acmedns-nuxt` image.
 
 On first start the image seeds under `$ACMEDNS_DATA_ROOT` (`server/`, `client/`, `backup/`) and uses `$ACMEDNS_LETSENCRYPT_DIR` for PEMs.
 

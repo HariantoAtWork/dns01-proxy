@@ -10,6 +10,7 @@
     "docker:build": "docker compose -f docker-compose.build.yml build",
     "docker:push": "docker compose -f docker-compose.push.yml build --push",
     "docker:up": "docker compose up -d",
+    "docker:dev": "docker compose --profile dev up acmedns-nuxt-dev",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f acmedns-nuxt"
   }
