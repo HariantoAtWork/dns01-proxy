@@ -51,6 +51,11 @@ export function useBreadcrumbs() {
       return crumbs
     }
 
+    if (path === '/settings') {
+      crumbs.push({ label: 'Settings' })
+      return crumbs
+    }
+
     if (path === '/register') {
       crumbs.push({ label: 'Register domain' })
       return crumbs

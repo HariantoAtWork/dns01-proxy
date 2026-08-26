@@ -3,10 +3,12 @@ const {
   mono = false,
   invalid = false,
   type = 'text',
+  disabled = false,
 } = defineProps<{
   mono?: boolean
   invalid?: boolean
   type?: string
+  disabled?: boolean
 }>()
 
 const model = defineModel<string>({ default: '' })
@@ -16,7 +18,8 @@ const model = defineModel<string>({ default: '' })
   <input
     v-model="model"
     :type
-    class="ui-input w-full border bg-paper px-3 py-2 text-sm text-ink"
+    :disabled
+    class="ui-input w-full border bg-paper px-3 py-2 text-sm text-ink disabled:opacity-50"
     :class="[
       mono && 'font-mono',
       invalid ? 'border-danger' : 'border-rule',

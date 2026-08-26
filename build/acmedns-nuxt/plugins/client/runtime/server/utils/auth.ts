@@ -1,19 +1,14 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { H3Event } from 'h3'
 import { ADMIN_USERNAME } from '#shared/types/auth'
+import { resolveAdministratorPassword } from './appSettings'
 
 export const SESSION_COOKIE = 'acmedns_session'
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 const SESSION_KEY_PREFIX = 'acmedns-admin-session:'
 
 export function getAdministratorPassword(event: H3Event): string {
-  const config = useRuntimeConfig(event)
-  const raw = process.env.ADMINISTRATOR_PASSWORD
-    || process.env.NUXT_ADMINISTRATOR_PASSWORD
-    || config.administratorPassword
-    || ''
-
-  return String(raw).trim()
+  return resolveAdministratorPassword().value.trim()
 }
 
 export function isRestrictMode(event: H3Event): boolean {

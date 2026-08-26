@@ -2,6 +2,11 @@ import { dirname, join } from 'node:path'
 import { promises as fs } from 'node:fs'
 import type { CertSettings, LetsEncryptDirectoryMode } from '#shared/types/certs'
 import { getLetsencryptDir, getCertSettingsPath } from '../../../../../server/utils/paths'
+import {
+  resolveCertsAcmeDisabled,
+  resolveLetsencryptEmail,
+  resolveRenewIntervalHours,
+} from './appSettings'
 
 const DEFAULT: CertSettings = {
   directoryMode: 'production',
@@ -37,11 +42,7 @@ export async function writeCertSettings(settings: CertSettings) {
 
 /** False when CERTS_ACME_DISABLED — blocks production issue/renew only. */
 export function isProductionAcmeEnabled() {
-  const config = useRuntimeConfig()
-  const raw = process.env.CERTS_ACME_DISABLED
-    ?? process.env.NUXT_CERTS_ACME_DISABLED
-    ?? String(config.certsAcmeDisabled ?? 'false')
-  return !['1', 'true', 'yes', 'on'].includes(raw.toLowerCase())
+  return !resolveCertsAcmeDisabled().value
 }
 
 /** Alias for renew timer / settings: production ACME on/off. */
@@ -54,21 +55,11 @@ export function isAcmeEnabledForMode(mode: LetsEncryptDirectoryMode) {
 }
 
 export function getLetsEncryptEmail() {
-  const config = useRuntimeConfig()
-  return process.env.LETSENCRYPT_EMAIL
-    || process.env.NUXT_LETSENCRYPT_EMAIL
-    || config.letsencryptEmail
-    || 'admin@example.com'
+  return resolveLetsencryptEmail().value
 }
 
 export function getRenewIntervalHours() {
-  const config = useRuntimeConfig()
-  const raw = process.env.RENEW_INTERVAL
-    || process.env.NUXT_RENEW_INTERVAL
-    || config.renewInterval
-    || 12
-  const n = Number(raw)
-  return Number.isFinite(n) && n > 0 ? n : 12
+  return resolveRenewIntervalHours().value
 }
 
 export function assertDirectoryMode(value: unknown): LetsEncryptDirectoryMode {

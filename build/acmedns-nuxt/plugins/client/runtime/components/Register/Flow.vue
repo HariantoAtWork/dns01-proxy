@@ -27,12 +27,29 @@ const {
 const router = useRouter()
 
 const domain = ref('')
-const server = ref(config.public.defaultAcmednsUrl || 'http://127.0.0.1')
+const defaultServerUrl = ref(config.public.defaultAcmednsUrl || 'http://127.0.0.1')
+const server = ref(defaultServerUrl.value)
 const submitted = ref(false)
 const pending = ref(false)
 const step = ref<Step>('form')
 const pendingData = ref<AcmeDnsCredentials | null>(null)
 const overwriteOpen = ref(false)
+
+onMounted(async () => {
+  try {
+    const data = await $fetch<{ operator?: { defaultAcmednsUrl?: string } }>('/api/settings')
+    const next = data.operator?.defaultAcmednsUrl?.trim()
+    if (next) {
+      defaultServerUrl.value = next
+      if (step.value === 'form' && !submitted.value) {
+        server.value = next
+      }
+    }
+  }
+  catch {
+    // Keep runtimeConfig public default
+  }
+})
 
 async function handleSubmit() {
   submitted.value = true
@@ -131,7 +148,7 @@ async function persist(shouldSave: boolean) {
 
 function reset() {
   domain.value = ''
-  server.value = config.public.defaultAcmednsUrl || 'http://127.0.0.1'
+  server.value = defaultServerUrl.value
   submitted.value = false
   pendingData.value = null
   step.value = 'form'
