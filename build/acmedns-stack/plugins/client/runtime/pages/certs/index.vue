@@ -7,7 +7,7 @@ import {
   transportClass,
   transportDotClass,
 } from '#shared/utils/certsUi'
-import { useDocumentVisibility, useNow } from '@vueuse/core'
+import { useNow } from '@vueuse/core'
 import {
   PhArrowsClockwise as ArrowsClockwise,
   PhCertificate as Certificate,
@@ -15,7 +15,6 @@ import {
   PhFloppyDisk as FloppyDisk,
   PhTrash as Trash,
 } from '@phosphor-icons/vue'
-import { useCertLiveStream } from '#client/composables/useCertLiveStream'
 
 useHead({ title: 'Certificates' })
 
@@ -59,10 +58,17 @@ const {
   applyLiveRateLimits,
 } = useCerts()
 
+const {
+  transport,
+  transportLabel,
+  jobActionPending,
+  registerPageHooks,
+  clearPageHooks,
+} = useCertQueueLive()
+
 const dirty = ref(false)
 const loaded = ref(false)
 const logFilter = ref<'all' | 'acme' | 'live' | 'staging'>('acme')
-const visibility = useDocumentVisibility()
 const now = useNow({ interval: 1000 })
 
 const activeRateLimits = computed(() =>
@@ -71,7 +77,6 @@ const activeRateLimits = computed(() =>
     .sort((a, b) => Date.parse(a.until) - Date.parse(b.until)),
 )
 
-const jobActionPending = ref(false)
 const dnsRecheckPending = ref(false)
 const downloadPending = ref<string | null>(null)
 const issuingCerts = ref<string[]>([])
@@ -121,19 +126,6 @@ function notifyNewActivity(entries: CertActivityEntry[]) {
   }
 }
 
-const { transport, transportLabel, start: startLive, disconnect: disconnectLive } = useCertLiveStream({
-  directoryMode,
-  pollBlocked: pending,
-  onPoll: async () => {
-    await refresh({ notify: notifyNewActivity })
-  },
-  onSnapshot: data => applyLiveSnapshot(data),
-  onActivity: (data, notify) => applyLiveActivity(data, notify ? notifyNewActivity : undefined),
-  onQueue: data => applyLiveQueue(data),
-  onStatus: data => applyLiveStatus(data),
-  onRateLimits: data => applyLiveRateLimits(data),
-})
-
 watch(directoryMode, async (mode) => {
   if (!loaded.value) {
     return
@@ -141,28 +133,26 @@ watch(directoryMode, async (mode) => {
   await loadStatus(mode)
 })
 
-watch(visibility, (visible) => {
-  if (!loaded.value) {
-    return
-  }
-  if (visible) {
-    startLive()
-  }
-  else {
-    disconnectLive()
-  }
-})
-
 onMounted(async () => {
+  registerPageHooks({
+    directoryMode,
+    pollBlocked: pending,
+    onPoll: async () => {
+      await refresh({ notify: notifyNewActivity })
+    },
+    onSnapshot: data => applyLiveSnapshot(data),
+    onActivity: (data, notify) => applyLiveActivity(data, notify ? notifyNewActivity : undefined),
+    onQueue: data => applyLiveQueue(data),
+    onStatus: data => applyLiveStatus(data),
+    onRateLimits: data => applyLiveRateLimits(data),
+  })
+
   try {
     await Promise.all([loadDomains(), loadSettings()])
     await loadStatus()
     await loadActivity({ full: true })
     lastRefreshedAt.value = new Date().toISOString()
     loaded.value = true
-    if (visibility.value === 'visible') {
-      startLive()
-    }
   }
   catch (caught) {
     toasts.error(caught instanceof Error ? caught.message : 'Failed to load certificates')
@@ -170,7 +160,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  disconnectLive()
+  clearPageHooks()
 })
 
 watch(text, () => {

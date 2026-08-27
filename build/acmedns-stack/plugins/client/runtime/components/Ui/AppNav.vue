@@ -76,6 +76,8 @@ async function signOut() {
 
         <NetworkPublicIps />
 
+        <CertsQueueNav />
+
         <UiMenu
           v-if="restrictMode"
           v-model:open="accountOpen"
