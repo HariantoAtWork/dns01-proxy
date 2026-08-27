@@ -4,7 +4,7 @@ import type { AcmeTxtAccount, AcmeTxtPost } from './types'
 import { ensureTXTSlotsForSubdomain, getByUsername } from './db'
 import { getAcmeConfig } from './config'
 import { acmeDnsError, isAcmeDnsError } from './errors'
-import { sharedModeUsername } from './sharedMode'
+import { sharedModeUsername } from './sharedModeBootstrap'
 import {
   getValidUsername,
   ipInCidrs,

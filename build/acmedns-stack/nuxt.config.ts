@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 import { defaultAcmednsUrlForTinyDomain, tinyDomainFromEnv } from './plugins/client/runtime/shared/utils/tinyDomain'
+import { envAcmednsUrl, envDefaultAcmednsUrl } from './core/env'
 
 // `nuxt dev` runs Nitro under Node — do not use the Bun.serve entry there.
 const isNuxtDev = process.argv.includes('dev')
@@ -10,12 +11,10 @@ const acmednsUrlFromTiny = defaultAcmednsUrlForTinyDomain(tinyDomain)
 // Prefer ACMEDNS_URL so a single .env key drives server + Register form.
 // ACMEDNS_TINY_DOMAIN fills the URL when unset (https://<tiny-domain>).
 // Docker still needs NUXT_PUBLIC_DEFAULT_ACMEDNS_URL at runtime (see compose).
-const acmednsUrl = process.env.NUXT_ACMEDNS_URL
-  || process.env.ACMEDNS_URL
+const acmednsUrl = envAcmednsUrl()
   || acmednsUrlFromTiny
   || 'http://127.0.0.1'
-const defaultAcmednsUrl = process.env.NUXT_PUBLIC_DEFAULT_ACMEDNS_URL
-  || process.env.ACMEDNS_URL
+const defaultAcmednsUrl = envDefaultAcmednsUrl()
   || acmednsUrlFromTiny
   || 'http://127.0.0.1'
 

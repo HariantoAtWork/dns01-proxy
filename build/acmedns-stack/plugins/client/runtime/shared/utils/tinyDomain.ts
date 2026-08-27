@@ -1,3 +1,5 @@
+import { envAcmednsTinyDomain } from '../../../../../core/env'
+
 /** Normalise ACMEDNS_TINY_DOMAIN (hostname only, no scheme or trailing dot). */
 export function normalizeTinyDomain(raw: string): string {
   let value = raw.trim()
@@ -19,7 +21,7 @@ export function normalizeTinyDomain(raw: string): string {
 }
 
 export function tinyDomainFromEnv(): string {
-  return normalizeTinyDomain(process.env.ACMEDNS_TINY_DOMAIN || '')
+  return normalizeTinyDomain(envAcmednsTinyDomain() || '')
 }
 
 export function defaultAcmednsUrlForTinyDomain(domain: string): string {

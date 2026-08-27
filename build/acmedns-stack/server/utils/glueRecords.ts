@@ -10,10 +10,12 @@ import {
 } from '../../plugins/client/runtime/shared/utils/glueRecords'
 import { lookupHostPublicIps } from '../../plugins/client/runtime/server/utils/publicIps'
 
+import { envAcmednsPublicIp, envAcmednsPublicIpv6 } from '../../core/env'
+
 function configuredPublicAddresses(): AuthZoneGlueAddresses {
   return {
-    ipv4: process.env.ACMEDNS_PUBLIC_IP?.trim() || '',
-    ipv6: process.env.ACMEDNS_PUBLIC_IPV6?.trim() || '',
+    ipv4: envAcmednsPublicIp() || '',
+    ipv6: envAcmednsPublicIpv6() || '',
   }
 }
 

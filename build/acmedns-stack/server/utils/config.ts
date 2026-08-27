@@ -8,7 +8,13 @@ import type { AcmeDnsConfig, ParsedListen } from './types'
 import { DEFAULT_ACME_DNS_CONFIG_TEXT } from './defaultConfig'
 import { findPackageRoot } from './paths'
 import { ensureServerConfigSeeded, seedDataRootSync } from './seedData'
-import { getAppSettingsSnapshot, resolveTinyDomain } from '../../plugins/client/runtime/server/utils/appSettings'
+import { getAppSettingsSnapshot, resolveTinyDomain } from '../../core/appSettings'
+import {
+  envAcmeDnsListen,
+  envAcmeDnsPort,
+  envAcmednsSharedKey,
+  envAcmednsSharedMode,
+} from '../../core/env'
 
 const DEFAULTS: AcmeDnsConfig = {
   general: {
@@ -172,8 +178,8 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
     cached.database.connection = resolve(root, cached.database.connection)
   }
 
-  const listenOverride = process.env.ACME_DNS_LISTEN || process.env.DNS_LISTEN
-  const portOverride = process.env.ACME_DNS_PORT || process.env.DNS_PORT
+  const listenOverride = envAcmeDnsListen()
+  const portOverride = envAcmeDnsPort()
   if (listenOverride || portOverride) {
     const parsed = parseListenAddress(cached.general.listen)
     const host = listenOverride || parsed.host
@@ -189,12 +195,12 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
     cached.api.disable_registration = true
   }
 
-  const sharedEnv = process.env.ACMEDNS_SHARED_MODE
-  if (sharedEnv === 'true' || sharedEnv === '1') {
+  const sharedEnv = envAcmednsSharedMode()
+  if (sharedEnv === true) {
     cached.api.shared_mode = true
     cached.api.disable_registration = true
   }
-  const sharedKey = process.env.ACMEDNS_SHARED_KEY?.trim()
+  const sharedKey = envAcmednsSharedKey()
   if (sharedKey) {
     cached.api.shared_password = sharedKey
   }

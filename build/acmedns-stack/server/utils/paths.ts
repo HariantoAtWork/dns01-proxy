@@ -1,69 +1,41 @@
-import { existsSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
+import {
+  findPackageRoot,
+  resolveMaybeRelative,
+  getDataRoot as getCoreDataRoot,
+  getLetsencryptDir as getCoreLetsencryptDir,
+  getServerConfigPath as getCoreServerConfigPath,
+  getClientstoragePath as getCoreClientstoragePath,
+  getCertSettingsPath as getCoreCertSettingsPath,
+  getAppSettingsPath as getCoreAppSettingsPath,
+  getDomainsFilePath as getCoreDomainsFilePath,
+  getBackupDir as getCoreBackupDir,
+  type DataRootOptions,
+} from '../../core/paths'
 
-/** Folder that contains `nuxt.config.ts` / `seed/` when you `cd build/acmedns-stack && bun run dev`. */
-export function findPackageRoot(): string {
-  const here = dirname(fileURLToPath(import.meta.url))
-  for (const dir of [process.cwd(), resolve(here, '../..'), resolve(here, '../../..')]) {
-    if (existsSync(resolve(dir, 'nuxt.config.ts')) || existsSync(resolve(dir, 'seed/server/config.cfg'))) {
-      return dir
-    }
-  }
-  return process.cwd()
-}
+export { findPackageRoot, resolveMaybeRelative }
 
-function resolveMaybeRelative(path: string): string {
-  if (isAbsolute(path)) {
-    return path
-  }
-  return resolve(findPackageRoot(), path)
-}
-
-function readRuntimeDataRoot(): string | undefined {
+function runtimeOptions(): DataRootOptions {
+  const options: DataRootOptions = {}
   try {
-    const value = String(useRuntimeConfig().dataRoot || '').trim()
-    return value || undefined
+    const config = useRuntimeConfig()
+    options.runtimeDataRoot = String(config.dataRoot || '').trim() || undefined
+    options.runtimeLetsencryptDir = String(config.letsencryptDir || '').trim() || undefined
   }
   catch {
-    return undefined
+    // Nitro auto-import unavailable outside Nuxt runtime.
   }
-}
-
-function readRuntimeLetsencryptDir(): string | undefined {
-  try {
-    const value = String(useRuntimeConfig().letsencryptDir || '').trim()
-    return value || undefined
-  }
-  catch {
-    return undefined
-  }
+  return options
 }
 
 /** `$ACMEDNS_DATA_ROOT` / `NUXT_ACMEDNS_DATA_ROOT` / `runtimeConfig.dataRoot` — no legacy fallbacks. */
 export function getDataRoot(): string {
-  const fromEnv = (process.env.ACMEDNS_DATA_ROOT || process.env.NUXT_ACMEDNS_DATA_ROOT || '').trim()
-  if (fromEnv) {
-    return resolveMaybeRelative(fromEnv)
-  }
-  const fromRuntime = readRuntimeDataRoot()
-  if (fromRuntime) {
-    return resolveMaybeRelative(fromRuntime)
-  }
-  throw new Error('ACMEDNS_DATA_ROOT (or NUXT_ACMEDNS_DATA_ROOT / runtimeConfig.dataRoot) is required')
+  return getCoreDataRoot(runtimeOptions())
 }
 
 /** `$ACMEDNS_LETSENCRYPT_DIR` / `NUXT_ACMEDNS_LETSENCRYPT_DIR` / `runtimeConfig.letsencryptDir`. */
 export function getLetsencryptDir(): string {
-  const fromEnv = (process.env.ACMEDNS_LETSENCRYPT_DIR || process.env.NUXT_ACMEDNS_LETSENCRYPT_DIR || '').trim()
-  if (fromEnv) {
-    return resolveMaybeRelative(fromEnv)
-  }
-  const fromRuntime = readRuntimeLetsencryptDir()
-  if (fromRuntime) {
-    return resolveMaybeRelative(fromRuntime)
-  }
-  throw new Error('ACMEDNS_LETSENCRYPT_DIR (or NUXT_ACMEDNS_LETSENCRYPT_DIR / runtimeConfig.letsencryptDir) is required')
+  return getCoreLetsencryptDir(runtimeOptions())
 }
 
 export function dataPath(...segments: string[]): string {
@@ -71,25 +43,25 @@ export function dataPath(...segments: string[]): string {
 }
 
 export function getServerConfigPath(): string {
-  return dataPath('server', 'config.cfg')
+  return getCoreServerConfigPath(runtimeOptions())
 }
 
 export function getClientstoragePath(): string {
-  return dataPath('client', 'clientstorage.json')
+  return getCoreClientstoragePath(runtimeOptions())
 }
 
 export function getCertSettingsPath(): string {
-  return dataPath('client', 'cert-settings.json')
+  return getCoreCertSettingsPath(runtimeOptions())
 }
 
 export function getAppSettingsPath(): string {
-  return dataPath('client', 'app-settings.json')
+  return getCoreAppSettingsPath(runtimeOptions())
 }
 
 export function getDomainsFilePath(): string {
-  return dataPath('client', 'domains.txt')
+  return getCoreDomainsFilePath(runtimeOptions())
 }
 
 export function getBackupDir(): string {
-  return dataPath('backup')
+  return getCoreBackupDir(runtimeOptions())
 }
