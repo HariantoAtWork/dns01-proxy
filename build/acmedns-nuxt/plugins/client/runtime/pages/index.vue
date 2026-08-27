@@ -27,7 +27,7 @@ const { data: domainsFile, status: domainsFileStatus } = useFetch<DomainsParseRe
 })
 
 const accountCount = computed(() => entries.value.length)
-const { sharedMode, cnameTarget } = useSharedMode()
+const { sharedMode, authZone } = useSharedMode()
 
 const serverBreakdown = computed(() => {
   const counts = new Map<string, number>()
@@ -110,7 +110,7 @@ async function refreshAll() {
           <p class="text-xs uppercase tracking-wide text-muted">Accounts</p>
           <p class="mt-2 font-mono text-3xl font-semibold tabular-nums">{{ accountCount }}</p>
           <p v-if="sharedMode" class="mt-1 text-sm text-muted">
-            Shared mode — CNAME to {{ cnameTarget || 'auth zone' }}
+            Tiny mode — _apex_ labels under {{ authZone || 'auth zone' }}
           </p>
           <p v-else class="mt-1 text-sm text-muted">in clientstorage.json</p>
         </NuxtLink>

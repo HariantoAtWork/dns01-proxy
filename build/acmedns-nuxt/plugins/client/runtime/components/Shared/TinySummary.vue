@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PhCopy as Copy } from '@phosphor-icons/vue'
 
-const { sharedMode, authZone, cnameTarget, settings, refresh } = useSharedMode()
+const { sharedMode, authZone, settings, refresh } = useSharedMode()
 const { host, load, loading, error } = usePublicIps()
 const { copyText } = useClipboardCopy()
 
@@ -102,7 +102,7 @@ const zoneText = computed(() => zoneRecords.value.map(row => row.line).join('\n'
           label="ACMEDNS_TINY_DOMAIN"
         />
         <span v-else class="text-muted">—</span>
-        <span class="mt-0.5 block text-xs text-muted">ACMEDNS_TINY_DOMAIN · CNAME target {{ cnameTarget || '—' }}</span>
+        <span class="mt-0.5 block text-xs text-muted">ACMEDNS_TINY_DOMAIN · CNAME e.g. _mdstn-com_.{{ authZone || 'auth.zone' }}</span>
       </dd>
 
       <dt class="text-muted">Public IP</dt>

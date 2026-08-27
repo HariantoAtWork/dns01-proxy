@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs'
 import acme from 'acme-client'
 import type { LetsEncryptDirectoryMode } from '#shared/types/certs'
 import { findAccount } from '#shared/utils/domains'
+import { tinyApexLabel } from '#shared/utils/sharedMode'
 import { getSharedModeContext } from '../../../../../server/utils/sharedMode'
 import { readStorage } from './storage'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
@@ -145,18 +146,26 @@ export async function issueCertificate(options: {
               throw new Error(`No acme-dns account for ${domain}`)
             }
 
+            // Tiny: `_mdstn-com_` under auth zone (deterministic from cert-line apex).
+            const subdomain = shared
+              ? tinyApexLabel(options.certName)
+              : account.subdomain
+            if (!subdomain) {
+              throw new Error(`No acme-dns subdomain for ${domain}`)
+            }
+
             logAcmeStep(
               options.certName,
               shared
-                ? `Publishing dns-01 TXT for ${domain} via shared acme-dns (${account.subdomain})`
-                : `Publishing dns-01 TXT for ${domain} via acme-dns (${account.subdomain})`,
+                ? `Publishing dns-01 TXT for ${domain} via shared acme-dns (${subdomain})`
+                : `Publishing dns-01 TXT for ${domain} via acme-dns (${subdomain})`,
             )
 
             await updateAcmeDnsTxt({
               serverUrl: account.server_url || preferUrl,
               username: account.username,
               password: account.password,
-              subdomain: account.subdomain,
+              subdomain,
               txt: keyAuthorization,
             })
 

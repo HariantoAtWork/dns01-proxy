@@ -14,7 +14,29 @@ export function zoneApexTxtSubdomain(zone: string) {
   return dot > 0 ? fqdn.slice(0, dot) : fqdn
 }
 
-/** CNAME target operators publish at their registrar (zone apex, no UUID label). */
+/**
+ * Tiny mode DNS label for an apex: `mdstn.com` → `_mdstn-com_`.
+ * Dots become hyphens; wrapped in underscores so it cannot collide with UUIDs.
+ */
+export function tinyApexLabel(apex: string): string {
+  const host = stripZoneFqdn(apex)
+  if (!host) {
+    return ''
+  }
+  return `_${host.replace(/\./g, '-')}_`
+}
+
+/** Tiny CNAME target: `_mdstn-com_.auth.uti.email`. */
+export function tinyApexFulldomain(apex: string, authZone: string): string {
+  const label = tinyApexLabel(apex)
+  const zone = stripZoneFqdn(authZone)
+  if (!label || !zone) {
+    return ''
+  }
+  return `${label}.${zone}`
+}
+
+/** Auth zone hostname (glue / NS). Per-apex CNAME targets use tinyApexFulldomain. */
 export function sharedCnameTarget(zone: string) {
   return stripZoneFqdn(zone)
 }
