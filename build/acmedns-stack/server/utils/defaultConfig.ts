@@ -2,12 +2,12 @@
 export const DEFAULT_ACME_DNS_CONFIG_TEMPLATE = `[general]
 listen = "0.0.0.0:53"
 protocol = "both"
-domain = "${AUTH_DOMAIN}"
-nsname = "${AUTH_DOMAIN}"
-nsadmin = "${NSADMIN}"
+domain = "\${AUTH_DOMAIN}"
+nsname = "\${AUTH_DOMAIN}"
+nsadmin = "\${NSADMIN}"
 records = [
-    "${AUTH_DOMAIN}. A 198.51.100.1",
-    "${AUTH_DOMAIN}. NS ${AUTH_DOMAIN}.",
+    "\${AUTH_DOMAIN}. A 198.51.100.1",
+    "\${AUTH_DOMAIN}. NS \${AUTH_DOMAIN}.",
 ]
 debug = false
 
@@ -21,8 +21,8 @@ disable_registration = false
 port = "80"
 tls = "none"
 # tls_cert_* — only used when tls = "cert". Cert is issued for the apex, not the auth zone.
-tls_cert_fullchain = "/etc/letsencrypt/live/${APEX}/fullchain.pem"
-tls_cert_privkey = "/etc/letsencrypt/live/${APEX}/privkey.pem"
+tls_cert_fullchain = "/etc/letsencrypt/live/\${APEX}/fullchain.pem"
+tls_cert_privkey = "/etc/letsencrypt/live/\${APEX}/privkey.pem"
 corsorigins = [
     "*"
 ]
