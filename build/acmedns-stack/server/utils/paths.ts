@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-/** Folder that contains `nuxt.config.ts` / `seed/` when you `cd build/acmedns-nuxt && bun run dev`. */
+/** Folder that contains `nuxt.config.ts` / `seed/` when you `cd build/acmedns-stack && bun run dev`. */
 export function findPackageRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url))
   for (const dir of [process.cwd(), resolve(here, '../..'), resolve(here, '../../..')]) {

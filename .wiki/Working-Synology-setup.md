@@ -205,8 +205,8 @@ Publish the API on the host, then let DSM terminate TLS:
 
 | Description | Source | Destination |
 | --- | --- | --- |
-| `acmedns-nuxt http` | `http://auth.uti.email:80` | `http://localhost:8080` |
-| `acmedns-nuxt https` | `https://auth.uti.email:443` | `http://localhost:8080` |
+| `acmedns-stack http` | `http://auth.uti.email:80` | `http://localhost:8080` |
+| `acmedns-stack https` | `https://auth.uti.email:443` | `http://localhost:8080` |
 
 Compose maps container `:80` → host `8080` (see below). Nothing fancy — hostname in, localhost out.
 
@@ -227,11 +227,11 @@ After register, copy the `fulldomain` into the `_acme-challenge.<apex>` CNAME at
 
 ## 5. Docker Compose ports on the NAS
 
-`acmedns-nuxt` needs DNS on the host **and** the API reachable for the reverse proxy:
+`acmedns-stack` needs DNS on the host **and** the API reachable for the reverse proxy:
 
 ```yml
 services:
-  acmedns-nuxt:
+  acmedns-stack:
     ports:
       - "53:53"
       - "53:53/udp"
@@ -323,7 +323,7 @@ Both should follow into `87eb4f67-….auth.uti.email` (then TXT from acme-dns). 
 
 ### Multi-wildcard status
 
-This tree’s `acmedns-nuxt` keeps **100** TXT records per account. The `mdstn.com` grouped line above issued on the NAS with those CNAMEs. Do not re-register `mdstn.com` to “fix” slots — that would mint a new UUID and you would have to edit `_acme-challenge.mdstn.com` only (the nested chains stay).
+This tree’s `acmedns-stack` keeps **100** TXT records per account. The `mdstn.com` grouped line above issued on the NAS with those CNAMEs. Do not re-register `mdstn.com` to “fix” slots — that would mint a new UUID and you would have to edit `_acme-challenge.mdstn.com` only (the nested chains stay).
 
 ### Public `auth.acme-dns.io`
 

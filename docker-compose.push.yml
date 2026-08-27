@@ -2,14 +2,14 @@
 # Multi-arch cannot be loaded into the local Docker engine, so local
 # `docker:build` stays on docker-compose.build.yml only.
 services:
-  acmedns-nuxt:
+  acmedns-stack:
     build:
-      context: build/acmedns-nuxt
+      context: build/acmedns-stack
       dockerfile: Dockerfile.platform
       platforms:
         - linux/amd64
         - linux/arm64
-    image: harianto/acmedns-nuxt:latest
+    image: harianto/acmedns-stack:latest
 
   # acmedns-server:
   #   build:
