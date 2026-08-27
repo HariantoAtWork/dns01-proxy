@@ -15,13 +15,18 @@ export function useBreadcrumbs() {
       return crumbs
     }
 
-    if (path === '/domains') {
+    if (path === '/domains' || path.startsWith('/domains/')) {
       crumbs.push({
         label: sharedMode.value ? 'DNS setup' : 'Domains',
         to: '/domains',
       })
-      const domain = route.query.d
-      if (typeof domain === 'string' && domain) {
+      const fromParam = route.params.domain
+      const domain = typeof fromParam === 'string' && fromParam
+        ? decodeURIComponent(fromParam)
+        : typeof route.query.d === 'string'
+          ? route.query.d
+          : ''
+      if (domain) {
         crumbs.push({ label: domain })
       }
       return crumbs
@@ -37,7 +42,7 @@ export function useBreadcrumbs() {
       if (typeof domain === 'string' && domain) {
         crumbs.push({
           label: domain,
-          to: `/domains?d=${encodeURIComponent(domain)}`,
+          to: `/domains/${encodeURIComponent(domain)}`,
         })
       }
       crumbs.push({ label: 'Backup' })

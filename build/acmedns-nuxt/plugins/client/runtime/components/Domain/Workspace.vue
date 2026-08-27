@@ -5,6 +5,7 @@ import {
   PhX as Close,
   PhArrowsClockwise as Refresh,
 } from '@phosphor-icons/vue'
+import { domainsPath, selectedDomainFromRoute } from '#shared/utils/domainsRoute'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,10 +23,7 @@ const {
   verifyAll,
 } = useAccountVerify()
 
-const selected = computed(() => {
-  const query = route.query.d
-  return typeof query === 'string' ? query : ''
-})
+const selected = computed(() => selectedDomainFromRoute(route))
 
 const current = computed(() => entries.value.find(entry => entry.domain === selected.value) ?? entries.value[0] ?? null)
 
@@ -39,7 +37,7 @@ watch(entries, (list) => {
     return
   }
   if (!selected.value && list[0]) {
-    void router.replace({ query: { d: list[0].domain } })
+    void router.replace(domainsPath(list[0].domain))
   }
 }, { immediate: true })
 
@@ -68,13 +66,13 @@ onBeforeUnmount(() => {
 })
 
 function select(domain: string) {
-  void router.replace({ query: { d: domain } })
+  void router.replace(domainsPath(domain))
   sidebarOpen.value = false
 }
 
 function onDeleted() {
   const remaining = entries.value.filter(entry => entry.domain !== selected.value)
-  void router.replace({ query: remaining[0] ? { d: remaining[0].domain } : {} })
+  void router.replace(domainsPath(remaining[0]?.domain))
   void verifyAll()
 }
 </script>

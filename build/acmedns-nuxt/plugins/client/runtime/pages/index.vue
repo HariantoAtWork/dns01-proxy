@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CertStatusEntry, DomainsParseResult } from '#shared/types/certs'
+import { domainsPath } from '#shared/utils/domainsRoute'
 
 useHead({ title: 'Home' })
 
@@ -7,10 +8,7 @@ const route = useRoute()
 
 // Legacy bookmarks: `/?d=host` still open the domain detail view.
 if (typeof route.query.d === 'string' && route.query.d) {
-  await navigateTo(
-    { path: '/domains', query: route.query },
-    { replace: true },
-  )
+  await navigateTo(domainsPath(route.query.d), { replace: true })
 }
 
 const { entries, status: storageStatus, error: storageError, refresh: refreshStorage } = useClientStorage()

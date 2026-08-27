@@ -35,6 +35,13 @@ function pageRouteFromFile(relPath: string): { name: string, path: string } {
       nameParts.push('index')
       continue
     }
+    const optionalDynamic = /^\[\[(.+)\]\]$/.exec(segment)
+    if (optionalDynamic) {
+      const param = optionalDynamic[1]!
+      routeSegments.push(`:${param}?`)
+      nameParts.push(param)
+      continue
+    }
     const dynamic = /^\[(.+)\]$/.exec(segment)
     if (dynamic) {
       const param = dynamic[1]!
