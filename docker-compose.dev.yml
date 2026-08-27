@@ -1,0 +1,46 @@
+services:
+  # Hot-reload Nuxt: docker compose --profile dev up acmedns-stack-dev
+  # (or: bun run docker:dev). Does not start with plain `docker compose up`.
+  acmedns-stack-dev:
+    image: oven/bun:canary-alpine
+    container_name: acmedns-stack-dev
+    working_dir: /app
+    command: ["sh", "-c", "bun install --frozen-lockfile && exec bun run dev"]
+    ports:
+      - "3000:3000"
+      - "15353:15353"
+      - "15353:15353/udp"
+    volumes:
+      - ./build/acmedns-stack:/app
+      - acmedns-stack-dev-modules:/app/node_modules  # Linux modules inside the container
+    environment:
+      # ── Paths (package-local .data on the bind mount) ───────────────────────────
+      - ACMEDNS_DATA_ROOT=.data
+      - ACMEDNS_LETSENCRYPT_DIR=.data/letsencrypt
+      # Seed listens on 127.0.0.1 — override so published :15353 reaches the host.
+      - ACME_DNS_LISTEN=0.0.0.0
+      - HOST=0.0.0.0
+      - NITRO_HOST=0.0.0.0
+      # ── System ──────────────────────────────────────────────────────────────────
+      - TZ=${TZ:-UTC}
+      - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
+      # ── ACME / certs ────────────────────────────────────────────────────────────
+      - ACMEDNS_URL=${ACMEDNS_URL:-http://127.0.0.1}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
+      - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
+      - CERTS_ACME_DISABLED=${CERTS_ACME_DISABLED:-false}
+      - CERTS_RENEW_DISABLED=${CERTS_RENEW_DISABLED:-false}
+      # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
+      - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}
+      - ACMEDNS_SHARED_MODE=${ACMEDNS_SHARED_MODE:-}
+      - ACMEDNS_SHARED_KEY=${ACMEDNS_SHARED_KEY:-}
+      - ACMEDNS_PUBLIC_IP=${ACMEDNS_PUBLIC_IP:-}
+      - ACMEDNS_PUBLIC_IPV6=${ACMEDNS_PUBLIC_IPV6:-}
+      - NUXT_ACME_DNS_DEFAULT_CONFIG=${NUXT_ACME_DNS_DEFAULT_CONFIG:-}
+      # ── Frontend (Register form; inherits ACMEDNS_URL unless overridden) ────────
+      - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-${ACMEDNS_URL:-http://127.0.0.1}}
+
+volumes:
+  acmedns-stack-dev-modules:
+#   letsencrypt:
+#     name: letsencrypt
