@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { domainsPath } from '#shared/utils/domainsRoute'
+
 const { open, hide } = useRegisterModal()
 const router = useRouter()
 const dialogId = useId()
@@ -6,7 +8,7 @@ const dialogId = useId()
 function onDone(domain?: string) {
   hide()
   if (domain) {
-    void router.push({ path: '/domains', query: { d: domain } })
+    void router.push(domainsPath(domain))
   }
 }
 </script>

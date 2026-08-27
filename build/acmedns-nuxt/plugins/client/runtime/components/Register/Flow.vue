@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AcmeDnsCredentials, ClientStorageMap } from '#shared/types/clientstorage'
 import { isValidDomain, isValidHttpUrl } from '#client/utils/domain'
+import { domainsPath } from '#shared/utils/domainsRoute'
 
 type Step = 'form' | 'cname' | 'poll' | 'save'
 
@@ -138,7 +139,7 @@ async function persist(shouldSave: boolean) {
     reset()
     emit('done', saved)
     if (!embedded) {
-      await router.push({ path: '/domains', query: { d: saved } })
+      await router.push(domainsPath(saved))
     }
   }
   catch (error) {

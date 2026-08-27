@@ -1,9 +1,8 @@
 <script setup lang="ts">
+import { domainsPath } from '#shared/utils/domainsRoute'
+
 const route = useRoute()
 const domain = String(route.params.domain || '')
 
-await navigateTo(
-  { path: '/domains', query: domain ? { d: domain } : {} },
-  { replace: true },
-)
+await navigateTo(domainsPath(domain || undefined), { replace: true })
 </script>
