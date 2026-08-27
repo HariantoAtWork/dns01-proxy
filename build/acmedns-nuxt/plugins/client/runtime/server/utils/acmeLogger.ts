@@ -96,6 +96,7 @@ function noteRateLimitFromMessage(message: string) {
   }).then((entry) => {
     appendCertActivity({
       source: 'acme',
+      mode,
       level: 'error',
       certName,
       message: `${entry.detail} · resumes ${entry.until}`,
@@ -123,6 +124,7 @@ export function installAcmeLogger() {
     noteRateLimitFromMessage(message)
     appendCertActivity({
       source: 'acme',
+      mode: context?.mode,
       level: classifyAcmeLevel(message),
       certName: context?.certName,
       message,
@@ -150,7 +152,13 @@ export function logAcmeStep(
   message: string,
   level: CertActivityLevel = 'info',
 ) {
-  appendCertActivity({ source: 'acme', level, certName, message })
+  appendCertActivity({
+    source: 'acme',
+    mode: context?.mode,
+    level,
+    certName,
+    message,
+  })
 }
 
 export async function clearRateLimitAfterSuccess(

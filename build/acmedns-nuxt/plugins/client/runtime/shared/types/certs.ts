@@ -87,6 +87,8 @@ export interface CertActivityEntry {
   id: number
   at: string
   source: CertActivitySource
+  /** Let's Encrypt directory — shown as live/staging in log prefixes. */
+  mode?: LetsEncryptDirectoryMode
   level: CertActivityLevel
   certName?: string
   message: string

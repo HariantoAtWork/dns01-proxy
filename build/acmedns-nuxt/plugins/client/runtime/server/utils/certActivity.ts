@@ -2,7 +2,9 @@ import type {
   CertActivityEntry,
   CertActivityLevel,
   CertActivitySource,
+  LetsEncryptDirectoryMode,
 } from '#shared/types/certs'
+import { formatCertActivityPrefix } from '#shared/utils/certLog'
 
 const MAX_ENTRIES = 400
 
@@ -11,8 +13,13 @@ let nextId = 1
 
 const lastErrors = new Map<string, { message: string, at: string }>()
 
-function logToConsole(source: CertActivitySource, level: CertActivityLevel, line: string) {
-  const prefix = source === 'acme' ? '[acme]' : `[cert-${source}]`
+function logToConsole(
+  source: CertActivitySource,
+  level: CertActivityLevel,
+  line: string,
+  mode?: LetsEncryptDirectoryMode,
+) {
+  const prefix = formatCertActivityPrefix(source, mode)
   if (level === 'error') {
     console.error(prefix, line)
   }
@@ -26,6 +33,7 @@ function logToConsole(source: CertActivitySource, level: CertActivityLevel, line
 
 export function appendCertActivity(partial: {
   source: CertActivitySource
+  mode?: LetsEncryptDirectoryMode
   level: CertActivityLevel
   certName?: string
   message: string
@@ -52,7 +60,7 @@ export function appendCertActivity(partial: {
   }
 
   const line = partial.certName ? `${partial.certName}: ${partial.message}` : partial.message
-  logToConsole(partial.source, partial.level, line)
+  logToConsole(partial.source, partial.level, line, partial.mode)
   publishCertLive({
     type: 'activity',
     data: {

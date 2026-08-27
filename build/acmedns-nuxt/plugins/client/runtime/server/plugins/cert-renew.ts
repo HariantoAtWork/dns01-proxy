@@ -23,6 +23,7 @@ export default defineNitroPlugin(() => {
       if (!message.includes('already running')) {
         appendCertActivity({
           source: 'renew',
+          mode: 'production',
           level: 'error',
           message,
         })
