@@ -5,6 +5,7 @@ import {
   PhCertificate as Certificate,
   PhGear as Gear,
   PhQuestion as Question,
+  PhPlus as Plus,
   PhX as Close,
 } from '@phosphor-icons/vue'
 
@@ -12,18 +13,20 @@ const open = defineModel<boolean>('open', { default: false })
 
 const route = useRoute()
 const { sharedMode } = useSharedMode()
+const { show: showRegister } = useRegisterModal()
 
 const links = computed(() => [
-  { to: '/', label: 'Home', icon: House, exact: true },
+  { to: '/', label: 'Home', icon: House, exact: true, registerAction: false },
   {
     to: '/domains',
     label: sharedMode.value ? 'DNS setup' : 'Domains',
     icon: Globe,
     exact: true,
+    registerAction: !sharedMode.value,
   },
-  { to: '/certs', label: 'Certificates', icon: Certificate, exact: false },
-  { to: '/settings', label: 'Settings', icon: Gear, exact: true },
-  { to: '/help', label: 'Help', icon: Question, exact: false },
+  { to: '/certs', label: 'Certificates', icon: Certificate, exact: false, registerAction: false },
+  { to: '/settings', label: 'Settings', icon: Gear, exact: true, registerAction: false },
+  { to: '/help', label: 'Help', icon: Question, exact: false, registerAction: false },
 ] as const)
 
 watch(() => route.fullPath, () => {
@@ -46,6 +49,11 @@ onBeforeUnmount(() => {
 function isActive(link: { to: string, exact: boolean }) {
   return link.exact ? route.path === link.to : route.path.startsWith(link.to)
 }
+
+function openRegister() {
+  open.value = false
+  showRegister()
+}
 </script>
 
 <template>
@@ -60,16 +68,31 @@ function isActive(link: { to: string, exact: boolean }) {
       </NuxtLink>
     </div>
     <nav class="flex flex-1 flex-col gap-1 p-3">
-      <NuxtLink
+      <div
         v-for="link in links"
         :key="link.to"
-        :to="link.to"
-        class="inline-flex items-center gap-2 rounded-[6px] px-3 py-2 text-sm text-muted no-underline transition-colors hover:bg-paper hover:text-ink"
-        :class="isActive(link) && 'bg-paper text-ink'"
+        class="group flex items-center gap-0.5 rounded-[6px] transition-colors hover:bg-paper"
+        :class="isActive(link) && 'bg-paper'"
       >
-        <component :is="link.icon" :size="16" weight="regular" aria-hidden="true" />
-        {{ link.label }}
-      </NuxtLink>
+        <NuxtLink
+          :to="link.to"
+          class="inline-flex min-w-0 flex-1 items-center gap-2 rounded-[6px] px-3 py-2 text-sm text-muted no-underline transition-colors hover:text-ink"
+          :class="isActive(link) && 'text-ink'"
+        >
+          <component :is="link.icon" :size="16" weight="regular" aria-hidden="true" />
+          <span class="truncate">{{ link.label }}</span>
+        </NuxtLink>
+        <button
+          v-if="link.registerAction"
+          type="button"
+          class="mr-1 inline-flex shrink-0 rounded-[6px] p-1.5 text-muted transition-colors hover:bg-panel hover:text-ink"
+          aria-haspopup="dialog"
+          aria-label="Register domain"
+          @click="openRegister"
+        >
+          <Plus :size="14" weight="bold" aria-hidden="true" />
+        </button>
+      </div>
     </nav>
   </aside>
 
@@ -104,17 +127,32 @@ function isActive(link: { to: string, exact: boolean }) {
           </button>
         </div>
         <nav class="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-          <NuxtLink
+          <div
             v-for="link in links"
             :key="link.to"
-            :to="link.to"
-            class="inline-flex items-center gap-2 rounded-[6px] px-3 py-2.5 text-sm text-muted no-underline hover:bg-panel hover:text-ink"
-            :class="isActive(link) && 'bg-panel text-ink'"
-            @click="open = false"
+            class="flex items-center gap-0.5 rounded-[6px] hover:bg-panel"
+            :class="isActive(link) && 'bg-panel'"
           >
-            <component :is="link.icon" :size="16" weight="regular" aria-hidden="true" />
-            {{ link.label }}
-          </NuxtLink>
+            <NuxtLink
+              :to="link.to"
+              class="inline-flex min-w-0 flex-1 items-center gap-2 rounded-[6px] px-3 py-2.5 text-sm text-muted no-underline hover:text-ink"
+              :class="isActive(link) && 'text-ink'"
+              @click="open = false"
+            >
+              <component :is="link.icon" :size="16" weight="regular" aria-hidden="true" />
+              <span class="truncate">{{ link.label }}</span>
+            </NuxtLink>
+            <button
+              v-if="link.registerAction"
+              type="button"
+              class="mr-1 inline-flex shrink-0 rounded-[6px] p-1.5 text-muted hover:bg-paper hover:text-ink"
+              aria-haspopup="dialog"
+              aria-label="Register domain"
+              @click="openRegister"
+            >
+              <Plus :size="14" weight="bold" aria-hidden="true" />
+            </button>
+          </div>
         </nav>
       </aside>
     </Transition>
