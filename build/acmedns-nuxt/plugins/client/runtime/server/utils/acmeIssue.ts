@@ -114,7 +114,7 @@ export async function issueCertificate(options: {
 
       logAcmeStep(
         options.certName,
-        `Starting dns-01 (${options.mode}) — ${options.altNames.join(', ')}`,
+        `Starting dns-01 — ${options.altNames.join(', ')}`,
       )
       logAcmeStep(options.certName, `Let's Encrypt directory: ${directory}`)
 

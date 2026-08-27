@@ -166,12 +166,17 @@ async function emitStatus(mode: LetsEncryptDirectoryMode) {
   })
 }
 
-function logApplyResult(source: JobSource, result: CertApplyResult) {
+function logApplyResult(
+  source: JobSource,
+  mode: LetsEncryptDirectoryMode,
+  result: CertApplyResult,
+) {
   if (QUIET_MESSAGES.has(result.message)) {
     return
   }
   appendCertActivity({
     source,
+    mode,
     level: result.ok ? 'info' : 'error',
     certName: result.certName,
     message: result.message,
@@ -203,11 +208,12 @@ async function executeApplyCertificates(options: {
 }): Promise<{ results: CertApplyResult[], cancelled: boolean }> {
   const continuing = Boolean(options.priorResults?.length)
   appendCertActivity({
-    source: 'system',
+    source: options.source,
+    mode: options.mode,
     level: 'info',
     message: continuing
-      ? `Job #${options.jobId} continuing (${options.source}, ${options.mode}) — ${options.priorResults!.length} already done`
-      : `Job #${options.jobId} started (${options.source}, ${options.mode})`,
+      ? `Job #${options.jobId} continuing — ${options.priorResults!.length} already done`
+      : `Job #${options.jobId} started`,
   })
 
   const domains = await readDomainsFile()
@@ -236,7 +242,8 @@ async function executeApplyCertificates(options: {
 
     if (options.shouldCancel() || options.abortSignal.aborted) {
       appendCertActivity({
-        source: 'system',
+        source: options.source,
+        mode: options.mode,
         level: 'warn',
         message: `Job #${options.jobId} cancel requested — stopping before ${line.certName}`,
       })
@@ -287,6 +294,7 @@ async function executeApplyCertificates(options: {
       results.push(result)
       appendCertActivity({
         source: options.source,
+        mode: options.mode,
         level: 'warn',
         certName: line.certName,
         message: result.message,
@@ -297,6 +305,7 @@ async function executeApplyCertificates(options: {
     if (activeLimit && options.force) {
       appendCertActivity({
         source: options.source,
+        mode: options.mode,
         level: 'warn',
         certName: line.certName,
         message: `Force Apply — retrying despite rate limit until ${activeLimit.until}`,
@@ -314,6 +323,7 @@ async function executeApplyCertificates(options: {
       results.push(result)
       appendCertActivity({
         source: options.source,
+        mode: options.mode,
         level: 'warn',
         certName: line.certName,
         message: result.message,
@@ -323,6 +333,7 @@ async function executeApplyCertificates(options: {
     if (!preflight.ok && options.force) {
       appendCertActivity({
         source: options.source,
+        mode: options.mode,
         level: 'warn',
         certName: line.certName,
         message: `Force Apply — bypassing DNS preflight (${preflight.message})`,
@@ -331,6 +342,7 @@ async function executeApplyCertificates(options: {
 
     appendCertActivity({
       source: options.source,
+      mode: options.mode,
       level: 'info',
       certName: line.certName,
       message: missing ? 'Issuing certificate…' : 'Renewing certificate…',
@@ -351,7 +363,7 @@ async function executeApplyCertificates(options: {
         notAfter: after?.notAfter,
       }
       results.push(result)
-      logApplyResult(options.source, result)
+      logApplyResult(options.source, options.mode, result)
       await clearRateLimitAfterSuccess(options.mode, line.certName)
       await emitStatus(options.mode)
     }
@@ -373,9 +385,10 @@ async function executeApplyCertificates(options: {
           message,
         }
         results.push(result)
-        logApplyResult(options.source, result)
+        logApplyResult(options.source, options.mode, result)
         appendCertActivity({
-          source: 'system',
+          source: options.source,
+          mode: options.mode,
           level: 'warn',
           message: `Job #${options.jobId} skipped ${line.certName} (rate limited); continuing with remaining certs`,
         })
@@ -390,7 +403,8 @@ async function executeApplyCertificates(options: {
             || /timed out/i.test(error instanceof Error ? error.message : '')
           )
         appendCertActivity({
-          source: 'system',
+          source: options.source,
+          mode: options.mode,
           level: 'warn',
           certName: line.certName,
           message: timedOut
@@ -404,7 +418,7 @@ async function executeApplyCertificates(options: {
             message: `ACME timed out after ${Math.round(ACME_CERT_TIMEOUT_MS / 1000)}s (dns-01 / Let's Encrypt). Check CNAME → auth zone and try again.`,
           }
           results.push(result)
-          logApplyResult(options.source, result)
+          logApplyResult(options.source, options.mode, result)
           continue
         }
         return { results, cancelled: true }
@@ -417,7 +431,7 @@ async function executeApplyCertificates(options: {
         message,
       }
       results.push(result)
-      logApplyResult(options.source, result)
+      logApplyResult(options.source, options.mode, result)
     }
   }
 
@@ -428,6 +442,7 @@ async function executeApplyCertificates(options: {
   const failed = results.filter(r => !r.ok)
   appendCertActivity({
     source: options.source,
+    mode: options.mode,
     level: failed.length ? 'warn' : 'info',
     message: options.source === 'renew'
       ? `Job #${options.jobId} complete: ${renewed.length} renewed, ${failed.length} failed`
@@ -440,9 +455,10 @@ async function executeApplyCertificates(options: {
 function finishCancelledJob(job: InternalJob) {
   if (job.deleteOnCancel) {
     appendCertActivity({
-      source: 'system',
+      source: job.source,
+      mode: job.mode,
       level: 'info',
-      message: `Job #${job.id} deleted (${job.source}, ${job.mode})`,
+      message: `Job #${job.id} deleted`,
     })
     job.reject(jobCancelledError())
     return
@@ -453,9 +469,10 @@ function finishCancelledJob(job: InternalJob) {
   job.currentCert = undefined
   cancelled.push(job)
   appendCertActivity({
-    source: 'system',
+    source: job.source,
+    mode: job.mode,
     level: 'warn',
-    message: `Job #${job.id} cancelled (${job.source}, ${job.mode})`,
+    message: `Job #${job.id} cancelled`,
   })
   job.reject(jobCancelledError())
 }
@@ -527,7 +544,8 @@ async function pumpQueue() {
       job.error = error instanceof Error ? error.message : 'Job failed'
       job.finishedAt = new Date().toISOString()
       appendCertActivity({
-        source: 'system',
+        source: job.source,
+        mode: job.mode,
         level: 'error',
         message: `Job #${job.id} failed: ${job.error}`,
       })
@@ -590,9 +608,10 @@ async function createQueuedJob(options: {
 
   waiting.push(job)
   appendCertActivity({
-    source: 'system',
+    source: options.source,
+    mode: options.mode,
     level: 'info',
-    message: `Job #${job.id} queued (${options.source}, ${options.mode}) — position ${waiting.length}${taskTotal ? `, ${taskTotal} cert(s)` : ''}`,
+    message: `Job #${job.id} queued — position ${waiting.length}${taskTotal ? `, ${taskTotal} cert(s)` : ''}`,
   })
   emitQueue()
   void pumpQueue()
@@ -658,7 +677,8 @@ export function cancelCertJob(id: number): CertJobQueueItem {
   if (list === 'running') {
     abortRunningJob(job, 'Job cancelled by operator')
     appendCertActivity({
-      source: 'system',
+      source: job.source,
+      mode: job.mode,
       level: 'warn',
       message: `Job #${job.id} cancel requested — aborting current ACME attempt`,
     })
@@ -676,9 +696,10 @@ export function cancelCertJob(id: number): CertJobQueueItem {
     removed.finishedAt = new Date().toISOString()
     cancelled.push(removed)
     appendCertActivity({
-      source: 'system',
+      source: removed.source,
+      mode: removed.mode,
       level: 'warn',
-      message: `Job #${removed.id} cancelled (${removed.source}, ${removed.mode})`,
+      message: `Job #${removed.id} cancelled`,
     })
     removed.reject(jobCancelledError())
     emitQueue()
@@ -731,11 +752,12 @@ function requeueCancelledJob(id: number, mode: 'continue' | 'rerun'): CertJobQue
 
   waiting.push(removed)
   appendCertActivity({
-    source: 'system',
+    source: removed.source,
+    mode: removed.mode,
     level: 'info',
     message: mode === 'rerun'
-      ? `Job #${removed.id} re-queued (re-run from start, ${removed.source}, ${removed.mode})`
-      : `Job #${removed.id} continued (${removed.source}, ${removed.mode}) — skipping ${completedBefore} already done`,
+      ? `Job #${removed.id} re-queued (re-run from start)`
+      : `Job #${removed.id} continued — skipping ${completedBefore} already done`,
   })
   emitQueue()
 
@@ -770,7 +792,8 @@ export function deleteCertJob(id: number): CertJobQueueItem {
     job.deleteOnCancel = true
     abortRunningJob(job, 'Job deleted by operator')
     appendCertActivity({
-      source: 'system',
+      source: job.source,
+      mode: job.mode,
       level: 'warn',
       message: `Job #${job.id} delete requested — aborting current ACME attempt`,
     })
@@ -785,9 +808,10 @@ export function deleteCertJob(id: number): CertJobQueueItem {
       throw createError({ statusCode: 404, statusMessage: 'Job not found' })
     }
     appendCertActivity({
-      source: 'system',
+      source: removed.source,
+      mode: removed.mode,
       level: 'info',
-      message: `Job #${removed.id} deleted (${removed.source}, ${removed.mode})`,
+      message: `Job #${removed.id} deleted`,
     })
     removed.reject(jobCancelledError())
     emitQueue()
@@ -800,9 +824,10 @@ export function deleteCertJob(id: number): CertJobQueueItem {
     throw createError({ statusCode: 404, statusMessage: 'Job not found' })
   }
   appendCertActivity({
-    source: 'system',
+    source: removed.source,
+    mode: removed.mode,
     level: 'info',
-    message: `Job #${removed.id} deleted (${removed.source}, ${removed.mode})`,
+    message: `Job #${removed.id} deleted`,
   })
   emitQueue()
   return toPublic(removed)
