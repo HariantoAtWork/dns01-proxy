@@ -1,21 +1,26 @@
 services:
-  acmedns-stack:
-    image: harianto/acmedns-stack:latest
-    container_name: acmedns-stack
-    restart: unless-stopped
+  # Hot-reload Nuxt: docker compose --profile dev up acmedns-stack-dev
+  # (or: bun run docker:dev). Does not start with plain `docker compose up`.
+  acmedns-stack-dev:
+    image: oven/bun:canary-alpine
+    container_name: acmedns-stack-dev
+    working_dir: /app
+    command: ["sh", "-c", "bun install --frozen-lockfile && exec bun run dev"]
     ports:
-      - "53:53"
-      - "53:53/udp"
-      - "8080:80"
-      - "8443:443"
+      - "3000:3000"
+      - "15353:15353"
+      - "15353:15353/udp"
     volumes:
-      - ./data/acmedns-stack:/var/lib/acmedns-stack  # server/, client/, backup/ (or host /var/lib/acmedns-stack:…)
-      - ./data/letsencrypt:/etc/letsencrypt  # live/, staging/, trash/, accounts/
-      # - letsencrypt:/etc/letsencrypt  # named-volume alternative
+      - ./build/acmedns-stack:/app
+      - acmedns-stack-dev-modules:/app/node_modules  # Linux modules inside the container
     environment:
-      # ── Paths (must match volumes) ──────────────────────────────────────────────
-      - ACMEDNS_DATA_ROOT=/var/lib/acmedns-stack
-      - ACMEDNS_LETSENCRYPT_DIR=/etc/letsencrypt
+      # ── Paths (package-local .data on the bind mount) ───────────────────────────
+      - ACMEDNS_DATA_ROOT=.data
+      - ACMEDNS_LETSENCRYPT_DIR=.data/letsencrypt
+      # Seed listens on 127.0.0.1 — override so published :15353 reaches the host.
+      - ACME_DNS_LISTEN=0.0.0.0
+      - HOST=0.0.0.0
+      - NITRO_HOST=0.0.0.0
       # ── System ──────────────────────────────────────────────────────────────────
       - TZ=${TZ:-UTC}
       - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
@@ -34,6 +39,8 @@ services:
       - NUXT_ACME_DNS_DEFAULT_CONFIG=${NUXT_ACME_DNS_DEFAULT_CONFIG:-}
       # ── Frontend (Register form; inherits ACMEDNS_URL unless overridden) ────────
       - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-${ACMEDNS_URL:-http://127.0.0.1}}
-    # NET_BIND_SERVICE only needed when not running as root; omit cap_add if the process runs as root.
-    cap_add:
-      - NET_BIND_SERVICE
+
+volumes:
+  acmedns-stack-dev-modules:
+#   letsencrypt:
+#     name: letsencrypt
