@@ -17,6 +17,7 @@ import {
   getLetsencryptDir,
   getServerConfigPath,
 } from '../../../../../server/utils/paths'
+import { tinyDomainFromEnv, normalizeTinyDomain } from '#shared/utils/tinyDomain'
 import {
   clearAppSettingsFile,
   readAppSettingsFile,
@@ -28,6 +29,7 @@ import {
   resolveLetsencryptEmail,
   resolveRenewIntervalHours,
   resolveTimezone,
+  resolveTinyDomain,
   writeAppSettingsFile,
 } from './appSettings'
 
@@ -130,6 +132,7 @@ function configToViews(config: AcmeDnsConfig) {
 
 export function getAppSettingsResponse(): AppSettingsResponse {
   const config = getAcmeConfig()
+  const tiny = resolveTinyDomain()
   return {
     operator: buildOperatorView(),
     ...configToViews(config),
@@ -142,6 +145,11 @@ export function getAppSettingsResponse(): AppSettingsResponse {
       host: process.env.HOST || '',
       nitroHost: process.env.NITRO_HOST || '',
     },
+    // Only compose/env ACMEDNS_TINY_DOMAIN locks the toggle; dashboard tiny domain does not.
+    sharedModeForcedByEnv: Boolean(tinyDomainFromEnv()),
+    tinyDomain: tiny.value,
+    tinyDomainSource: tiny.source,
+    tinyDomainEnv: tinyDomainFromEnv(),
   }
 }
 
@@ -152,10 +160,11 @@ function applyGeneral(config: AcmeDnsConfig, patch: Partial<ConfigGeneralView>) 
   if (patch.protocol !== undefined) {
     config.general.protocol = String(patch.protocol).trim() || config.general.protocol
   }
-  if (patch.domain !== undefined) {
+  const lockAuthZone = config.api.shared_mode || Boolean(resolveTinyDomain().value)
+  if (patch.domain !== undefined && !lockAuthZone) {
     config.general.domain = String(patch.domain).trim() || config.general.domain
   }
-  if (patch.nsname !== undefined) {
+  if (patch.nsname !== undefined && !lockAuthZone) {
     config.general.nsname = String(patch.nsname).trim() || config.general.nsname
   }
   if (patch.nsadmin !== undefined) {
@@ -327,6 +336,15 @@ async function applyOperator(patch: NonNullable<AppSettingsPutBody['operator']>,
   if (patch.administratorPassword !== undefined && patch.administratorPassword !== null) {
     next.administratorPassword = String(patch.administratorPassword)
   }
+  if (patch.tinyDomain !== undefined && patch.tinyDomain !== null) {
+    const normalised = normalizeTinyDomain(String(patch.tinyDomain))
+    if (normalised) {
+      next.tinyDomain = normalised
+    }
+    else {
+      delete next.tinyDomain
+    }
+  }
 
   await writeAppSettingsFile(next)
 
@@ -339,22 +357,42 @@ async function applyOperator(patch: NonNullable<AppSettingsPutBody['operator']>,
 export async function updateAppSettings(body: AppSettingsPutBody): Promise<AppSettingsResponse> {
   const before = JSON.parse(JSON.stringify(getAcmeConfig())) as ReturnType<typeof getAcmeConfig>
   let configTouched = false
+  const tinyDomainPatched = body.operator?.tinyDomain !== undefined && body.operator?.tinyDomain !== null
 
   if (body.clearOperatorOverrides || body.operator) {
     await applyOperator(body.operator || {}, Boolean(body.clearOperatorOverrides))
   }
 
+  if (tinyDomainPatched || body.clearOperatorOverrides) {
+    const { resetAcmeConfigCache } = await import('../../../../../server/utils/config')
+    resetAcmeConfigCache()
+  }
+
   const next = JSON.parse(JSON.stringify(getAcmeConfig())) as ReturnType<typeof getAcmeConfig>
+
+  // Tiny domain from app-settings already applied via getAcmeConfig — persist domain/nsname/shared_mode.
+  if (tinyDomainPatched) {
+    const tiny = resolveTinyDomain().value
+    if (tiny) {
+      next.general.domain = tiny
+      next.general.nsname = tiny
+      next.api.shared_mode = true
+      next.api.disable_registration = true
+    }
+    configTouched = true
+  }
+
+  // Apply API first so shared_mode is known before general.domain / nsname locks.
+  if (body.api) {
+    applyApi(next, body.api)
+    configTouched = true
+  }
   if (body.general) {
     applyGeneral(next, body.general)
     configTouched = true
   }
   if (body.database) {
     applyDatabase(next, body.database)
-    configTouched = true
-  }
-  if (body.api) {
-    applyApi(next, body.api)
     configTouched = true
   }
   if (body.logconfig) {
@@ -366,6 +404,28 @@ export async function updateAppSettings(body: AppSettingsPutBody): Promise<AppSe
   if (configTouched) {
     restartReasons = bindRestartReasons(before, next)
     await writeAcmeConfigFile(next)
+
+    if (body.api?.shared_mode !== undefined && !tinyDomainFromEnv()) {
+      const current = await readAppSettingsFile()
+      const nextSettings: typeof current = {
+        ...current,
+        sharedMode: Boolean(body.api.shared_mode),
+      }
+      // Turning Tiny mode off clears the dashboard tiny-domain override so it can stay off.
+      if (!body.api.shared_mode) {
+        delete nextSettings.tinyDomain
+      }
+      await writeAppSettingsFile(nextSettings)
+      const { resetAcmeConfigCache } = await import('../../../../../server/utils/config')
+      resetAcmeConfigCache()
+    }
+
+    if (getAcmeConfig().api.shared_mode) {
+      const { ensureSharedModeGlueRecords } = await import('../../../../../server/utils/glueRecords')
+      const { ensureSharedModeAccount } = await import('../../../../../server/utils/sharedMode')
+      await ensureSharedModeGlueRecords(getAcmeConfig())
+      ensureSharedModeAccount(getAcmeConfig())
+    }
   }
 
   const response = getAppSettingsResponse()
