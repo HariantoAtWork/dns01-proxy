@@ -32,6 +32,7 @@ import {
   resolveTinyDomain,
   writeAppSettingsFile,
 } from './appSettings'
+import { envAcmeDnsListen, envAcmednsSharedKey } from '../../../../../core/env'
 
 function parseRecordsText(raw: string): string[] {
   return raw
@@ -113,7 +114,7 @@ function configToViews(config: AcmeDnsConfig) {
     shared_password: '',
     sharedPasswordSet: Boolean(
       config.api.shared_password
-      || process.env.ACMEDNS_SHARED_KEY?.trim(),
+      || envAcmednsSharedKey(),
     ),
     tls: config.api.tls,
     tls_cert_fullchain: config.api.tls_cert_fullchain || '',
@@ -141,7 +142,7 @@ export function getAppSettingsResponse(): AppSettingsResponse {
       letsencryptDir: getLetsencryptDir(),
       configCfg: getServerConfigPath(),
       appSettings: getAppSettingsPath(),
-      acmeDnsListen: process.env.ACME_DNS_LISTEN || process.env.DNS_LISTEN || '',
+      acmeDnsListen: envAcmeDnsListen() || '',
       host: process.env.HOST || '',
       nitroHost: process.env.NITRO_HOST || '',
     },
@@ -422,7 +423,7 @@ export async function updateAppSettings(body: AppSettingsPutBody): Promise<AppSe
 
     if (getAcmeConfig().api.shared_mode) {
       const { ensureSharedModeGlueRecords } = await import('../../../../../server/utils/glueRecords')
-      const { ensureSharedModeAccount } = await import('../../../../../server/utils/sharedMode')
+      const { ensureSharedModeAccount } = await import('../../../../../server/utils/sharedModeBootstrap')
       await ensureSharedModeGlueRecords(getAcmeConfig())
       ensureSharedModeAccount(getAcmeConfig())
     }

@@ -2,7 +2,7 @@ import { closeAcmeDb, initAcmeDb } from '../utils/db'
 import { loadAcmeConfig } from '../utils/config'
 import { createDnsServer } from '../dns/server'
 import { ensureSharedModeGlueRecords } from '../utils/glueRecords'
-import { ensureSharedModeAccount, isSharedMode } from '../utils/sharedMode'
+import { ensureSharedModeAccount, isSharedMode } from '../utils/sharedModeBootstrap'
 
 export default defineNitroPlugin(async (nitroApp) => {
   try {

@@ -3,7 +3,7 @@ import type { DomainsDnsCheck, ParsedDomainsLine } from '#shared/types/certs'
 import {
   tinyApexFulldomain,
   type SharedModeContext,
-} from './sharedMode'
+} from './tinyModeDns'
 import {
   apexName,
   challengeZones,

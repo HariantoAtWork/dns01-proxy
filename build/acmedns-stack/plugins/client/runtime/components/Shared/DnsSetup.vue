@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ParsedDomainsLine } from '#shared/types/certs'
-import { tinyApexFulldomain } from '#shared/utils/sharedMode'
+import { tinyApexFulldomain } from '#shared/utils/tinyModeDns'
 
 const { authZone } = useSharedMode()
 

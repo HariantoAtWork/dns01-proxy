@@ -1,18 +1,17 @@
 import { compareSync } from 'bcryptjs'
 import type { AcmeDnsCredentials } from '#shared/types/clientstorage'
 import { fulldomainForAccount } from '#shared/utils/fulldomain'
-import { isSharedMode, sharedModeUsername } from '../../../../../server/utils/sharedMode'
+import {
+  hostnameOf,
+  identityServerUrl as routingIdentityServerUrl,
+  isLocalAcmeDnsBase,
+  resolveAcmeDnsBaseUrl,
+  shouldUseInProcessUpdate,
+  type AcmeDnsRoutingContext,
+} from '#shared/utils/acmeDnsRouting'
+import { isSharedMode, sharedModeUsername } from '../../../../../server/utils/sharedModeBootstrap'
 import { resolveAcmednsUrl } from './appSettings'
 import { isInternalAcmeDnsHost } from './localAcmeHosts'
-
-function hostnameOf(base: string): string {
-  try {
-    return new URL(base).hostname.replace(/\.$/, '').toLowerCase()
-  }
-  catch {
-    return ''
-  }
-}
 
 function authZoneHost(): string {
   try {
@@ -27,78 +26,34 @@ function preferredPublicAcmeHost(): string {
   return hostnameOf(resolveAcmednsUrl().value)
 }
 
-/** In-process API (loopback / container hostname / auth zone / ACMEDNS_URL). */
-function isLocalAcmeDnsBase(base: string): boolean {
-  if (!base || base.startsWith('local://')) {
-    return true
+function routingContext(): AcmeDnsRoutingContext {
+  return {
+    authZoneHost: authZoneHost(),
+    preferredPublicHost: preferredPublicAcmeHost(),
+    preferredAcmednsUrl: resolveAcmednsUrl().value,
+    authZoneTls: (() => {
+      try {
+        return getAcmeConfig().api.tls
+      }
+      catch {
+        return 'none'
+      }
+    })(),
+    isInternalHost: isInternalAcmeDnsHost,
   }
-  const host = hostnameOf(base)
-  if (!host) {
-    return false
-  }
-  if (isInternalAcmeDnsHost(host)) {
-    return true
-  }
-  const zone = authZoneHost()
-  if (zone && host === zone) {
-    return true
-  }
-  const publicHost = preferredPublicAcmeHost()
-  return Boolean(publicHost && host === publicHost)
 }
 
-/**
- * Prefer in-process /update when server_url is the public identity of this
- * process (ACMEDNS_URL) and the account actually lives in the local DB.
- * Avoids HTTPS self-fetch via Cloudflare (TLS / admin login) after register
- * rewrote loopback to the public URL.
- */
-function useInProcessUpdate(base: string, username: string): boolean {
-  if (isLocalAcmeDnsBase(base)) {
-    return true
-  }
-  const host = hostnameOf(base)
-  const publicHost = preferredPublicAcmeHost()
-  if (!host || !publicHost || host !== publicHost) {
-    return false
-  }
-  return Boolean(getByUsername(username))
-}
-
-/**
- * URL stored on the account for CNAME / UI.
- * Prefer a public ACMEDNS_URL (or auth zone) over loopback so register
- * does not persist http://127.0.0.1 when the operator set a public identity.
- */
 function identityServerUrl(resolvedBase: string): string {
-  const cleaned = resolvedBase.replace(/\/$/, '')
-  const host = hostnameOf(cleaned)
-  if (host && !isInternalAcmeDnsHost(host)) {
-    return cleaned
-  }
+  return routingIdentityServerUrl(resolvedBase, routingContext())
+}
 
-  const preferred = resolveAcmednsUrl().value
-  if (preferred && !isInternalAcmeDnsHost(hostnameOf(preferred))) {
-    return preferred
-  }
-
-  const zone = authZoneHost()
-  if (zone && zone.includes('.')) {
-    try {
-      const scheme = getAcmeConfig().api.tls === 'cert' ? 'https' : 'http'
-      return `${scheme}://${zone}`
-    }
-    catch {
-      return `https://${zone}`
-    }
-  }
-
-  return cleaned
+function useInProcessUpdate(base: string, username: string): boolean {
+  return shouldUseInProcessUpdate(base, username, routingContext(), user => Boolean(getByUsername(user)))
 }
 
 export function resolveAcmeDnsBase(requestedUrl?: string) {
   const fallback = resolveAcmednsUrl().value || defaultLocalAcmeDnsBase()
-  return (requestedUrl || fallback).replace(/\/$/, '')
+  return resolveAcmeDnsBaseUrl(requestedUrl, fallback)
 }
 
 function defaultLocalAcmeDnsBase(): string {
@@ -113,8 +68,9 @@ function defaultLocalAcmeDnsBase(): string {
 export async function registerAcmeDnsAccount(serverUrl: string) {
   const base = resolveAcmeDnsBase(serverUrl)
   const storedUrl = identityServerUrl(base)
+  const ctx = routingContext()
 
-  if (isLocalAcmeDnsBase(base)) {
+  if (isLocalAcmeDnsBase(base, ctx)) {
     try {
       const account = registerAccount([])
       const acmeConfig = getAcmeConfig()
@@ -295,8 +251,9 @@ export async function verifyAcmeDnsCredentials(
   details: Pick<AcmeDnsCredentials, 'server_url' | 'username' | 'password' | 'subdomain'>,
 ): Promise<AcmeDnsAccountVerifyResult> {
   const base = resolveAcmeDnsBase(details.server_url)
+  const ctx = routingContext()
 
-  if (useInProcessUpdate(base, details.username) || isLocalAcmeDnsBase(base) || isSharedMode()) {
+  if (useInProcessUpdate(base, details.username) || isLocalAcmeDnsBase(base, ctx) || isSharedMode()) {
     const expectedUser = isSharedMode() ? sharedModeUsername() : details.username
     const user = getByUsername(expectedUser)
     if (!user) {

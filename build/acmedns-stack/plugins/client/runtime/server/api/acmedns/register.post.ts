@@ -1,4 +1,4 @@
-import { isSharedMode } from '../../../../../../server/utils/sharedMode'
+import { isSharedMode } from '../../../../../../server/utils/sharedModeBootstrap'
 
 export default defineEventHandler(async (event) => {
   if (isSharedMode()) {

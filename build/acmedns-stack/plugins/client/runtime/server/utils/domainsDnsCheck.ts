@@ -1,6 +1,6 @@
 import { collectChallengeChecks } from '#shared/utils/challengeDns'
 import type { DomainsDnsCheck, ParsedDomainsLine } from '#shared/types/certs'
-import { getSharedModeContext } from '../../../../../server/utils/sharedMode'
+import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { dnsQueryCnameAnyMatch } from './dnsQuery'
 import { readStorage } from './storage'
 

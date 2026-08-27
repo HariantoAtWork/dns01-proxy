@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   tinyApexFulldomain,
   tinyApexLabel,
-} from '../runtime/shared/utils/sharedMode'
+} from '../runtime/shared/utils/tinyModeDns'
 
 describe('tinyApexLabel', () => {
   test('encodes apex with underscores and dashes', () => {

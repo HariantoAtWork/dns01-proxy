@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { AcmeDnsConfig, AcmeTxtAccount, AcmeTxtPost } from './types'
 import { generatePassword, sanitizeString, validCidrEntries, validKey } from './validation'
 import { openSqlite, type SqliteDatabase } from './sqlite'
-import { SHARED_MODE_USERNAME } from '../../plugins/client/runtime/shared/utils/sharedMode'
+import { SHARED_MODE_USERNAME } from '../../plugins/client/runtime/shared/utils/tinyModeDns'
 
 /** Let's Encrypt names-per-certificate cap; matches vendored Go server. */
 export const TXT_RECORD_SLOTS = 100

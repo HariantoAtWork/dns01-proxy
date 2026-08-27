@@ -12,8 +12,9 @@ import {
   buildSharedCredentials,
   zoneApexTxtSubdomain,
   type SharedModeContext,
-} from '../../plugins/client/runtime/shared/utils/sharedMode'
+} from '../../plugins/client/runtime/shared/utils/tinyModeDns'
 import { resolveAcmednsUrl } from '../../plugins/client/runtime/server/utils/appSettings'
+import { envAcmednsSharedKey } from '../../core/env'
 
 export function isSharedMode(config?: AcmeDnsConfig): boolean {
   const cfg = config ?? getAcmeConfig()
@@ -38,7 +39,7 @@ export function ensureSharedModeAccount(config?: AcmeDnsConfig): {
 
   const username = sharedModeUsername(cfg)
   const subdomain = zoneApexTxtSubdomain(cfg.general.domain)
-  const configured = (cfg.api.shared_password || process.env.ACMEDNS_SHARED_KEY || '').trim()
+  const configured = (cfg.api.shared_password || envAcmednsSharedKey() || '').trim()
   const stored = getSharedPlaintextPassword()
   const plaintextPassword = configured || stored || generatePassword(40)
 

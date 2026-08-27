@@ -2,7 +2,21 @@ import { dirname } from 'node:path'
 import { promises as fs, readFileSync, existsSync, statSync } from 'node:fs'
 import type { AppSettingsFile, SettingSource } from '#shared/types/appSettings'
 import { getAppSettingsPath } from '../../../../../server/utils/paths'
-import { normalizeTinyDomain, tinyDomainFromEnv } from '#shared/utils/tinyDomain'
+import {
+  getAppSettingsSnapshot as getCoreAppSettingsSnapshot,
+  resetAppSettingsCoreCache,
+  resolveTinyDomain as resolveCoreTinyDomain,
+} from '../../../../../core/appSettings'
+import {
+  envAdministratorPassword,
+  envCertsAcmeDisabled,
+  envCertsRenewDisabled,
+  envDefaultAcmednsUrl,
+  envLetsencryptEmail,
+  envRenewInterval,
+  envTimezone,
+  envAcmednsUrl,
+} from '../../../../../core/env'
 
 let cached: AppSettingsFile | null = null
 let cachedMtimeMs = 0
@@ -14,6 +28,7 @@ function truthy(raw: string) {
 export function resetAppSettingsCache() {
   cached = null
   cachedMtimeMs = 0
+  resetAppSettingsCoreCache()
 }
 
 function loadAppSettingsSync(): AppSettingsFile {
@@ -76,6 +91,7 @@ export async function writeAppSettingsFile(settings: AppSettingsFile): Promise<v
   await fs.writeFile(tmp, `${JSON.stringify(cleaned, null, 2)}\n`, 'utf-8')
   await fs.rename(tmp, path)
   cached = cleaned
+  resetAppSettingsCoreCache()
   try {
     cachedMtimeMs = (await fs.stat(path)).mtimeMs
   }
@@ -88,18 +104,9 @@ export async function clearAppSettingsFile(): Promise<void> {
   await writeAppSettingsFile({})
 }
 
-function envFirst(...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = process.env[key]
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim()
-    }
-  }
-  return undefined
-}
 
 export function getAppSettingsSnapshot(): AppSettingsFile {
-  return { ...loadAppSettingsSync() }
+  return getCoreAppSettingsSnapshot()
 }
 
 export function resolveAcmednsUrl(): { value: string, source: SettingSource } {
@@ -107,7 +114,7 @@ export function resolveAcmednsUrl(): { value: string, source: SettingSource } {
   if (typeof file.acmednsUrl === 'string' && file.acmednsUrl.trim()) {
     return { value: file.acmednsUrl.trim().replace(/\/$/, ''), source: 'app-settings' }
   }
-  const fromEnv = envFirst('ACMEDNS_URL', 'NUXT_ACMEDNS_URL')
+  const fromEnv = envAcmednsUrl()
   if (fromEnv) {
     return { value: fromEnv.replace(/\/$/, ''), source: 'compose/env' }
   }
@@ -129,7 +136,7 @@ export function resolveDefaultAcmednsUrl(): { value: string, source: SettingSour
   if (typeof file.defaultAcmednsUrl === 'string' && file.defaultAcmednsUrl.trim()) {
     return { value: file.defaultAcmednsUrl.trim().replace(/\/$/, ''), source: 'app-settings' }
   }
-  const fromEnv = envFirst('NUXT_PUBLIC_DEFAULT_ACMEDNS_URL')
+  const fromEnv = envDefaultAcmednsUrl()
   if (fromEnv) {
     return { value: fromEnv.replace(/\/$/, ''), source: 'compose/env' }
   }
@@ -151,7 +158,7 @@ export function resolveLetsencryptEmail(): { value: string, source: SettingSourc
   if (typeof file.letsencryptEmail === 'string' && file.letsencryptEmail.trim()) {
     return { value: file.letsencryptEmail.trim(), source: 'app-settings' }
   }
-  const fromEnv = envFirst('LETSENCRYPT_EMAIL', 'NUXT_LETSENCRYPT_EMAIL')
+  const fromEnv = envLetsencryptEmail()
   if (fromEnv) {
     return { value: fromEnv, source: 'compose/env' }
   }
@@ -173,7 +180,7 @@ export function resolveRenewIntervalHours(): { value: number, source: SettingSou
   if (typeof file.renewInterval === 'number' && Number.isFinite(file.renewInterval) && file.renewInterval > 0) {
     return { value: file.renewInterval, source: 'app-settings' }
   }
-  const fromEnv = envFirst('RENEW_INTERVAL', 'NUXT_RENEW_INTERVAL')
+  const fromEnv = envRenewInterval()
   if (fromEnv) {
     const n = Number(fromEnv)
     if (Number.isFinite(n) && n > 0) {
@@ -198,10 +205,9 @@ export function resolveCertsAcmeDisabled(): { value: boolean, source: SettingSou
   if (typeof file.certsAcmeDisabled === 'boolean') {
     return { value: file.certsAcmeDisabled, source: 'app-settings' }
   }
-  const fromEnv = process.env.CERTS_ACME_DISABLED
-    ?? process.env.NUXT_CERTS_ACME_DISABLED
-  if (typeof fromEnv === 'string' && fromEnv.trim()) {
-    return { value: truthy(fromEnv), source: 'compose/env' }
+  const fromEnv = envCertsAcmeDisabled()
+  if (fromEnv !== undefined) {
+    return { value: fromEnv, source: 'compose/env' }
   }
   try {
     const config = useRuntimeConfig()
@@ -222,10 +228,9 @@ export function resolveCertsRenewDisabled(): { value: boolean, source: SettingSo
   if (typeof file.certsRenewDisabled === 'boolean') {
     return { value: file.certsRenewDisabled, source: 'app-settings' }
   }
-  const fromEnv = process.env.CERTS_RENEW_DISABLED
-    ?? process.env.NUXT_CERTS_RENEW_DISABLED
-  if (typeof fromEnv === 'string' && fromEnv.trim()) {
-    return { value: truthy(fromEnv), source: 'compose/env' }
+  const fromEnv = envCertsRenewDisabled()
+  if (fromEnv !== undefined) {
+    return { value: fromEnv, source: 'compose/env' }
   }
   try {
     const config = useRuntimeConfig()
@@ -245,7 +250,7 @@ export function resolveAdministratorPassword(): { value: string, source: Setting
   if (typeof file.administratorPassword === 'string') {
     return { value: file.administratorPassword, source: 'app-settings' }
   }
-  const fromEnv = envFirst('ADMINISTRATOR_PASSWORD', 'NUXT_ADMINISTRATOR_PASSWORD')
+  const fromEnv = envAdministratorPassword()
   if (fromEnv !== undefined) {
     return { value: fromEnv, source: 'compose/env' }
   }
@@ -267,7 +272,7 @@ export function resolveTimezone(): { value: string, source: SettingSource } {
   if (typeof file.tz === 'string' && file.tz.trim()) {
     return { value: file.tz.trim(), source: 'app-settings' }
   }
-  const fromEnv = envFirst('TZ')
+  const fromEnv = envTimezone()
   if (fromEnv) {
     return { value: fromEnv, source: 'compose/env' }
   }
@@ -276,16 +281,5 @@ export function resolveTimezone(): { value: string, source: SettingSource } {
 
 /** Effective ACMEDNS_TINY_DOMAIN — dashboard override wins over compose/env. */
 export function resolveTinyDomain(): { value: string, source: SettingSource } {
-  const file = loadAppSettingsSync()
-  if (typeof file.tinyDomain === 'string') {
-    const normalised = normalizeTinyDomain(file.tinyDomain)
-    if (normalised) {
-      return { value: normalised, source: 'app-settings' }
-    }
-  }
-  const fromEnv = tinyDomainFromEnv()
-  if (fromEnv) {
-    return { value: fromEnv, source: 'compose/env' }
-  }
-  return { value: '', source: 'default' }
+  return resolveCoreTinyDomain()
 }

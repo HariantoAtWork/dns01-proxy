@@ -1,5 +1,5 @@
 import type { AppSettingsResponse } from '#shared/types/appSettings'
-import { sharedCnameTarget } from '#shared/utils/sharedMode'
+import { sharedCnameTarget } from '#shared/utils/tinyModeDns'
 
 export function useSharedMode() {
   const { data, status, refresh } = useFetch<AppSettingsResponse>('/api/settings', {

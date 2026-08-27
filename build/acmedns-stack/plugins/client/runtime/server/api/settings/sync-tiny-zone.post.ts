@@ -1,6 +1,6 @@
 import { getAcmeConfig } from '../../../../../../server/utils/config'
 import { ensureSharedModeGlueRecords } from '../../../../../../server/utils/glueRecords'
-import { ensureSharedModeAccount, isSharedMode } from '../../../../../../server/utils/sharedMode'
+import { ensureSharedModeAccount, isSharedMode } from '../../../../../../server/utils/sharedModeBootstrap'
 import { getAppSettingsResponse } from '../../utils/settingsService'
 
 /**
