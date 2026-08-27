@@ -9,7 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "test": "bun test plugins/client/tests"
+    "test": "bun test plugins/client/tests server/tests plugins/client/runtime/server/utils/certJobQueue"
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",
