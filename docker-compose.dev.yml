@@ -24,9 +24,12 @@ services:
       # ── System ──────────────────────────────────────────────────────────────────
       - TZ=${TZ:-UTC}
       - ADMINISTRATOR_PASSWORD=${ADMINISTRATOR_PASSWORD:-}
+      # ── Domain (APEX derives auth URL + LE email when unset — see core/env.ts) ───
+      - APEX=${APEX:-}
+      - AUTH_DOMAIN=${AUTH_DOMAIN:-auth.${APEX}}
       # ── ACME / certs ────────────────────────────────────────────────────────────
-      - ACMEDNS_URL=${ACMEDNS_URL:-http://127.0.0.1}
-      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
+      - ACMEDNS_URL=${ACMEDNS_URL:-}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-}
       - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
       - CERTS_ACME_DISABLED=${CERTS_ACME_DISABLED:-false}
       - CERTS_RENEW_DISABLED=${CERTS_RENEW_DISABLED:-false}
@@ -38,7 +41,7 @@ services:
       - ACMEDNS_PUBLIC_IPV6=${ACMEDNS_PUBLIC_IPV6:-}
       - NUXT_ACME_DNS_DEFAULT_CONFIG=${NUXT_ACME_DNS_DEFAULT_CONFIG:-}
       # ── Frontend (Register form; inherits ACMEDNS_URL unless overridden) ────────
-      - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-${ACMEDNS_URL:-http://127.0.0.1}}
+      - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-${ACMEDNS_URL:-}}
 
 volumes:
   acmedns-stack-dev-modules:

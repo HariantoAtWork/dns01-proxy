@@ -14,6 +14,8 @@ import {
 
 const ENV_KEYS = [
   'ACMEDNS_DATA_ROOT',
+  'APEX',
+  'AUTH_DOMAIN',
   'ACMEDNS_URL',
   'NUXT_ACMEDNS_URL',
   'NUXT_PUBLIC_DEFAULT_ACMEDNS_URL',
@@ -79,6 +81,15 @@ afterEach(() => {
 describe('resolveAcmednsUrl', () => {
   test('defaults to loopback when nothing is configured', () => {
     expect(resolveAcmednsUrl()).toEqual({ value: 'http://127.0.0.1', source: 'default' })
+  })
+
+  test('derives from APEX when ACMEDNS_URL unset', () => {
+    process.env.APEX = 'example.test'
+    resetAppSettingsCache()
+    expect(resolveAcmednsUrl()).toEqual({
+      value: 'https://auth.example.test',
+      source: 'compose/env',
+    })
   })
 
   test('prefers compose env over default', () => {
