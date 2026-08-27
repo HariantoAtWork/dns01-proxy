@@ -1,12 +1,13 @@
 [general]
-# Tiny stack — no per-domain UUID registration.
+# Tiny stack template — no per-domain UUID registration.
+# Variables: ${APEX}, ${AUTH_DOMAIN}, ${NSADMIN}.
 # Set the auth zone via ACMEDNS_TINY_DOMAIN (overrides domain + nsname at runtime).
 # Point at your registrar: _acme-challenge.example.com CNAME <tiny-domain>
 listen = "0.0.0.0:53"
 protocol = "both"
-domain = "auth.example.org"
-nsname = "auth.example.org"
-nsadmin = "admin.example.org"
+domain = "${AUTH_DOMAIN}"
+nsname = "${AUTH_DOMAIN}"
+nsadmin = "${NSADMIN}"
 # Glue A (+ AAAA when IPv6 is detected) + NS are filled at boot from public addresses.
 # Override with ACMEDNS_PUBLIC_IP / ACMEDNS_PUBLIC_IPV6 when auto-detect is wrong.
 records = []

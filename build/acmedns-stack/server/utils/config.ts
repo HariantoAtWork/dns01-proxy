@@ -5,7 +5,7 @@ import {
 import { resolve } from 'node:path'
 import { parse } from 'smol-toml'
 import type { AcmeDnsConfig, ParsedListen } from './types'
-import { DEFAULT_ACME_DNS_CONFIG_TEXT } from './defaultConfig'
+import { DEFAULT_ACME_DNS_CONFIG_TEMPLATE } from './defaultConfig'
 import { findPackageRoot } from './paths'
 import { ensureServerConfigSeeded, seedDataRootSync } from './seedData'
 import { getAppSettingsSnapshot, resolveTinyDomain } from '../../core/appSettings'
@@ -163,7 +163,7 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
   seedDataRootSync()
   const resolved = ensureServerConfigSeeded(
     tryRuntimeDefaultConfig(),
-    DEFAULT_ACME_DNS_CONFIG_TEXT,
+    DEFAULT_ACME_DNS_CONFIG_TEMPLATE,
     configPath,
   )
 

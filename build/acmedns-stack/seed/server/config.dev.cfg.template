@@ -1,6 +1,7 @@
 [general]
-# Local `bun run dev` seed — copied to .data/server/config.cfg when missing.
-# Production image uses seed/server/config.cfg instead.
+# Local `bun run dev` template — rendered to .data/server/config.cfg when missing.
+# Variables: ${APEX}, ${AUTH_DOMAIN}, ${NSADMIN} (defaults to *.example.test when env unset).
+# Production image uses seed/server/config.cfg.template instead.
 # Code defaults (when a key is omitted) live in server/utils/config.ts DEFAULTS.
 
 # listen — optional; code default "0.0.0.0:53". Seed "127.0.0.1:15353" for local bun run dev.
@@ -12,21 +13,20 @@ listen = "127.0.0.1:15353"
 # Values: "both", "both4", "both6", "udp", "udp4", "udp6", "tcp", "tcp4", "tcp6".
 protocol = "both"
 # domain — optional to parse (code default "auth.example.org"); set your real zone for production.
-# Seed uses *.test for local bun run dev.
-domain = "auth.example.test"
+domain = "${AUTH_DOMAIN}"
 # nsname — optional to parse (code default "auth.example.org"); set to match your zone NS for production.
-nsname = "auth.example.test"
+nsname = "${AUTH_DOMAIN}"
 # nsadmin — optional; code default "admin.example.org". SOA RNAME; @ becomes .
-nsadmin = "admin.example.test"
+nsadmin = "${NSADMIN}"
 # records — optional; code default [] (empty). For ACME DNS-01 include A + NS for the auth domain.
 records = [
     # domain pointing to the public IP of your acme-dns server
     # Replace 198.51.100.1 (TEST-NET-2 docs example) with your real public internet IP
-    # so Let's Encrypt can follow NS glue / A for auth.example.test (or your domain).
+    # so Let's Encrypt can follow NS glue / A for ${AUTH_DOMAIN} (or your domain).
     # Local listen may stay 127.0.0.1 — this A record must be public for ACME DNS-01.
-    "auth.example.test. A 198.51.100.1",
-    # specify that auth.example.test will resolve any *.auth.example.test records
-    "auth.example.test. NS auth.example.test.",
+    "${AUTH_DOMAIN}. A 198.51.100.1",
+    # specify that ${AUTH_DOMAIN} will resolve any *.${AUTH_DOMAIN} records
+    "${AUTH_DOMAIN}. NS ${AUTH_DOMAIN}.",
 ]
 # debug — optional; code default false. Seed true for verbose local bun run dev.
 debug = true
@@ -54,8 +54,8 @@ port = "3000"
 # Leave "none" for local `bun run dev`.
 tls = "none"
 # tls_cert_* — only used when tls = "cert". Paths must exist on this machine.
-tls_cert_fullchain = ".data/letsencrypt/live/auth.example.test/fullchain.pem"
-tls_cert_privkey = ".data/letsencrypt/live/auth.example.test/privkey.pem"
+tls_cert_fullchain = ".data/letsencrypt/live/${AUTH_DOMAIN}/fullchain.pem"
+tls_cert_privkey = ".data/letsencrypt/live/${AUTH_DOMAIN}/privkey.pem"
 # corsorigins — optional; code default ["*"].
 corsorigins = [
     "*"
