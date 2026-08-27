@@ -6,6 +6,8 @@ import {
   PhArrowsClockwise as Refresh,
 } from '@phosphor-icons/vue'
 
+const route = useRoute()
+const router = useRouter()
 const { sharedMode } = useSharedMode()
 const { entries, status, error, refresh } = useClientStorage()
 
