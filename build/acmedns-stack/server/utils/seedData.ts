@@ -1,11 +1,15 @@
 import {
-  copyFileSync,
   mkdirSync,
   readFileSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import {
+  configTemplatePathFor,
+  configTemplateProfileFromPath,
+  renderConfigTemplateValidated,
+} from '../../core/renderConfigTemplate'
 import {
   dataPath,
   findPackageRoot,
@@ -39,7 +43,7 @@ function seedFileFromTemplate(dest: string, src: string, fallback?: string) {
   }
   mkdirSync(dirname(dest), { recursive: true })
   if (pathHasContent(src)) {
-    copyFileSync(src, dest)
+    writeFileSync(dest, readFileSync(src, 'utf8'), 'utf8')
     console.info(`[acmedns] seeded ${dest} from ${src}`)
     return
   }
@@ -87,22 +91,28 @@ export function seedLiveServerConfig(
 
   const candidates = [
     runtimeDefault,
-    resolve(packageRoot, 'seed/server/config.cfg'),
+    'seed/server/config.cfg.template',
   ].filter((value): value is string => Boolean(value))
 
-  let body = embeddedDefault
+  let template = embeddedDefault
   let source = 'embedded default'
+  let profile = configTemplateProfileFromPath(runtimeDefault ?? '')
   for (const candidate of candidates) {
-    const src = candidate.startsWith('/')
-      ? candidate
-      : resolve(packageRoot, candidate)
-    if (src === target || !pathHasContent(src)) {
+    const templatePath = configTemplatePathFor(
+      candidate.startsWith('/')
+        ? candidate
+        : resolve(packageRoot, candidate),
+    )
+    if (templatePath === target || !pathHasContent(templatePath)) {
       continue
     }
-    body = readFileSync(src, 'utf8')
-    source = src
+    template = readFileSync(templatePath, 'utf8')
+    source = templatePath
+    profile = configTemplateProfileFromPath(templatePath)
     break
   }
+
+  const body = renderConfigTemplateValidated(template, profile)
 
   mkdirSync(dirname(target), { recursive: true })
   writeFileSync(target, body.endsWith('\n') ? body : `${body}\n`, 'utf8')

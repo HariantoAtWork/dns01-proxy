@@ -50,7 +50,7 @@ export default defineNuxtConfig({
     dataRoot: '.data',
     letsencryptDir: '.data/letsencrypt',
     /** Template copied when live server config is missing. */
-    acmeDnsDefaultConfig: isNuxtDev ? 'seed/server/config.dev.cfg' : 'seed/server/config.cfg',
+    acmeDnsDefaultConfig: isNuxtDev ? 'seed/server/config.dev.cfg.template' : 'seed/server/config.cfg.template',
     acmednsUrl,
     administratorPassword: '',
     letsencryptEmail: 'admin@example.com',

@@ -1,7 +1,8 @@
 [general]
-# Production seed — copied to $ACMEDNS_DATA_ROOT/server/config.cfg when missing.
+# Production template — rendered to $ACMEDNS_DATA_ROOT/server/config.cfg when missing.
+# Variables: ${APEX}, ${AUTH_DOMAIN}, ${NSADMIN} (from compose/env via core/renderConfigTemplate.ts).
 # Code defaults (when a key is omitted) live in server/utils/config.ts DEFAULTS.
-# Local `bun run dev` uses seed/server/config.dev.cfg instead.
+# Local `bun run dev` uses seed/server/config.dev.cfg.template instead.
 
 # listen — optional; code default "0.0.0.0:53".
 # Docker/production: typically "0.0.0.0:53" (or :53 with CAP_NET_BIND_SERVICE).
@@ -12,19 +13,19 @@ listen = "0.0.0.0:53"
 # Values: "both", "both4", "both6", "udp", "udp4", "udp6", "tcp", "tcp4", "tcp6".
 protocol = "both"
 # domain — optional to parse (code default "auth.example.org"); set your real zone for production.
-domain = "auth.example.org"
+domain = "${AUTH_DOMAIN}"
 # nsname — optional to parse (code default "auth.example.org"); set to match your zone NS for production.
-nsname = "auth.example.org"
+nsname = "${AUTH_DOMAIN}"
 # nsadmin — optional; code default "admin.example.org". SOA RNAME; @ becomes .
-nsadmin = "admin.example.org"
+nsadmin = "${NSADMIN}"
 # records — optional; code default [] (empty). For ACME DNS-01 include A + NS for the auth domain.
 records = [
     # domain pointing to the public IP of your acme-dns server
     # Replace 198.51.100.1 (TEST-NET-2 docs example) with your real public internet IP
-    # so Let's Encrypt can follow NS glue / A for auth.example.org (or your domain).
-    "auth.example.org. A 198.51.100.1",
-    # specify that auth.example.org will resolve any *.auth.example.org records
-    "auth.example.org. NS auth.example.org.",
+    # so Let's Encrypt can follow NS glue / A for ${AUTH_DOMAIN} (or your domain).
+    "${AUTH_DOMAIN}. A 198.51.100.1",
+    # specify that ${AUTH_DOMAIN} will resolve any *.${AUTH_DOMAIN} records
+    "${AUTH_DOMAIN}. NS ${AUTH_DOMAIN}.",
 ]
 # debug — optional; code default false.
 debug = false
@@ -53,8 +54,8 @@ port = "80"
 tls = "none"
 # tls_cert_* — only used when tls = "cert". Paths must exist inside the container.
 # Example with the compose LETSENCRYPT_DIR mount:
-tls_cert_fullchain = "/etc/letsencrypt/live/auth.example.org/fullchain.pem"
-tls_cert_privkey = "/etc/letsencrypt/live/auth.example.org/privkey.pem"
+tls_cert_fullchain = "/etc/letsencrypt/live/${AUTH_DOMAIN}/fullchain.pem"
+tls_cert_privkey = "/etc/letsencrypt/live/${AUTH_DOMAIN}/privkey.pem"
 # corsorigins — optional; code default ["*"].
 corsorigins = [
     "*"
