@@ -7,6 +7,8 @@
     "docker:push": "docker compose -f docker-compose.push.yml build --push",
     "docker:up": "docker compose up -d",
     "docker:dev": "docker compose --profile dev up acmedns-stack-dev",
+    "docker:dev:down": "docker compose --profile dev down acmedns-stack-dev",
+    "docker:dev:restart": "bun run docker:dev:down && bun run docker:dev",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f acmedns-stack"
   }
