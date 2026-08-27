@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { evaluateCnameResolverOutcomes } from '../shared/utils/dnsMatch'
+import { evaluateCnameResolverOutcomes } from '../runtime/shared/utils/dnsMatch'
 
 describe('evaluateCnameResolverOutcomes', () => {
   const name = '_acme-challenge.example.com'
