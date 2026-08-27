@@ -3,8 +3,6 @@ import type {
   CertActivityResponse,
   CertApplyResult,
   CertJobQueueItem,
-  CertJobQueueSnapshot,
-  CertJobStatus,
   CertLiveActivityEvent,
   CertLiveQueueEvent,
   CertLiveRateLimitsEvent,
@@ -22,7 +20,10 @@ import type {
 import { mergeLiveActivity } from './useCertLiveStream'
 import { filenameFromDisposition, triggerDownload } from '#client/utils/download'
 
+import { useCertQueueState } from '#client/composables/useCertQueueState'
+
 export function useCerts() {
+  const { certJob, certQueue } = useCertQueueState()
   const text = ref('')
   const parsed = ref<DomainsParseResult | null>(null)
   const statusEntries = ref<CertStatusEntry[]>([])
@@ -34,8 +35,6 @@ export function useCerts() {
   const lastSavedItems = ref<LastSavedItem[]>([])
   const activityEntries = ref<CertActivityEntry[]>([])
   const rateLimits = ref<CertRateLimit[]>([])
-  const certJob = ref<CertJobStatus>({ running: false })
-  const certQueue = ref<CertJobQueueSnapshot>({ running: null, queued: [], cancelled: [] })
   const lastCertErrors = ref<Record<string, { message: string, at: string }>>({})
   const lastActivityId = ref(0)
   const lastRefreshedAt = ref<string | null>(null)
