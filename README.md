@@ -83,7 +83,9 @@ bun run docker:up
 # or: docker compose up -d --build
 ```
 
-Useful root scripts (`package.json`): `dev`, `build`, `typecheck`, `docker:build`, `docker:push`, `docker:up` / `docker:dev` / `down` / `logs`.
+Useful root scripts (`package.json`): `docker:build`, `docker:push`, `docker:up` / `docker:dev` / `docker:down` / `docker:logs`.
+
+Local Nuxt dev (no Docker): `bun install --cwd build/acmedns-stack` then `bun run --cwd build/acmedns-stack dev` (UI on `:3000`).
 
 Docker Nuxt hot-reload (compose profile `dev`, UI on `:3000`, DNS on `:15353`):
 
