@@ -3,6 +3,7 @@ import type { AcmeDnsCredentials } from '#shared/types/clientstorage'
 import { fulldomainForAccount } from '#shared/utils/fulldomain'
 import { isSharedMode, sharedModeUsername } from '../../../../../server/utils/sharedMode'
 import { resolveAcmednsUrl } from './appSettings'
+import { isInternalAcmeDnsHost } from './localAcmeHosts'
 
 function hostnameOf(base: string): string {
   try {
@@ -22,19 +23,11 @@ function authZoneHost(): string {
   }
 }
 
-function isLoopbackAcmeDnsHost(host: string): boolean {
-  return host === '127.0.0.1'
-    || host === 'localhost'
-    || host === '::1'
-    || host === 'acmedns-server'
-    || host === 'acmedns-stack'
-}
-
 function preferredPublicAcmeHost(): string {
   return hostnameOf(resolveAcmednsUrl().value)
 }
 
-/** In-process API (loopback / compose name / this stack's auth zone). */
+/** In-process API (loopback / container hostname / auth zone / ACMEDNS_URL). */
 function isLocalAcmeDnsBase(base: string): boolean {
   if (!base || base.startsWith('local://')) {
     return true
@@ -43,11 +36,15 @@ function isLocalAcmeDnsBase(base: string): boolean {
   if (!host) {
     return false
   }
-  if (isLoopbackAcmeDnsHost(host)) {
+  if (isInternalAcmeDnsHost(host)) {
     return true
   }
   const zone = authZoneHost()
-  return Boolean(zone && host === zone)
+  if (zone && host === zone) {
+    return true
+  }
+  const publicHost = preferredPublicAcmeHost()
+  return Boolean(publicHost && host === publicHost)
 }
 
 /**
@@ -76,12 +73,12 @@ function useInProcessUpdate(base: string, username: string): boolean {
 function identityServerUrl(resolvedBase: string): string {
   const cleaned = resolvedBase.replace(/\/$/, '')
   const host = hostnameOf(cleaned)
-  if (host && !isLoopbackAcmeDnsHost(host)) {
+  if (host && !isInternalAcmeDnsHost(host)) {
     return cleaned
   }
 
   const preferred = resolveAcmednsUrl().value
-  if (preferred && !isLoopbackAcmeDnsHost(hostnameOf(preferred))) {
+  if (preferred && !isInternalAcmeDnsHost(hostnameOf(preferred))) {
     return preferred
   }
 
