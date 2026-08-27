@@ -23,6 +23,7 @@ const {
   statusEntries,
   directoryMode,
   acmeEnabled,
+  renewSchedulerEnabled,
   applyResults,
   activityEntries,
   rateLimits,
@@ -35,6 +36,7 @@ const {
   loadDomains,
   loadSettings,
   saveSettings,
+  setRenewSchedulerEnabled,
   saveDomains,
   recheckDomainsDns,
   loadStatus,
@@ -346,6 +348,22 @@ async function onMode(mode: LetsEncryptDirectoryMode) {
   }
   catch (caught) {
     toasts.error(caught instanceof Error ? caught.message : 'Could not change mode')
+  }
+}
+
+async function onToggleRenewScheduler() {
+  const next = !renewSchedulerEnabled.value
+  try {
+    await setRenewSchedulerEnabled(next)
+    toasts.ok(
+      next
+        ? 'Renew scheduler on — automatic production checks resume'
+        : 'Renew scheduler off — manual Apply / Force still work',
+    )
+    await loadActivity({ full: true })
+  }
+  catch (caught) {
+    toasts.error(caught instanceof Error ? caught.message : 'Could not update renew scheduler')
   }
 }
 
@@ -702,34 +720,51 @@ function rateLimitLabel(limit: CertRateLimit) {
 
     <UiPanel>
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-3">
-        <div class="flex items-center gap-2">
-          <span class="text-xs uppercase tracking-wide text-muted">Directory</span>
-          <div class="inline-flex rounded-[6px] border border-rule p-0.5">
-            <button
-              type="button"
-              class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-              :class="directoryMode === 'production' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-              :disabled="pending"
-              @click="onMode('production')"
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs uppercase tracking-wide text-muted">Directory</span>
+            <div class="inline-flex rounded-[6px] border border-rule p-0.5">
+              <button
+                type="button"
+                class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
+                :class="directoryMode === 'production' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
+                :disabled="pending"
+                @click="onMode('production')"
+              >
+                Production
+              </button>
+              <button
+                type="button"
+                class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
+                :class="directoryMode === 'staging' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
+                :disabled="pending"
+                @click="onMode('staging')"
+              >
+                Staging
+              </button>
+            </div>
+            <span
+              v-if="!acmeEnabled"
+              class="rounded-[4px] border border-danger px-2 py-0.5 text-xs text-danger"
             >
-              Production
-            </button>
-            <button
-              type="button"
-              class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-              :class="directoryMode === 'staging' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-              :disabled="pending"
-              @click="onMode('staging')"
-            >
-              Staging
-            </button>
+              Production ACME off
+            </span>
           </div>
-          <span
-            v-if="!acmeEnabled"
-            class="rounded-[4px] border border-danger px-2 py-0.5 text-xs text-danger"
+          <label
+            class="inline-flex cursor-pointer items-center gap-2 rounded-[6px] border px-2.5 py-1 text-xs"
+            :class="renewSchedulerEnabled ? 'border-rule text-ink' : 'border-danger text-danger'"
+            title="Periodic production renew only. Does not block manual Apply or Force re-issue."
           >
-            Production ACME off
-          </span>
+            <input
+              type="checkbox"
+              class="accent-[var(--signal)]"
+              :checked="renewSchedulerEnabled"
+              :disabled="pending"
+              @click.prevent="onToggleRenewScheduler"
+            >
+            Auto renew
+            <span class="font-medium">{{ renewSchedulerEnabled ? 'on' : 'off' }}</span>
+          </label>
         </div>
         <div class="flex flex-wrap gap-2">
           <UiButton variant="ghost" size="sm" :disabled="pending || !dirty" @click="onSave">

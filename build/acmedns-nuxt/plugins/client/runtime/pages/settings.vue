@@ -24,6 +24,7 @@ const operator = reactive({
   letsencryptEmail: '',
   renewInterval: 12,
   certsAcmeDisabled: false,
+  certsRenewDisabled: false,
   administratorPassword: '',
   passwordSet: false,
   tz: 'UTC',
@@ -126,6 +127,7 @@ async function save() {
         letsencryptEmail: operator.letsencryptEmail,
         renewInterval: Number(operator.renewInterval),
         certsAcmeDisabled: operator.certsAcmeDisabled,
+        certsRenewDisabled: operator.certsRenewDisabled,
         tz: operator.tz,
       },
       general: { ...general },
@@ -265,10 +267,24 @@ onMounted(() => {
           />
         </UiField>
       </div>
-      <label class="mt-4 flex items-center gap-2 text-sm text-ink">
-        <input v-model="operator.certsAcmeDisabled" type="checkbox" class="accent-[var(--signal)]" :disabled="pending">
-        CERTS_ACME_DISABLED — block production issue/renew (staging Apply still works)
-        <span class="text-xs text-muted">({{ sourceLabel(operator.sources.certsAcmeDisabled) }})</span>
+      <label class="mt-4 flex items-start gap-2 text-sm text-ink">
+        <input v-model="operator.certsAcmeDisabled" type="checkbox" class="mt-0.5 accent-[var(--signal)]" :disabled="pending">
+        <span>
+          CERTS_ACME_DISABLED — block production issue/renew
+          <span class="block text-xs text-muted">
+            Staging Apply still works. ({{ sourceLabel(operator.sources.certsAcmeDisabled) }})
+          </span>
+        </span>
+      </label>
+      <label class="mt-3 flex items-start gap-2 text-sm text-ink">
+        <input v-model="operator.certsRenewDisabled" type="checkbox" class="mt-0.5 accent-[var(--signal)]" :disabled="pending">
+        <span>
+          CERTS_RENEW_DISABLED — stop the renew scheduler only
+          <span class="block text-xs text-muted">
+            Periodic production renew off. Manual Apply / Force re-issue still work.
+            ({{ sourceLabel(operator.sources.certsRenewDisabled) }})
+          </span>
+        </span>
       </label>
     </UiPanel>
 

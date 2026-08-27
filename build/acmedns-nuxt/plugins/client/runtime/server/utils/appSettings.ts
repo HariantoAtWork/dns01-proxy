@@ -215,6 +215,30 @@ export function resolveCertsAcmeDisabled(): { value: boolean, source: SettingSou
   return { value: false, source: 'default' }
 }
 
+/** When true, the periodic production renew timer does not run (manual Apply still works). */
+export function resolveCertsRenewDisabled(): { value: boolean, source: SettingSource } {
+  const file = loadAppSettingsSync()
+  if (typeof file.certsRenewDisabled === 'boolean') {
+    return { value: file.certsRenewDisabled, source: 'app-settings' }
+  }
+  const fromEnv = process.env.CERTS_RENEW_DISABLED
+    ?? process.env.NUXT_CERTS_RENEW_DISABLED
+  if (typeof fromEnv === 'string' && fromEnv.trim()) {
+    return { value: truthy(fromEnv), source: 'compose/env' }
+  }
+  try {
+    const config = useRuntimeConfig()
+    const raw = String(config.certsRenewDisabled ?? '')
+    if (raw) {
+      return { value: truthy(raw), source: 'compose/env' }
+    }
+  }
+  catch {
+    // ignore
+  }
+  return { value: false, source: 'default' }
+}
+
 export function resolveAdministratorPassword(): { value: string, source: SettingSource } {
   const file = loadAppSettingsSync()
   if (typeof file.administratorPassword === 'string') {

@@ -24,6 +24,7 @@ services:
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
       - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
       - CERTS_ACME_DISABLED=${CERTS_ACME_DISABLED:-false}
+      - CERTS_RENEW_DISABLED=${CERTS_RENEW_DISABLED:-false}
       # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
       - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}
       - ACMEDNS_SHARED_MODE=${ACMEDNS_SHARED_MODE:-}
@@ -68,6 +69,7 @@ services:
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@example.com}
       - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
       - CERTS_ACME_DISABLED=${CERTS_ACME_DISABLED:-false}
+      - CERTS_RENEW_DISABLED=${CERTS_RENEW_DISABLED:-false}
       # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
       - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}
       - ACMEDNS_SHARED_MODE=${ACMEDNS_SHARED_MODE:-}

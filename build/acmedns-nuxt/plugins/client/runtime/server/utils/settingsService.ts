@@ -23,6 +23,7 @@ import {
   resolveAcmednsUrl,
   resolveAdministratorPassword,
   resolveCertsAcmeDisabled,
+  resolveCertsRenewDisabled,
   resolveDefaultAcmednsUrl,
   resolveLetsencryptEmail,
   resolveRenewIntervalHours,
@@ -60,6 +61,7 @@ function buildOperatorView(): OperatorSettingsView {
   const letsencryptEmail = resolveLetsencryptEmail()
   const renewInterval = resolveRenewIntervalHours()
   const certsAcmeDisabled = resolveCertsAcmeDisabled()
+  const certsRenewDisabled = resolveCertsRenewDisabled()
   const administratorPassword = resolveAdministratorPassword()
   const tz = resolveTimezone()
 
@@ -69,6 +71,7 @@ function buildOperatorView(): OperatorSettingsView {
     letsencryptEmail: letsencryptEmail.value,
     renewInterval: renewInterval.value,
     certsAcmeDisabled: certsAcmeDisabled.value,
+    certsRenewDisabled: certsRenewDisabled.value,
     administratorPassword: '',
     passwordSet: administratorPassword.value.length > 0,
     tz: tz.value,
@@ -78,6 +81,7 @@ function buildOperatorView(): OperatorSettingsView {
       letsencryptEmail: letsencryptEmail.source,
       renewInterval: renewInterval.source,
       certsAcmeDisabled: certsAcmeDisabled.source,
+      certsRenewDisabled: certsRenewDisabled.source,
       administratorPassword: administratorPassword.source,
       tz: tz.source,
     },
@@ -257,6 +261,8 @@ function applyLog(config: AcmeDnsConfig, patch: Partial<ConfigLogView>) {
 async function applyOperator(patch: NonNullable<AppSettingsPutBody['operator']>, clear: boolean) {
   if (clear) {
     await clearAppSettingsFile()
+    const { syncRenewScheduler } = await import('./certRenewScheduler')
+    syncRenewScheduler()
     return
   }
 
@@ -306,6 +312,9 @@ async function applyOperator(patch: NonNullable<AppSettingsPutBody['operator']>,
   if (patch.certsAcmeDisabled !== undefined) {
     next.certsAcmeDisabled = Boolean(patch.certsAcmeDisabled)
   }
+  if (patch.certsRenewDisabled !== undefined) {
+    next.certsRenewDisabled = Boolean(patch.certsRenewDisabled)
+  }
   if (patch.tz !== undefined) {
     const value = String(patch.tz).trim()
     if (value) {
@@ -320,6 +329,11 @@ async function applyOperator(patch: NonNullable<AppSettingsPutBody['operator']>,
   }
 
   await writeAppSettingsFile(next)
+
+  if (patch.certsRenewDisabled !== undefined) {
+    const { syncRenewScheduler } = await import('./certRenewScheduler')
+    syncRenewScheduler()
+  }
 }
 
 export async function updateAppSettings(body: AppSettingsPutBody): Promise<AppSettingsResponse> {
