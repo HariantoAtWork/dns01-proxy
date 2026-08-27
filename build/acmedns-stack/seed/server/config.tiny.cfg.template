@@ -26,6 +26,8 @@ shared_username = "00000000-0000-4000-8000-000000000001"
 # Optional fixed key (43-char base64url). Otherwise auto-generated on first boot.
 # shared_password = ""
 tls = "none"
+tls_cert_fullchain = "/etc/letsencrypt/live/${APEX}/fullchain.pem"
+tls_cert_privkey = "/etc/letsencrypt/live/${APEX}/privkey.pem"
 corsorigins = [
     "*"
 ]
