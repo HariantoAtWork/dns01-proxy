@@ -3,10 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --cwd build/acmedns-stack dev",
-    "build": "bun run --cwd build/acmedns-stack build",
-    "typecheck": "bun run --cwd build/acmedns-stack typecheck",
-    "prepare:nuxt": "bun run --cwd build/acmedns-stack postinstall",
     "docker:build": "docker compose -f docker-compose.build.yml build",
     "docker:push": "docker compose -f docker-compose.push.yml build --push",
     "docker:up": "docker compose up -d",
