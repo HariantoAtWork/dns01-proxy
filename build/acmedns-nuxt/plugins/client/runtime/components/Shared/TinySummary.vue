@@ -122,8 +122,8 @@ const zoneText = computed(() => zoneRecords.value.map(row => row.line).join('\n'
       <dd class="min-w-0">
         <p v-if="loading || syncing" class="text-muted">Writing glue from domain + public IP…</p>
         <template v-else-if="zoneRecords.length">
-          <div class="overflow-x-auto border border-rule" style="border-radius: var(--radius-panel)">
-            <table class="w-auto max-w-full border-collapse text-left text-sm">
+          <div class="w-fit max-w-full overflow-x-auto border border-rule" style="border-radius: var(--radius-panel)">
+            <table class="w-auto border-collapse text-left text-sm">
               <thead>
                 <tr class="border-b border-rule bg-paper/60 text-xs uppercase tracking-wide text-muted">
                   <th class="whitespace-nowrap px-3 py-2 font-medium">Name</th>
