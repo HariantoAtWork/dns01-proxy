@@ -8,9 +8,9 @@ const isNuxtDev = process.argv.includes('dev')
 const tinyDomain = tinyDomainFromEnv()
 const acmednsUrlFromTiny = defaultAcmednsUrlForTinyDomain(tinyDomain)
 
-// Prefer ACMEDNS_URL so a single .env key drives server + Register form.
+// Prefer ACMEDNS_URL; else APEX → https://auth.<APEX> (or AUTH_DOMAIN).
 // ACMEDNS_TINY_DOMAIN fills the URL when unset (https://<tiny-domain>).
-// Docker still needs NUXT_PUBLIC_DEFAULT_ACMEDNS_URL at runtime (see compose).
+// Compose forwards APEX / AUTH_DOMAIN; explicit ACMEDNS_URL overrides.
 const acmednsUrl = envAcmednsUrl()
   || acmednsUrlFromTiny
   || 'http://127.0.0.1'
