@@ -155,22 +155,6 @@ export default defineNuxtModule<AcmednsClientModuleOptions>({
       nuxt.options.css.push(cssPath)
     }
 
-    nuxt.options.runtimeConfig = nuxt.options.runtimeConfig || {}
-    const runtimeConfig = nuxt.options.runtimeConfig as Record<string, unknown>
-    const publicConfig = (runtimeConfig.public || {}) as Record<string, unknown>
-
-    runtimeConfig.dataRoot = options.dataRoot
-    runtimeConfig.letsencryptDir = options.letsencryptDir
-    runtimeConfig.acmednsUrl = options.acmednsUrl
-    runtimeConfig.administratorPassword = options.administratorPassword
-    runtimeConfig.letsencryptEmail = options.letsencryptEmail
-    runtimeConfig.renewInterval = options.renewInterval
-    runtimeConfig.certsAcmeDisabled = options.certsAcmeDisabled
-    runtimeConfig.certsRenewDisabled = options.certsRenewDisabled
-    publicConfig.defaultAcmednsUrl = options.defaultAcmednsUrl
-    publicConfig.restrictMode = options.restrictMode
-    runtimeConfig.public = publicConfig
-
     // Keep Vite able to resolve plugin runtime imports during build.
     nuxt.options.vite = nuxt.options.vite || {}
     const vite = nuxt.options.vite as { resolve?: { alias?: Record<string, string> } }

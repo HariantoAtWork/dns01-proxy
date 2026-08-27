@@ -1,3 +1,4 @@
+/// <reference types="bun-types" />
 import '#nitro-internal-pollyfills'
 import { readFileSync } from 'node:fs'
 import { useNitroApp } from 'nitropack/runtime'
@@ -9,8 +10,8 @@ import { resolveListenOptions, type ListenBinding } from './utils/listen'
 loadAcmeConfigSync()
 
 const nitroApp = useNitroApp()
-// @ts-expect-error replaced at build time by Nitro
-const ws = import.meta._websocket ? wsAdapter(nitroApp.h3App.websocket) : undefined
+const websocketEnabled = Boolean((import.meta as ImportMeta & { _websocket?: boolean })._websocket)
+const ws = websocketEnabled ? wsAdapter(nitroApp.h3App.websocket) : undefined
 
 const listen = resolveListenOptions()
 
@@ -31,8 +32,7 @@ function resolveRequestUrl(req: Request, binding: ListenBinding): URL {
 }
 
 async function handleFetch(req: Request, serverRef: unknown, binding: ListenBinding) {
-  // @ts-expect-error replaced at build time by Nitro
-  if (import.meta._websocket && req.headers.get('upgrade') === 'websocket') {
+  if (websocketEnabled && req.headers.get('upgrade') === 'websocket') {
     return ws!.handleUpgrade(req, serverRef)
   }
 
@@ -59,12 +59,10 @@ async function handleFetch(req: Request, serverRef: unknown, binding: ListenBind
 }
 
 function startBinding(binding: ListenBinding) {
-  return Bun.serve({
+  const base = {
     port: binding.port,
     hostname: binding.host,
     idleTimeout: Number.parseInt(process.env.NITRO_BUN_IDLE_TIMEOUT || '') || undefined,
-    // @ts-expect-error replaced at build time by Nitro
-    websocket: import.meta._websocket ? ws?.websocket : undefined,
     ...(binding.tls
       ? {
           tls: {
@@ -73,8 +71,17 @@ function startBinding(binding: ListenBinding) {
           },
         }
       : {}),
-    fetch: (req, server) => handleFetch(req, server, binding),
-  })
+    fetch: (req: Request, server: unknown) => handleFetch(req, server, binding),
+  }
+
+  if (websocketEnabled && ws?.websocket) {
+    return Bun.serve({
+      ...base,
+      websocket: ws.websocket,
+    })
+  }
+
+  return Bun.serve(base as Parameters<typeof Bun.serve>[0])
 }
 
 const httpServer = startBinding(listen.http)
@@ -88,7 +95,6 @@ else {
   console.log('[acmedns] HTTPS disabled (api.tls=none)')
 }
 
-// @ts-expect-error replaced at build time by Nitro
-if (import.meta._tasks) {
+if ((import.meta as ImportMeta & { _tasks?: boolean })._tasks) {
   startScheduleRunner()
 }

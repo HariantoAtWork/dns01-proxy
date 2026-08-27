@@ -8,7 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "bun test plugins/client/tests"
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
+    "bun-types": "^1.2.22",
     "@types/dns2": "^2.0.10",
     "@types/uuid": "^11.0.0",
     "typescript": "5.9.3",

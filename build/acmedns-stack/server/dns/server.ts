@@ -12,6 +12,10 @@ const RCODE_REFUSED = 5
 
 type DnsAnswer = Record<string, unknown>
 
+function pushAnswer(answers: unknown[], answer: DnsAnswer) {
+  answers.push(answer)
+}
+
 interface StaticRecords {
   a: Map<string, string[]>
   aaaa: Map<string, string[]>
@@ -164,21 +168,21 @@ export function createDnsServer(config: AcmeDnsConfig) {
           }
           else {
             response.header.rcode = RCODE_NXDOMAIN
-            response.authorities.push(soaRecord(zone, nsname, admin))
+            pushAnswer(response.authorities, soaRecord(zone, nsname, admin))
           }
           continue
         }
 
         if (type === Packet.TYPE.SOA || type === Packet.TYPE.ANY) {
           if (name === zone) {
-            response.answers.push(soaRecord(zone, nsname, admin))
+            pushAnswer(response.answers, soaRecord(zone, nsname, admin))
           }
         }
 
         if (type === Packet.TYPE.NS || type === Packet.TYPE.ANY) {
           const nsValues = staticRecords.ns.get(name) ?? (name === zone ? [nsname] : [])
           for (const ns of nsValues) {
-            response.answers.push({
+            pushAnswer(response.answers, {
               name,
               type: Packet.TYPE.NS,
               class: Packet.CLASS.IN,
@@ -190,7 +194,7 @@ export function createDnsServer(config: AcmeDnsConfig) {
 
         if (type === Packet.TYPE.A || type === Packet.TYPE.ANY) {
           for (const address of staticRecords.a.get(name) ?? []) {
-            response.answers.push({
+            pushAnswer(response.answers, {
               name,
               type: Packet.TYPE.A,
               class: Packet.CLASS.IN,
@@ -202,7 +206,7 @@ export function createDnsServer(config: AcmeDnsConfig) {
 
         if (type === Packet.TYPE.AAAA || type === Packet.TYPE.ANY) {
           for (const address of staticRecords.aaaa.get(name) ?? []) {
-            response.answers.push({
+            pushAnswer(response.answers, {
               name,
               type: Packet.TYPE.AAAA,
               class: Packet.CLASS.IN,
@@ -214,7 +218,7 @@ export function createDnsServer(config: AcmeDnsConfig) {
 
         if (type === Packet.TYPE.CNAME || type === Packet.TYPE.ANY) {
           for (const target of staticRecords.cname.get(name) ?? []) {
-            response.answers.push({
+            pushAnswer(response.answers, {
               name,
               type: Packet.TYPE.CNAME,
               class: Packet.CLASS.IN,
@@ -231,7 +235,7 @@ export function createDnsServer(config: AcmeDnsConfig) {
             if (!data) {
               continue
             }
-            response.answers.push({
+            pushAnswer(response.answers, {
               name,
               type: Packet.TYPE.TXT,
               class: Packet.CLASS.IN,
@@ -256,7 +260,7 @@ export function createDnsServer(config: AcmeDnsConfig) {
           else {
             response.header.rcode = RCODE_NXDOMAIN
           }
-          response.authorities.push(soaRecord(zone, nsname, admin))
+          pushAnswer(response.authorities, soaRecord(zone, nsname, admin))
         }
       }
 
