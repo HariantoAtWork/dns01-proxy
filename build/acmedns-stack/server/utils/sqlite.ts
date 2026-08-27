@@ -29,11 +29,11 @@ async function openBunSqlite(path: string): Promise<SqliteDatabase> {
       const stmt = db.prepare(sql)
       return {
         run: (...params: unknown[]) => {
-          const result = stmt.run(...params) as { changes?: number }
+          const result = stmt.run(...(params as never[])) as { changes?: number }
           return { changes: Number(result?.changes ?? 0) }
         },
-        get: (...params: unknown[]) => stmt.get(...params),
-        all: (...params: unknown[]) => stmt.all(...params) as unknown[],
+        get: (...params: unknown[]) => stmt.get(...(params as never[])),
+        all: (...params: unknown[]) => stmt.all(...(params as never[])) as unknown[],
       }
     },
     close: () => {
@@ -48,6 +48,8 @@ async function openBunSqlite(path: string): Promise<SqliteDatabase> {
 
 async function openNodeSqlite(path: string): Promise<SqliteDatabase> {
   const { DatabaseSync } = await import('node:sqlite')
+  type SQLInputValue = import('node:sqlite').SQLInputValue
+  const bind = (params: unknown[]) => params as SQLInputValue[]
   const db = new DatabaseSync(path)
   return {
     exec: (sql: string) => {
@@ -57,11 +59,11 @@ async function openNodeSqlite(path: string): Promise<SqliteDatabase> {
       const stmt = db.prepare(sql)
       return {
         run: (...params: unknown[]) => {
-          const result = stmt.run(...params) as { changes?: number }
+          const result = stmt.run(...bind(params)) as { changes?: number }
           return { changes: Number(result?.changes ?? 0) }
         },
-        get: (...params: unknown[]) => stmt.get(...params),
-        all: (...params: unknown[]) => stmt.all(...params) as unknown[],
+        get: (...params: unknown[]) => stmt.get(...bind(params)),
+        all: (...params: unknown[]) => stmt.all(...bind(params)) as unknown[],
       }
     },
     close: () => {

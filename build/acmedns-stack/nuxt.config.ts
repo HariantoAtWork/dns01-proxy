@@ -22,6 +22,13 @@ const defaultAcmednsUrl = process.env.NUXT_PUBLIC_DEFAULT_ACMEDNS_URL
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        types: ['bun-types'],
+      },
+    },
+  },
   modules: [
     '@nuxt/fonts',
     './plugins/client',
@@ -55,12 +62,6 @@ export default defineNuxtConfig({
       defaultAcmednsUrl,
       restrictMode: false,
     },
-  },
-  acmednsClient: {
-    dataRoot: '.data',
-    letsencryptDir: '.data/letsencrypt',
-    acmednsUrl,
-    defaultAcmednsUrl,
   },
   app: {
     head: {
