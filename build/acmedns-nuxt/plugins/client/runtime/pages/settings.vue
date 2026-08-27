@@ -12,11 +12,17 @@ import {
 
 useHead({ title: 'Settings' })
 
-const { sharedMode } = useSharedMode()
+const { sharedMode, refresh: refreshSharedMode } = useSharedMode()
 const toasts = useToasts()
 const pending = ref(false)
+const savingTiny = ref(false)
 const loaded = ref(false)
 const restartBanner = ref<string[]>([])
+const sharedModeForcedByEnv = ref(false)
+const tinyDomain = ref('')
+const tinyDomainSource = ref<SettingSource | undefined>()
+const tinyDomainEnv = ref('')
+const tinyDomainDraft = ref('')
 
 const operator = reactive({
   acmednsUrl: '',
@@ -50,6 +56,10 @@ const api = reactive({
   ip: '0.0.0.0',
   port: '80',
   disable_registration: false,
+  shared_mode: false,
+  shared_username: '',
+  shared_password: '',
+  sharedPasswordSet: false,
   tls: 'none',
   tls_cert_fullchain: '',
   tls_cert_privkey: '',
@@ -94,11 +104,87 @@ function applyResponse(data: AppSettingsResponse) {
   })
   Object.assign(general, data.general)
   Object.assign(database, data.database)
-  Object.assign(api, data.api)
+  Object.assign(api, {
+    ...data.api,
+    shared_password: '',
+  })
   Object.assign(logconfig, data.logconfig)
   Object.assign(paths, data.paths)
+  sharedModeForcedByEnv.value = Boolean(data.sharedModeForcedByEnv)
+  tinyDomain.value = data.tinyDomain || ''
+  tinyDomainSource.value = data.tinyDomainSource
+  tinyDomainEnv.value = data.tinyDomainEnv || ''
+  tinyDomainDraft.value = data.tinyDomain
+    || (data.api?.shared_mode ? data.general.domain : '')
+    || ''
   if (data.restartRequired && data.restartReasons?.length) {
     restartBanner.value = data.restartReasons
+  }
+}
+
+async function toggleTinyMode() {
+  if (pending.value || !loaded.value || sharedModeForcedByEnv.value) {
+    return
+  }
+  const next = !api.shared_mode
+  api.shared_mode = next
+  if (next) {
+    api.disable_registration = true
+  }
+  pending.value = true
+  try {
+    const data = await $fetch<AppSettingsResponse>('/api/settings', {
+      method: 'PUT',
+      body: {
+        api: {
+          shared_mode: next,
+          ...(next ? { disable_registration: true } : {}),
+        },
+      } satisfies AppSettingsPutBody,
+    })
+    applyResponse(data)
+    await refreshSharedMode()
+    toasts.ok(next ? 'Tiny mode on' : 'Tiny mode off')
+  }
+  catch (caught) {
+    api.shared_mode = !next
+    toasts.error(caught instanceof Error ? caught.message : 'Failed to toggle Tiny mode')
+  }
+  finally {
+    pending.value = false
+  }
+}
+
+async function saveTinyDomain() {
+  if (!loaded.value || savingTiny.value) {
+    return
+  }
+  const next = tinyDomainDraft.value.trim()
+  if (next === tinyDomain.value) {
+    return
+  }
+  savingTiny.value = true
+  try {
+    const data = await $fetch<AppSettingsResponse>('/api/settings', {
+      method: 'PUT',
+      body: {
+        operator: { tinyDomain: next },
+        // Keep shared mode on when setting an auth domain from the Tiny panel.
+        ...(next ? { api: { shared_mode: true, disable_registration: true } } : {}),
+      } satisfies AppSettingsPutBody,
+    })
+    applyResponse(data)
+    await refreshSharedMode()
+    toasts.ok(next ? `Tiny domain → ${data.tinyDomain}` : 'Tiny domain cleared')
+  }
+  catch (caught) {
+    tinyDomainDraft.value = tinyDomain.value
+      || (api.shared_mode ? general.domain : '')
+      || ''
+    toasts.error(caught instanceof Error ? caught.message : 'Failed to save Tiny domain')
+  }
+  finally {
+    savingTiny.value = false
   }
 }
 
@@ -120,6 +206,18 @@ async function load() {
 async function save() {
   pending.value = true
   try {
+    const apiBody: AppSettingsPutBody['api'] = {
+      ip: api.ip,
+      port: api.port,
+      disable_registration: api.disable_registration,
+      shared_mode: api.shared_mode,
+      tls: api.tls,
+      tls_cert_fullchain: api.tls_cert_fullchain,
+      tls_cert_privkey: api.tls_cert_privkey,
+      corsorigins: api.corsorigins,
+      use_header: api.use_header,
+      header_name: api.header_name,
+    }
     const body: AppSettingsPutBody = {
       operator: {
         acmednsUrl: operator.acmednsUrl,
@@ -132,8 +230,13 @@ async function save() {
       },
       general: { ...general },
       database: { ...database },
-      api: { ...api },
+      api: apiBody,
       logconfig: { ...logconfig },
+    }
+    // Only send tinyDomain when non-empty so a blank draft cannot wipe a stored override.
+    const tinyDraft = tinyDomainDraft.value.trim()
+    if (api.shared_mode && tinyDraft) {
+      body.operator!.tinyDomain = tinyDraft
     }
     if (operator.administratorPassword.trim()) {
       body.operator!.administratorPassword = operator.administratorPassword
@@ -143,6 +246,7 @@ async function save() {
       body,
     })
     applyResponse(data)
+    await refreshSharedMode()
     if (data.restartRequired) {
       toasts.info(
         (data.restartReasons || ['Bind settings changed']).join('; '),
@@ -227,6 +331,64 @@ onMounted(() => {
     </div>
 
     <UiPanel accent>
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="min-w-0">
+          <h2 class="text-base font-semibold tracking-tight">Tiny mode</h2>
+          <p class="mt-1 max-w-[55ch] text-sm text-muted">
+            Shared auth zone — no Register step, challenge CNAMEs target the apex.
+            Sets <span class="font-mono text-ink">domain</span> / <span class="font-mono text-ink">nsname</span>
+            and <span class="font-mono text-ink">shared_mode</span>.
+          </p>
+          <template v-if="api.shared_mode">
+            <UiField
+              class="mt-3 max-w-md"
+              label="ACMEDNS_TINY_DOMAIN"
+              :hint="tinyDomainSource ? sourceLabel(tinyDomainSource) : undefined"
+            >
+              <UiInput
+                v-model="tinyDomainDraft"
+                mono
+                placeholder="auth.example.org"
+                :disabled="!loaded || sharedModeForcedByEnv"
+                @keydown.enter.prevent="saveTinyDomain"
+                @blur="saveTinyDomain"
+              />
+            </UiField>
+            <p v-if="tinyDomainEnv && tinyDomainSource === 'app-settings'" class="mt-2 font-mono text-xs text-muted">
+              compose/env: {{ tinyDomainEnv }}
+            </p>
+            <p v-if="sharedModeForcedByEnv" class="mt-2 text-xs text-danger">
+              Locked by compose/env <span class="font-mono">ACMEDNS_TINY_DOMAIN={{ tinyDomainEnv }}</span>.
+            </p>
+          </template>
+          <p v-else class="mt-2 text-xs text-muted">
+            Toggle saves immediately (dashboard override wins over
+            <span class="font-mono">ACMEDNS_SHARED_MODE</span>). Clear overrides to fall back to compose/env.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          class="relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition-colors"
+          :class="api.shared_mode ? 'border-signal bg-signal' : 'border-rule bg-panel'"
+          :aria-checked="api.shared_mode"
+          aria-label="Tiny mode"
+          :disabled="pending || !loaded || sharedModeForcedByEnv"
+          @click="toggleTinyMode"
+        >
+          <span
+            class="inline-block size-6 rounded-full bg-paper shadow transition-transform"
+            :class="api.shared_mode ? 'translate-x-7' : 'translate-x-1'"
+          />
+        </button>
+      </div>
+      <p class="mt-3 text-xs text-muted">
+        {{ api.shared_mode ? 'On' : 'Off' }} — applies immediately. Domains becomes DNS setup; registration is disabled while on.
+      </p>
+      <SharedTinySummary v-if="api.shared_mode" class="mt-4" />
+    </UiPanel>
+
+    <UiPanel accent>
       <h2 class="text-base font-semibold tracking-tight">Operator (compose / env)</h2>
       <p class="mt-1 text-sm text-muted">
         Overrides live in <span class="font-mono text-ink">{{ paths.appSettings || 'client/app-settings.json' }}</span>.
@@ -298,11 +460,17 @@ onMounted(() => {
         <UiField label="protocol">
           <UiInput v-model="general.protocol" mono :disabled="pending" />
         </UiField>
-        <UiField label="domain">
-          <UiInput v-model="general.domain" mono :disabled="pending" />
+        <UiField
+          label="domain"
+          :hint="api.shared_mode ? 'Locked in Tiny mode — auth zone for shared CNAMEs' : undefined"
+        >
+          <UiInput v-model="general.domain" mono :disabled="pending || api.shared_mode" />
         </UiField>
-        <UiField label="nsname">
-          <UiInput v-model="general.nsname" mono :disabled="pending" />
+        <UiField
+          label="nsname"
+          :hint="api.shared_mode ? 'Locked in Tiny mode — kept in sync with domain' : undefined"
+        >
+          <UiInput v-model="general.nsname" mono :disabled="pending || api.shared_mode" />
         </UiField>
         <UiField label="nsadmin">
           <UiInput v-model="general.nsadmin" mono :disabled="pending" />
@@ -409,6 +577,13 @@ onMounted(() => {
         <dd class="break-all text-ink">{{ paths.configCfg || '—' }}</dd>
         <dt class="text-muted">app-settings</dt>
         <dd class="break-all text-ink">{{ paths.appSettings || '—' }}</dd>
+        <template v-if="api.shared_mode">
+          <dt class="text-muted">ACMEDNS_TINY_DOMAIN</dt>
+          <dd class="break-all text-ink">
+            {{ tinyDomain || '—' }}
+            <span v-if="tinyDomainSource" class="text-muted"> ({{ sourceLabel(tinyDomainSource) }})</span>
+          </dd>
+        </template>
         <dt class="text-muted">ACME_DNS_LISTEN</dt>
         <dd class="break-all text-ink">{{ paths.acmeDnsListen || '—' }}</dd>
         <dt class="text-muted">HOST</dt>

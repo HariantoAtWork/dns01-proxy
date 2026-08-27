@@ -8,7 +8,7 @@ import type { AcmeDnsConfig, ParsedListen } from './types'
 import { DEFAULT_ACME_DNS_CONFIG_TEXT } from './defaultConfig'
 import { findPackageRoot } from './paths'
 import { ensureServerConfigSeeded, seedDataRootSync } from './seedData'
-import { tinyDomainFromEnv } from '../../plugins/client/runtime/shared/utils/tinyDomain'
+import { getAppSettingsSnapshot, resolveTinyDomain } from '../../plugins/client/runtime/server/utils/appSettings'
 
 const DEFAULTS: AcmeDnsConfig = {
   general: {
@@ -181,7 +181,7 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
     cached.general.listen = `${host}:${Number.isFinite(port) ? port : parsed.port}`
   }
 
-  const tinyDomain = tinyDomainFromEnv()
+  const tinyDomain = resolveTinyDomain().value
   if (tinyDomain) {
     cached.general.domain = tinyDomain
     cached.general.nsname = tinyDomain
@@ -198,6 +198,18 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
   if (sharedKey) {
     cached.api.shared_password = sharedKey
   }
+
+  // Dashboard sharedMode override beats ACMEDNS_SHARED_MODE (not a set tiny domain).
+  if (!tinyDomain) {
+    const snap = getAppSettingsSnapshot()
+    if (typeof snap.sharedMode === 'boolean') {
+      cached.api.shared_mode = snap.sharedMode
+      if (snap.sharedMode) {
+        cached.api.disable_registration = true
+      }
+    }
+  }
+
   if (cached.api.shared_mode) {
     cached.api.disable_registration = true
   }

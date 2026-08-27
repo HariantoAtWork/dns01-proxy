@@ -2,6 +2,7 @@ import { dirname } from 'node:path'
 import { promises as fs, readFileSync, existsSync, statSync } from 'node:fs'
 import type { AppSettingsFile, SettingSource } from '#shared/types/appSettings'
 import { getAppSettingsPath } from '../../../../../server/utils/paths'
+import { normalizeTinyDomain, tinyDomainFromEnv } from '#shared/utils/tinyDomain'
 
 let cached: AppSettingsFile | null = null
 let cachedMtimeMs = 0
@@ -271,4 +272,20 @@ export function resolveTimezone(): { value: string, source: SettingSource } {
     return { value: fromEnv, source: 'compose/env' }
   }
   return { value: 'UTC', source: 'default' }
+}
+
+/** Effective ACMEDNS_TINY_DOMAIN — dashboard override wins over compose/env. */
+export function resolveTinyDomain(): { value: string, source: SettingSource } {
+  const file = loadAppSettingsSync()
+  if (typeof file.tinyDomain === 'string') {
+    const normalised = normalizeTinyDomain(file.tinyDomain)
+    if (normalised) {
+      return { value: normalised, source: 'app-settings' }
+    }
+  }
+  const fromEnv = tinyDomainFromEnv()
+  if (fromEnv) {
+    return { value: fromEnv, source: 'compose/env' }
+  }
+  return { value: '', source: 'default' }
 }

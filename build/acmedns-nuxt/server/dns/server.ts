@@ -1,7 +1,7 @@
 import dns2 from 'dns2'
 import type { AcmeDnsConfig } from '../utils/types'
 import { getTXTForDomain } from '../utils/db'
-import { parseListenAddress } from '../utils/config'
+import { getAcmeConfig, parseListenAddress } from '../utils/config'
 import { sanitizeDomainQuestion } from '../utils/validation'
 
 const { Packet } = dns2
@@ -126,10 +126,6 @@ function isAuthoritative(name: string, zone: string, staticRecords: StaticRecord
 }
 
 export function createDnsServer(config: AcmeDnsConfig) {
-  const zone = fqdn(config.general.domain)
-  const nsname = fqdn(config.general.nsname)
-  const admin = fqdn(config.general.nsadmin).replace('@', '.')
-  const staticRecords = parseStaticRecords(config.general.records)
   const listen = parseListenAddress(config.general.listen)
 
   const wantUdp = config.general.protocol.includes('both')
@@ -141,6 +137,13 @@ export function createDnsServer(config: AcmeDnsConfig) {
     udp: wantUdp,
     tcp: wantTcp,
     handle: (request, send) => {
+      // Live zone + glue from config.cfg so Tiny mode domain/IP updates apply without DNS restart.
+      const live = getAcmeConfig()
+      const zone = fqdn(live.general.domain)
+      const nsname = fqdn(live.general.nsname)
+      const admin = fqdn(live.general.nsadmin).replace('@', '.')
+      const staticRecords = parseStaticRecords(live.general.records)
+
       const response = Packet.createResponseFromRequest(request)
       response.header.aa = 0
       response.header.rcode = RCODE_NOERROR

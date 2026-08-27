@@ -9,6 +9,16 @@ export interface AppSettingsFile {
   certsAcmeDisabled?: boolean
   /** When true, stop the periodic production renew timer (manual Apply still works). */
   certsRenewDisabled?: boolean
+  /**
+   * Dashboard override for tiny/shared mode.
+   * Wins over ACMEDNS_SHARED_MODE; a non-empty tiny domain still forces shared mode on.
+   */
+  sharedMode?: boolean
+  /**
+   * Dashboard override for ACMEDNS_TINY_DOMAIN (auth zone hostname).
+   * Wins over compose/env; empty/omit falls back to env.
+   */
+  tinyDomain?: string
   administratorPassword?: string
   tz?: string
 }
@@ -93,6 +103,13 @@ export interface AppSettingsResponse {
   api: ConfigApiView
   logconfig: ConfigLogView
   paths: RuntimePathsView
+  /** True when ACMEDNS_TINY_DOMAIN is set in compose/env (Settings toggle locked). */
+  sharedModeForcedByEnv?: boolean
+  /** Effective tiny auth domain (dashboard override or ACMEDNS_TINY_DOMAIN). */
+  tinyDomain?: string
+  tinyDomainSource?: SettingSource
+  /** Raw ACMEDNS_TINY_DOMAIN from compose/env (empty when unset). */
+  tinyDomainEnv?: string
   restartRequired?: boolean
   restartReasons?: string[]
 }
@@ -108,6 +125,11 @@ export interface AppSettingsPutBody {
     /** Omit or undefined = leave unchanged; empty string = clear password. */
     administratorPassword?: string | null
     tz: string
+    /**
+     * Tiny auth domain override. Omit = leave unchanged;
+     * empty string = clear dashboard override (env may still apply).
+     */
+    tinyDomain?: string | null
   }>
   /** When true, remove all keys from app-settings.json (compose env wins). */
   clearOperatorOverrides?: boolean

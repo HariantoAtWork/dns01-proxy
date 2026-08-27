@@ -35,6 +35,8 @@ const apexes = computed(() => {
       </p>
     </header>
 
+    <SharedTinySummary />
+
     <UiPanel accent>
       <h2 class="text-base font-semibold tracking-tight">Auth zone</h2>
       <p class="mt-1 text-sm text-muted">
