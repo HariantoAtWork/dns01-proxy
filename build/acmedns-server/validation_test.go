@@ -58,6 +58,8 @@ func TestGetValidSubdomain(t *testing.T) {
 		{"a-97455b-52cc-4569-90c8-7a4b97c6eba8", true},
 		{"foo.example.com", false},
 		{"foo-example-com", true},
+		{"_mdstn-com_", true},
+		{"_sylo-space_", true},
 		{"", false},
 		{"&!#!25123!%!'%", false},
 	} {

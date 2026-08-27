@@ -1,6 +1,9 @@
 import type { ClientStorageMap } from '#shared/types/clientstorage'
 import type { DomainsDnsCheck, ParsedDomainsLine } from '#shared/types/certs'
-import type { SharedModeContext } from '#shared/utils/sharedMode'
+import {
+  tinyApexFulldomain,
+  type SharedModeContext,
+} from './sharedMode'
 import {
   apexName,
   challengeZones,
@@ -25,9 +28,10 @@ export function expectedChallengeTarget(
   fulldomain: string,
   sharedAuthZone?: string,
 ): string {
+  // Tiny mode: apex → `_encoded-apex_.authZone`; nested still chains to `_acme-challenge.<apex>`.
   if (sharedAuthZone) {
     if (zone === lineApex) {
-      return stripTrailingDot(sharedAuthZone)
+      return stripTrailingDot(fulldomain)
     }
 
     const keyApex = apexName(storageKey)
@@ -35,7 +39,7 @@ export function expectedChallengeTarget(
       return challengeHost(lineApex)
     }
 
-    return stripTrailingDot(sharedAuthZone)
+    return stripTrailingDot(fulldomain)
   }
 
   if (zone === lineApex) {
@@ -70,6 +74,7 @@ export function collectChallengeChecks(
       const sample = line.expanded.find(entry => apexName(entry) === zone) ?? zone
 
       if (shared) {
+        const fulldomain = tinyApexFulldomain(lineApex, shared.authZone)
         seen.set(name, {
           line: line.line,
           zone,
@@ -78,7 +83,7 @@ export function collectChallengeChecks(
             lineApex,
             zone,
             lineApex,
-            shared.account.fulldomain,
+            fulldomain,
             shared.authZone,
           ),
           status: 'pending',

@@ -98,7 +98,7 @@ describe('challengeDns', () => {
     }])
   })
 
-  test('shared mode targets auth zone apex', () => {
+  test('shared mode targets encoded apex label under auth zone', () => {
     const shared = {
       authZone: 'auth.uti.email',
       serverUrl: 'https://auth.uti.email',
@@ -110,28 +110,41 @@ describe('challengeDns', () => {
         server_url: 'https://auth.uti.email',
       },
     }
+    const expected = '_mdstn-com_.auth.uti.email'
 
     expect(expectedChallengeTarget(
       'mdstn.com',
       'mdstn.com',
       'mdstn.com',
-      shared.account.fulldomain,
+      expected,
       shared.authZone,
-    )).toBe('auth.uti.email')
+    )).toBe(expected)
+
+    expect(expectedChallengeTarget(
+      'mdstn.com',
+      'oib.mdstn.com',
+      'mdstn.com',
+      expected,
+      shared.authZone,
+    )).toBe(`${CHALLENGE_LABEL}.mdstn.com`)
 
     const checks = collectChallengeChecks([
       {
         line: 1,
-        names: ['mdstn.com'],
+        names: ['mdstn.com', '*.oib.mdstn.com'],
         certName: 'mdstn.com',
-        expanded: ['mdstn.com'],
-        raw: 'mdstn.com',
+        expanded: ['mdstn.com', '*.oib.mdstn.com'],
+        raw: 'mdstn.com *.oib.mdstn.com',
       },
     ], {}, shared)
 
-    expect(checks).toHaveLength(1)
-    expect(checks[0]).toMatchObject({
-      expected: 'auth.uti.email',
+    expect(checks).toHaveLength(2)
+    expect(checks.find(c => c.zone === 'mdstn.com')).toMatchObject({
+      expected,
+      status: 'pending',
+    })
+    expect(checks.find(c => c.zone === 'oib.mdstn.com')).toMatchObject({
+      expected: `${CHALLENGE_LABEL}.mdstn.com`,
       status: 'pending',
     })
   })

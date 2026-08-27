@@ -1,5 +1,6 @@
 const SAFE_RE = /[^A-Za-z\-\_0-9]+/g
-const SUBDOMAIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/
+/** Single DNS label: UUID, classic alnum-hyphen, or Tiny `_encoded-apex_` (underscores allowed). Max 63. */
+const SUBDOMAIN_RE = /^[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?$/
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export function sanitizeString(value: string): string {

@@ -1,6 +1,8 @@
 # Tiny stack (shared mode)
 
-Slim deployment: **no Register step**, **no UUID subdomains**, **no `clientstorage.json` accounts** for each apex. You publish one CNAME per certificate line and issue from the **Certs** UI.
+Slim deployment: **no Register step**, **no `clientstorage.json` accounts** for each apex. You publish one **deterministic** CNAME per certificate apex and issue from the **Certs** UI.
+
+Encoding: `mdstn.com` → `_mdstn-com_` (dots become hyphens, wrap in underscores).
 
 Full stack docs: [Certificate checklist](Certificate-checklist) (UUID + Register flow).
 
@@ -8,10 +10,10 @@ Full stack docs: [Certificate checklist](Certificate-checklist) (UUID + Register
 
 | You (once per apex) | Server (automatic) |
 | --- | --- |
-| CNAME `_acme-challenge.example.com` → `auth.uti.email` (your tiny domain) | Publishes dns-01 TXT on the auth zone during Apply |
+| CNAME `_acme-challenge.mdstn.com` → `_mdstn-com_.auth.uti.email` | Publishes dns-01 TXT under `_mdstn-com_` during Apply |
 | Lines in `domains.txt` (Certs UI) | Renews production certs on a timer |
 | Delegate NS for the auth zone at your registrar (e.g. Cloudflare) | Fills glue **A** (+ **AAAA** if IPv6 is detected) + **NS** at boot |
-| Open port **53** on the host running this stack | Answers Let's Encrypt DNS queries |
+| Open port **53** on the host running this stack | Answers Let's Encrypt DNS queries for any `<uuid\|_label_>.auth.zone` |
 
 **You do not add** `ACMEDNS_SHARED_KEY`, API passwords, or challenge TXT records in Cloudflare for your real domains.
 
@@ -19,21 +21,31 @@ Full stack docs: [Certificate checklist](Certificate-checklist) (UUID + Register
 
 Auth zone: `auth.uti.email` (set via `ACMEDNS_TINY_DOMAIN`).
 
-**On the auth zone** (parent zone `uti.email`): grey-cloud **A** / **NS** glue so the world reaches your server on `:53`. In tiny mode those glue lines in `config.cfg` are **auto-filled** from your public IP unless you pin `ACMEDNS_PUBLIC_IP` / `ACMEDNS_PUBLIC_IPV6`.
+**On the auth zone** (parent zone `uti.email`): grey-cloud **A** / **NS** glue so the world reaches your server on `:53`. In tiny mode those glue lines in `config.cfg` are **auto-filled** from your public IP unless you pin `ACMEDNS_PUBLIC_IP` / `ACMEDNS_PUBLIC_IPV6`. The zone apex stays **NS + A/AAAA** — never a CNAME.
 
-**On each site you certificate** (e.g. zone `mdstn.com`):
+**On each site you certificate**:
+
+| Apex | Cloudflare CNAME Content |
+| --- | --- |
+| `mdstn.com` | `_mdstn-com_.auth.uti.email` |
+| `sylo.space` | `_sylo-space_.auth.uti.email` |
 
 | Type | Name | Content | Proxy |
 | --- | --- | --- | --- |
-| CNAME | `_acme-challenge` | `auth.uti.email` | DNS only (grey cloud) |
+| CNAME | `_acme-challenge` | `_mdstn-com_.auth.uti.email` | DNS only (grey cloud) |
 
 Zone file form:
 
 ```dns
-_acme-challenge.mdstn.com.  CNAME  auth.uti.email.
+_acme-challenge.mdstn.com.  CNAME  _mdstn-com_.auth.uti.email.
+_acme-challenge.sylo.space. CNAME  _sylo-space_.auth.uti.email.
 ```
 
+**DNS setup** (`/domains`) shows the exact Content string per apex.
+
 Nested wildcards on the same cert line still use the **full stack** CNAME chain (`_acme-challenge.oib.mdstn.com` → `_acme-challenge.mdstn.com`). See [Public DNS and port 53](Public-DNS-and-port-53).
+
+**Migration:** Older tiny installs that CNAME’d to the auth zone apex (`auth.uti.email`) must update each site to the encoded label. Shared apex TXT caused collisions across domains.
 
 ## Minimal `.env`
 
@@ -71,7 +83,7 @@ Everything else (`ACMEDNS_DATA_ROOT`, `RENEW_INTERVAL`, `ADMINISTRATOR_PASSWORD`
 
 A **40-character internal password** for the acme-dns **`POST /update`** API. It lets a client **write** the dns-01 TXT on your auth zone. Let's Encrypt never sees this key; it only queries public DNS on port 53.
 
-In tiny mode there is **one** shared account (fixed username `00000000-0000-4000-8000-000000000001`) instead of one UUID account per domain.
+In tiny mode there is **one** shared account (fixed username `00000000-0000-4000-8000-000000000001`) instead of one password per domain. TXT labels are **per-apex** (`_mdstn-com_`, or any UUID / `_label_` under the auth zone).
 
 ### What it is not
 
@@ -86,9 +98,7 @@ Classic [acme-dns](https://github.com/acme-dns/acme-dns) separates:
 1. **DNS server** — authoritative for `*.auth.example.org`, answers LE.
 2. **HTTP `/update`** — cert tooling publishes TXT without API access to Cloudflare/Route53.
 
-That separation is the benefit: **one CNAME at your registrar**, all challenge updates happen on your auth server.
-
-Tiny mode keeps `/update` but drops **Register** (no UUID per domain).
+Tiny mode keeps `/update` but drops **Register** (no UI passwords / `clientstorage`).
 
 ### All-in-one flow (omit `ACMEDNS_SHARED_KEY`)
 
@@ -118,17 +128,15 @@ Example (advanced):
 ACMEDNS_SHARED_KEY=AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_
 ```
 
-Manual `/update` (only if you set or know the key):
+Manual `/update` (only if you set or know the key). Use the encoded apex label (not the auth zone first label):
 
 ```bash
 curl -sS -X POST "https://auth.uti.email/update" \
   -H "X-Api-User: 00000000-0000-4000-8000-000000000001" \
   -H "X-Api-Key: YOUR_40_CHAR_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"subdomain":"auth","txt":"PLACEHOLDER_43_CHAR_DNS01_TOKEN"}'
+  -d '{"subdomain":"_mdstn-com_","txt":"PLACEHOLDER_43_CHAR_DNS01_TOKEN"}'
 ```
-
-(`subdomain` is the first label of the auth zone — for `auth.uti.email` that is `auth`. The UI picks this automatically.)
 
 ### Priority at boot
 
@@ -142,21 +150,23 @@ curl -sS -X POST "https://auth.uti.email/update" \
 | | Full stack | Tiny stack |
 | --- | --- | --- |
 | Register in UI | Yes | No |
-| CNAME target | `{uuid}.auth.zone` | `auth.zone` (apex) |
+| CNAME target | `{uuid}.auth.zone` (from Register) | `_encoded-apex_.auth.zone` (deterministic) |
 | `clientstorage.json` | Per-apex credentials | Not needed |
 | `ACMEDNS_SHARED_KEY` | N/A (per-domain passwords) | Optional (one shared key) |
-| Many SANs / nested wildcards | 100 TXT slots per UUID | Same server; apex CNAME shares one TXT name |
+| Many SANs / nested wildcards | 100 TXT slots per UUID | 100 TXT slots per apex label |
 
-**Limitation:** With CNAME to the **zone apex**, every domain uses the same TXT location (`auth.uti.email`). Issue **one cert at a time**, or use a per-domain label under the auth zone (e.g. `mdstn.auth.uti.email`) if you need parallel issuance — the server accepts any `*.auth.zone` label without registration.
+Each apex has its own TXT namespace, so parallel issuance across domains is fine.
+
+**Note:** `foo-bar.com` and `foo.bar.com` both encode to `_foo-bar-com_` — avoid colliding apex encodings.
 
 ## Operator checklist
 
 1. Set `ACMEDNS_TINY_DOMAIN` and `LETSENCRYPT_EMAIL`.
 2. Ensure public **UDP/TCP 53** reaches this host ([Public DNS and port 53](Public-DNS-and-port-53)).
 3. Delegate **NS** for the auth zone; let boot fill **A** / **AAAA** or set `ACMEDNS_PUBLIC_IP`.
-4. Add CNAME `_acme-challenge.<apex>` → `<ACMEDNS_TINY_DOMAIN>` on each site zone (DNS only).
-5. Add certificate lines in **Certs** → **Apply** (staging first if you prefer).
-6. **DNS setup** (`/domains`) shows copy-paste CNAME rows from `domains.txt`.
+4. Add certificate lines in **Certs** (Save).
+5. Add CNAME `_acme-challenge.<apex>` → `_&lt;apex-with-dashes&gt;_.<ACMEDNS_TINY_DOMAIN>` from **DNS setup** (DNS only).
+6. **Apply** (staging first if you prefer).
 
 The **Register** page, nav button, and modal are hidden in tiny mode; `/register` redirects to DNS setup.
 

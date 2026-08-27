@@ -58,7 +58,7 @@ Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt se
 
 ### Tiny stack (no Register)
 
-For a slim setup — one CNAME per apex to your auth zone, no UUID accounts — see [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). Minimal env: `ACMEDNS_TINY_DOMAIN` + `LETSENCRYPT_EMAIL`. **`ACMEDNS_SHARED_KEY` is optional** (internal `/update` password; auto-generated for the all-in-one UI).
+For a slim setup — no Register UI; CNAME `_acme-challenge.<apex>` → `_encoded-apex_.<auth zone>` — see [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). Minimal env: `ACMEDNS_TINY_DOMAIN` + `LETSENCRYPT_EMAIL`. **`ACMEDNS_SHARED_KEY` is optional** (internal `/update` password; auto-generated for the all-in-one UI).
 
 ## Ports
 

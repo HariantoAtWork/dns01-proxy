@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { sharedMode, cnameTarget } = useSharedMode()
+const { sharedMode, authZone } = useSharedMode()
 </script>
 
 <template>
@@ -9,7 +9,9 @@ const { sharedMode, cnameTarget } = useSharedMode()
       <template v-if="sharedMode">
         This stack runs in <strong class="font-medium text-ink">tiny (shared) mode</strong>.
         Add certificate lines on <span class="font-mono text-ink">domains.txt</span> (Certs page),
-        publish one CNAME per apex, then Apply. No Register step and no
+        publish one CNAME per apex to an encoded label under your auth zone
+        (e.g. <span class="font-mono text-ink">_mdstn-com_.{{ authZone || 'auth.uti.email' }}</span>), then Apply.
+        No Register step and no
         <span class="font-mono text-ink">clientstorage.json</span> accounts per domain.
       </template>
       <template v-else>
@@ -29,10 +31,10 @@ const { sharedMode, cnameTarget } = useSharedMode()
     <template v-if="sharedMode">
       <h2 class="mt-10 text-xl font-semibold">DNS setup (tiny mode)</h2>
       <ol class="mt-3 list-decimal space-y-2 pl-5 text-muted">
-        <li>Set <span class="font-mono text-ink">ACMEDNS_TINY_DOMAIN</span> (e.g. <span class="font-mono text-ink">{{ cnameTarget || 'auth.uti.email' }}</span>).</li>
+        <li>Set <span class="font-mono text-ink">ACMEDNS_TINY_DOMAIN</span> (e.g. <span class="font-mono text-ink">{{ authZone || 'auth.uti.email' }}</span>).</li>
         <li>Open <strong class="font-medium text-ink">DNS setup</strong> (<span class="font-mono text-ink">/domains</span>) for CNAME copy-paste rows from <span class="font-mono text-ink">domains.txt</span>.</li>
-        <li>At your registrar / Cloudflare: <span class="font-mono text-ink">_acme-challenge.&lt;apex&gt;</span> CNAME <span class="font-mono text-ink">{{ cnameTarget || 'auth.uti.email' }}</span> (DNS only).</li>
-        <li>Open <strong class="font-medium text-ink">Certificates</strong>, Save, then Apply. TXT on the auth zone is published automatically.</li>
+        <li>At your registrar / Cloudflare: <span class="font-mono text-ink">_acme-challenge.mdstn.com</span> CNAME <span class="font-mono text-ink">_mdstn-com_.{{ authZone || 'auth.uti.email' }}</span> (DNS only) — dots in the apex become hyphens, wrapped in underscores.</li>
+        <li>Open <strong class="font-medium text-ink">Certificates</strong>, Save, then Apply. TXT under that label is published automatically.</li>
       </ol>
       <p class="mt-3 text-sm text-muted">
         See <span class="font-mono text-ink">.wiki/Tiny-stack.md</span> in the repo for the full operator guide.
@@ -71,14 +73,16 @@ const { sharedMode, cnameTarget } = useSharedMode()
         Nested wildcards chain to that name. Proven for <span class="font-mono text-ink">mdstn.com</span>:
       </template>
       <template v-else>
-        In tiny mode the apex target is your auth zone (no UUID), e.g. <span class="font-mono text-ink">{{ cnameTarget || 'auth.uti.email' }}</span>.
+        In tiny mode the apex target is
+        <span class="font-mono text-ink">_mdstn-com_.{{ authZone || 'auth.uti.email' }}</span>
+        (encode the apex: dots → hyphens, wrap in underscores). Nested wildcards still chain to the apex challenge.
       </template>
     </p>
     <CnameRecipe
       class="mt-4"
       embedded
       domain="mdstn.com"
-      :fulldomain="sharedMode ? (cnameTarget || 'auth.uti.email') : '87eb4f67-8cbb-4477-805d-4c2c6ca0caa3.auth.uti.email'"
+      :fulldomain="sharedMode ? `_mdstn-com_.${authZone || 'auth.uti.email'}` : '87eb4f67-8cbb-4477-805d-4c2c6ca0caa3.auth.uti.email'"
       :shared-target="sharedMode"
     />
 

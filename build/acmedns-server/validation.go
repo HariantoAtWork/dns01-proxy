@@ -26,8 +26,8 @@ func validKey(k string) bool {
 }
 
 func validSubdomain(s string) bool {
-	// URL safe base64 alphabet without padding as defined in ACME
-	RegExp := regexp.MustCompile("^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+	// UUID / alnum-hyphen, or Tiny `_encoded-apex_` (underscores). Max 63 DNS label.
+	RegExp := regexp.MustCompile(`^[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?$`)
 	return RegExp.MatchString(s)
 }
 
