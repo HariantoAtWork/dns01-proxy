@@ -20,8 +20,9 @@ ip = "0.0.0.0"
 disable_registration = false
 port = "80"
 tls = "none"
-# tls_cert_fullchain = "/etc/letsencrypt/live/${AUTH_DOMAIN}/fullchain.pem"
-# tls_cert_privkey = "/etc/letsencrypt/live/${AUTH_DOMAIN}/privkey.pem"
+# tls_cert_* — only used when tls = "cert". Cert is issued for the apex, not the auth zone.
+tls_cert_fullchain = "/etc/letsencrypt/live/${APEX}/fullchain.pem"
+tls_cert_privkey = "/etc/letsencrypt/live/${APEX}/privkey.pem"
 corsorigins = [
     "*"
 ]

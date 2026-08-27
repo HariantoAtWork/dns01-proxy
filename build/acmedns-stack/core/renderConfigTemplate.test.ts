@@ -72,7 +72,7 @@ describe('renderConfigTemplateValidated', () => {
     const parsed = parse(rendered) as { general: { domain: string, nsadmin: string } }
     expect(parsed.general.domain).toBe('auth.example.org')
     expect(parsed.general.nsadmin).toBe('admin.example.org')
-    expect(rendered).toContain('/etc/letsencrypt/live/auth.example.org/fullchain.pem')
+    expect(rendered).toContain('/etc/letsencrypt/live/example.org/fullchain.pem')
   })
 
   test('leaves unknown placeholders unchanged', () => {

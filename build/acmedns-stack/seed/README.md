@@ -11,7 +11,7 @@ Copied into `$ACMEDNS_DATA_ROOT` on first start when the live file is missing.
 | `client/domains.txt` | `$ACMEDNS_DATA_ROOT/client/domains.txt` |
 | `client/cert-settings.json` | `$ACMEDNS_DATA_ROOT/client/cert-settings.json` |
 
-Server templates use `${APEX}`, `${AUTH_DOMAIN}`, and `${NSADMIN}`. On first boot, `core/renderConfigTemplate.ts` resolves those from compose/env, validates TOML, and writes the live `config.cfg`.
+Server templates use `${APEX}`, `${AUTH_DOMAIN}`, and `${NSADMIN}`. DNS/auth zone keys use `${AUTH_DOMAIN}`; TLS cert paths use `${APEX}`.
 
 `backup/` is created empty. Let's Encrypt PEMs are not seeded — they are issued into `$ACMEDNS_LETSENCRYPT_DIR`.
 

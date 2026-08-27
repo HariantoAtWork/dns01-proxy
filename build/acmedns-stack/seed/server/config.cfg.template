@@ -1,6 +1,6 @@
 [general]
 # Production template — rendered to $ACMEDNS_DATA_ROOT/server/config.cfg when missing.
-# Variables: ${APEX}, ${AUTH_DOMAIN}, ${NSADMIN} (from compose/env via core/renderConfigTemplate.ts).
+# Variables: ${APEX}, ${AUTH_DOMAIN}, ${NSADMIN}. DNS uses AUTH_DOMAIN; TLS cert paths use APEX.
 # Code defaults (when a key is omitted) live in server/utils/config.ts DEFAULTS.
 # Local `bun run dev` uses seed/server/config.dev.cfg.template instead.
 
@@ -54,8 +54,8 @@ port = "80"
 tls = "none"
 # tls_cert_* — only used when tls = "cert". Paths must exist inside the container.
 # Example with the compose LETSENCRYPT_DIR mount:
-tls_cert_fullchain = "/etc/letsencrypt/live/${AUTH_DOMAIN}/fullchain.pem"
-tls_cert_privkey = "/etc/letsencrypt/live/${AUTH_DOMAIN}/privkey.pem"
+tls_cert_fullchain = "/etc/letsencrypt/live/${APEX}/fullchain.pem"
+tls_cert_privkey = "/etc/letsencrypt/live/${APEX}/privkey.pem"
 # corsorigins — optional; code default ["*"].
 corsorigins = [
     "*"

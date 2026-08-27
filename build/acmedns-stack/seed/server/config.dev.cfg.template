@@ -1,6 +1,6 @@
 [general]
 # Local `bun run dev` template — rendered to .data/server/config.cfg when missing.
-# Variables: ${APEX}, ${AUTH_DOMAIN}, ${NSADMIN} (defaults to *.example.test when env unset).
+# Variables: ${APEX}, ${AUTH_DOMAIN}, ${NSADMIN}. DNS uses AUTH_DOMAIN; TLS cert paths use APEX.
 # Production image uses seed/server/config.cfg.template instead.
 # Code defaults (when a key is omitted) live in server/utils/config.ts DEFAULTS.
 
@@ -54,8 +54,8 @@ port = "3000"
 # Leave "none" for local `bun run dev`.
 tls = "none"
 # tls_cert_* — only used when tls = "cert". Paths must exist on this machine.
-tls_cert_fullchain = ".data/letsencrypt/live/${AUTH_DOMAIN}/fullchain.pem"
-tls_cert_privkey = ".data/letsencrypt/live/${AUTH_DOMAIN}/privkey.pem"
+tls_cert_fullchain = ".data/letsencrypt/live/${APEX}/fullchain.pem"
+tls_cert_privkey = ".data/letsencrypt/live/${APEX}/privkey.pem"
 # corsorigins — optional; code default ["*"].
 corsorigins = [
     "*"

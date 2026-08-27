@@ -15,7 +15,7 @@ export type ConfigTemplateVars = {
   NSADMIN: string
 }
 
-/** Resolve ${APEX}, ${AUTH_DOMAIN}, ${NSADMIN} for config.cfg.template rendering. */
+/** Resolve ${APEX}, ${AUTH_DOMAIN}, and ${NSADMIN} for config.cfg.template rendering. */
 export function resolveConfigTemplateVars(profile: ConfigTemplateProfile = 'production'): ConfigTemplateVars {
   const defaults = PROFILE_DEFAULTS[profile]
   const apex = envApex() ?? defaults.apex
