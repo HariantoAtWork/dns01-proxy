@@ -27,7 +27,7 @@ From the repo root:
 
 ```bash
 bun install --cwd build/acmedns-stack
-bun run dev
+bun run --cwd build/acmedns-stack dev
 ```
 
 Or inside this package: `bun install && bun run dev`.
