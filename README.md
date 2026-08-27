@@ -4,13 +4,13 @@ One container. DNS-01 certificates without giving Let's Encrypt (or anyone) writ
 
 | Service | What it does |
 | --- | --- |
-| `acmedns-nuxt` | Nuxt/Node [acme-dns](https://github.com/acme-dns/acme-dns) on `:53` **plus** operator UI, clientstorage, and ACME issue/renew (`plugins/client`) |
+| `acmedns-stack` | Nuxt/Node [acme-dns](https://github.com/acme-dns/acme-dns) on `:53` **plus** operator UI, clientstorage, and ACME issue/renew (`plugins/client`) |
 
 `build/acmedns-server` (Go) and `build/acmedns-client` stay in the tree as reference/rollback. Runtime compose is a single service.
 
 ```mermaid
 flowchart LR
-  UI[acmedns-nuxt UI] -->|in-process /update| API[acmedns-nuxt API]
+  UI[acmedns-stack UI] -->|in-process /update| API[acmedns-stack API]
   UI -->|reads/writes| CS[clientstorage.json]
   UI -->|reads/writes| Domains[domains.txt]
   UI -->|writes PEMs| Certs["/etc/letsencrypt live/"]
@@ -26,7 +26,7 @@ flowchart LR
 | JSON backups | `/var/lib/acmedns-stack/backup/` | `.data/backup/` |
 | Let's Encrypt PEMs | `/etc/letsencrypt/` (`ACMEDNS_LETSENCRYPT_DIR`) | `.data/letsencrypt/` |
 
-First start copies missing files from [`build/acmedns-nuxt/seed/`](build/acmedns-nuxt/seed/README.md). Live files are never overwritten. Edit `seed/` to change defaults for **new** installs.
+First start copies missing files from [`build/acmedns-stack/seed/`](build/acmedns-stack/seed/README.md). Live files are never overwritten. Edit `seed/` to change defaults for **new** installs.
 
 Compose example binds:
 
@@ -52,7 +52,7 @@ volumes:
   - ./data/letsencrypt:/etc/letsencrypt:ro
 ```
 
-Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt server keeps **100 rolling TXT slots**. Rebuild `acmedns-nuxt` when issuing many SANs on one account.
+Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt server keeps **100 rolling TXT slots**. Rebuild `acmedns-stack` when issuing many SANs on one account.
 
 `domains.txt` expands nested wildcards (implied parent wildcards). Line order does not matter — shortest apex is the cert-name. Register the line apex in the UI; the issuer walks parent keys in `clientstorage.json`.
 
@@ -89,10 +89,10 @@ Docker Nuxt hot-reload (compose profile `dev`, UI on `:3000`, DNS on `:15353`):
 
 ```bash
 bun run docker:dev
-# or: docker compose --profile dev up acmedns-nuxt-dev
+# or: docker compose --profile dev up acmedns-stack-dev
 ```
 
-Requires a local `docker-compose.yml` copied from the `.example` (same as production). Does not start the production `acmedns-nuxt` image.
+Requires a local `docker-compose.yml` copied from the `.example` (same as production). Does not start the production `acmedns-stack` image.
 
 On first start the image seeds under `$ACMEDNS_DATA_ROOT` (`server/`, `client/`, `backup/`) and uses `$ACMEDNS_LETSENCRYPT_DIR` for PEMs.
 
@@ -141,7 +141,7 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 
 ## Networks
 
-Single `acmedns-nuxt` service. HTTP on `:80` is always on; set `api.tls = "cert"` in `config.cfg` to also serve HTTPS on `:443` (host `8443`).
+Single `acmedns-stack` service. HTTP on `:80` is always on; set `api.tls = "cert"` in `config.cfg` to also serve HTTPS on `:443` (host `8443`).
 
 `cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel.
 
@@ -155,7 +155,7 @@ docker-compose.build.yml      # local image build
 docker-compose.push.yml       # multi-arch Hub push
 .env.example
 .wiki/
-build/acmedns-nuxt/           # DNS + API + UI plugin + seed/
+build/acmedns-stack/           # DNS + API + UI plugin + seed/
 build/acmedns-server/         # Go reference / rollback
 build/acmedns-client/         # legacy standalone client (reference)
 ```

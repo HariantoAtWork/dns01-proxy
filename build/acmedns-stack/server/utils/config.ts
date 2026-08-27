@@ -97,7 +97,7 @@ function prepareConfig(raw: Record<string, unknown>): AcmeDnsConfig {
 
   const normalisedEngine = engine === 'sqlite3' ? 'sqlite' : engine
   if (normalisedEngine !== 'sqlite') {
-    throw new Error(`unsupported database engine "${engine}" (sqlite only in acmedns-nuxt v1)`)
+    throw new Error(`unsupported database engine "${engine}" (sqlite only in acmedns-stack v1)`)
   }
 
   return {

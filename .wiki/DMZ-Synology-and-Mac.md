@@ -11,7 +11,7 @@ Internet → 84.86.220.240:53 → router DMZ → Synology:53
                                          ↳ Mac never sees it
 ```
 
-`acmedns-nuxt` can listen on the Mac’s `:53` all day. Let's Encrypt still queries the Synology.
+`acmedns-stack` can listen on the Mac’s `:53` all day. Let's Encrypt still queries the Synology.
 
 `auth.uti.email` and `auth.uti.email` can both resolve to the same IP. For **websites**, the Synology reverse proxy can send each name to a different app (HTTP `Host` / SNI). For **DNS**, both names are still `84.86.220.240:53`, so both go to the Synology.
 

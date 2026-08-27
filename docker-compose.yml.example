@@ -1,7 +1,7 @@
 services:
-  acmedns-nuxt:
-    image: harianto/acmedns-nuxt:latest
-    container_name: acmedns-nuxt
+  acmedns-stack:
+    image: harianto/acmedns-stack:latest
+    container_name: acmedns-stack
     restart: unless-stopped
     ports:
       - "53:53"
@@ -38,12 +38,12 @@ services:
     cap_add:
       - NET_BIND_SERVICE
 
-  # Hot-reload Nuxt: docker compose --profile dev up acmedns-nuxt-dev
+  # Hot-reload Nuxt: docker compose --profile dev up acmedns-stack-dev
   # (or: bun run docker:dev). Does not start with plain `docker compose up`.
-  acmedns-nuxt-dev:
+  acmedns-stack-dev:
     profiles: ["dev"]
     image: oven/bun:canary-alpine
-    container_name: acmedns-nuxt-dev
+    container_name: acmedns-stack-dev
     working_dir: /app
     command: ["sh", "-c", "bun install --frozen-lockfile && exec bun run dev"]
     ports:
@@ -51,8 +51,8 @@ services:
       - "15353:15353"
       - "15353:15353/udp"
     volumes:
-      - ./build/acmedns-nuxt:/app
-      - acmedns-nuxt-dev-modules:/app/node_modules  # Linux modules inside the container
+      - ./build/acmedns-stack:/app
+      - acmedns-stack-dev-modules:/app/node_modules  # Linux modules inside the container
     environment:
       # ── Paths (package-local .data on the bind mount) ───────────────────────────
       - ACMEDNS_DATA_ROOT=.data
@@ -81,6 +81,6 @@ services:
       - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-${ACMEDNS_URL:-http://127.0.0.1}}
 
 volumes:
-  acmedns-nuxt-dev-modules:
+  acmedns-stack-dev-modules:
 #   letsencrypt:
 #     name: letsencrypt

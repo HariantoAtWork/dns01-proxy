@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "acmedns-nuxt",
+      "name": "acmedns-stack",
       "dependencies": {
         "@nuxt/fonts": "^0.14.0",
         "@phosphor-icons/vue": "^2.2.1",

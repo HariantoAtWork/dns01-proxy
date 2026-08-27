@@ -2,7 +2,7 @@
 
 This house’s router **DMZ is the Synology**. Public `84.86.220.240:53` therefore lands on the NAS, not on a Mac. Let’s Encrypt DNS-01 talks to **that** port. Running `docker compose` on the Mac is useful for the UI and the HTTP API; it is **not** a valid test of certificate issuance.
 
-Full DNS-01 (hook **and** Let’s Encrypt seeing the TXT) only works when Compose runs **on the Synology**, or when UDP+TCP 53 is forwarded to whichever host actually runs `acmedns-nuxt`. With DMZ as it is, that host is the NAS.
+Full DNS-01 (hook **and** Let’s Encrypt seeing the TXT) only works when Compose runs **on the Synology**, or when UDP+TCP 53 is forwarded to whichever host actually runs `acmedns-stack`. With DMZ as it is, that host is the NAS.
 
 Details: [DMZ, Synology, and Mac](DMZ-Synology-and-Mac.md), [Public DNS and port 53](Public-DNS-and-port-53.md).
 

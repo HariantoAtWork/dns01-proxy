@@ -26,7 +26,7 @@ modules: ['./plugins/client']
 From the repo root:
 
 ```bash
-bun install --cwd build/acmedns-nuxt
+bun install --cwd build/acmedns-stack
 bun run dev
 ```
 

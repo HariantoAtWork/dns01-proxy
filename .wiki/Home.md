@@ -14,12 +14,12 @@ How public DNS, port 53, and this stack fit together. The [README](../README.md)
 
 ## Two paths
 
-The UI talks to acme-dns **in-process** inside `acmedns-nuxt` (or over HTTP for an external server). Let's Encrypt does **not**. Validators only do a public DNS lookup. Those two paths are easy to mix up.
+The UI talks to acme-dns **in-process** inside `acmedns-stack` (or over HTTP for an external server). Let's Encrypt does **not**. Validators only do a public DNS lookup. Those two paths are easy to mix up.
 
 ```mermaid
 flowchart LR
-  UI[acmedns-nuxt UI] -->|in-process /update| API[acmedns-nuxt]
-  LE[Lets Encrypt] -->|DNS-01 UDP/TCP 53| DNS[acmedns-nuxt :53]
+  UI[acmedns-stack UI] -->|in-process /update| API[acmedns-stack]
+  LE[Lets Encrypt] -->|DNS-01 UDP/TCP 53| DNS[acmedns-stack :53]
   Tunnel[cloudflared] -->|HTTPS hostname| UI
 ```
 

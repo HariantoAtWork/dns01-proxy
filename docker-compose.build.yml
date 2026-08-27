@@ -1,9 +1,9 @@
 services:
-  acmedns-nuxt:
+  acmedns-stack:
     build:
-      context: build/acmedns-nuxt
+      context: build/acmedns-stack
       dockerfile: Dockerfile
-    image: harianto/acmedns-nuxt:latest
+    image: harianto/acmedns-stack:latest
 
   # Optional Go image for rollback only.
   # acmedns-server:
