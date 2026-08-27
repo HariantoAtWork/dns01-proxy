@@ -25,17 +25,20 @@ export type CertLivePageHooks = {
 
 type CertLiveStreamApi = ReturnType<typeof useCertLiveStream>
 
+// Client-only singleton — must not live in useState (functions are not serialisable for SSR).
+let streamApi: CertLiveStreamApi | undefined
+const pageHooks = shallowRef<CertLivePageHooks | null>(null)
+
 export function useCertQueueLive() {
   const { certJob, certQueue } = useCertQueueState()
   const directoryMode = useState<LetsEncryptDirectoryMode>('cert-live-directory-mode', () => 'production')
-  const pageHooks = useState<CertLivePageHooks | null>('cert-live-page-hooks', () => null)
   const started = useState('cert-live-started', () => false)
   const jobActionPending = useState('cert-queue-action-pending', () => false)
 
   const pollBlocked = computed(() => pageHooks.value?.pollBlocked?.value ?? false)
 
-  const stream = useState<CertLiveStreamApi | null>('cert-live-stream-api', () => {
-    return useCertLiveStream({
+  if (import.meta.client && !streamApi) {
+    streamApi = useCertLiveStream({
       directoryMode,
       pollBlocked,
       onPoll: async () => {
@@ -66,10 +69,10 @@ export function useCertQueueLive() {
         pageHooks.value?.onRateLimits?.(data)
       },
     })
-  })
+  }
 
-  const transport = computed(() => stream.value?.transport.value ?? 'off')
-  const transportLabel = computed(() => stream.value?.transportLabel.value ?? 'Offline')
+  const transport = computed(() => streamApi?.transport.value ?? 'off')
+  const transportLabel = computed(() => streamApi?.transportLabel.value ?? 'Offline')
 
   async function loadActivity(options?: { full?: boolean }) {
     const data = await $fetch<CertActivityResponse>('/api/certs/activity', {
@@ -104,15 +107,15 @@ export function useCertQueueLive() {
   }
 
   function start() {
-    stream.value?.start()
+    streamApi?.start()
   }
 
   function disconnect() {
-    stream.value?.disconnect()
+    streamApi?.disconnect()
   }
 
   async function ensureLive() {
-    if (!import.meta.client || started.value || !stream.value) {
+    if (!import.meta.client || started.value || !streamApi) {
       return
     }
     started.value = true
