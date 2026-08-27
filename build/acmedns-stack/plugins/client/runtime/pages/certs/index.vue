@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import type { CertActivityEntry, CertRateLimit, DomainsDnsCheck, LetsEncryptDirectoryMode } from '#shared/types/certs'
-import { certActivitySourceLabel } from '#shared/utils/certLog'
+import type { CertActivityEntry, DomainsDnsCheck, LetsEncryptDirectoryMode } from '#shared/types/certs'
+import {
+  certInFlightOrQueued,
+  formatTime,
+  jobLabel,
+  transportClass,
+  transportDotClass,
+} from '#shared/utils/certsUi'
 import { useDocumentVisibility, useNow } from '@vueuse/core'
 import {
   PhArrowsClockwise as ArrowsClockwise,
   PhCertificate as Certificate,
   PhCircle as Circle,
-  PhDotsThreeVertical as Actions,
-  PhDownload as Download,
   PhFloppyDisk as FloppyDisk,
-  PhLightning as Lightning,
   PhTrash as Trash,
 } from '@phosphor-icons/vue'
 import { useCertLiveStream } from '#client/composables/useCertLiveStream'
@@ -62,36 +65,15 @@ const logFilter = ref<'all' | 'acme' | 'live' | 'staging'>('acme')
 const visibility = useDocumentVisibility()
 const now = useNow({ interval: 1000 })
 
-const filteredActivity = computed(() => {
-  const list = activityEntries.value
-  if (logFilter.value === 'acme') {
-    return list.filter(e => e.source === 'acme')
-  }
-  if (logFilter.value === 'live') {
-    return list.filter(e => e.mode === 'production')
-  }
-  if (logFilter.value === 'staging') {
-    return list.filter(e => e.mode === 'staging')
-  }
-  return list
-})
-
 const activeRateLimits = computed(() =>
   rateLimits.value
     .filter(l => l.mode === directoryMode.value && Date.parse(l.until) > now.value.getTime())
     .sort((a, b) => Date.parse(a.until) - Date.parse(b.until)),
 )
 
-const hasQueue = computed(() =>
-  certJob.value.running
-  || certQueue.value.queued.length > 0
-  || certQueue.value.cancelled.length > 0,
-)
-
 const jobActionPending = ref(false)
 const dnsRecheckPending = ref(false)
 const downloadPending = ref<string | null>(null)
-/** Certs with an in-flight Issue POST (allows several apexes to queue quickly). */
 const issuingCerts = ref<string[]>([])
 const actionsMenuOpen = ref<string | null>(null)
 const trashConfirmName = ref<string | null>(null)
@@ -104,86 +86,9 @@ const trashConfirmOpen = computed({
   },
 })
 
-function setActionsMenuOpen(certName: string, open: boolean) {
-  actionsMenuOpen.value = open ? certName : (actionsMenuOpen.value === certName ? null : actionsMenuOpen.value)
-}
-
 function requestTrash(certName: string) {
   actionsMenuOpen.value = null
   trashConfirmName.value = certName
-}
-
-async function onCancelJob(id: number) {
-  jobActionPending.value = true
-  try {
-    await cancelJob(id)
-    toasts.info(`Job #${id} cancelled`, 'Queue')
-    await refresh()
-  }
-  catch (caught) {
-    toasts.error(caught instanceof Error ? caught.message : 'Cancel failed')
-  }
-  finally {
-    jobActionPending.value = false
-  }
-}
-
-async function onResumeJob(id: number) {
-  jobActionPending.value = true
-  try {
-    await resumeJob(id)
-    toasts.ok(`Job #${id} resumed`, 'Queue')
-    await refresh()
-  }
-  catch (caught) {
-    toasts.error(caught instanceof Error ? caught.message : 'Resume failed')
-  }
-  finally {
-    jobActionPending.value = false
-  }
-}
-
-async function onRerunJob(id: number) {
-  jobActionPending.value = true
-  try {
-    await rerunJob(id)
-    toasts.ok(`Job #${id} re-queued from start`, 'Queue')
-    await refresh()
-  }
-  catch (caught) {
-    toasts.error(caught instanceof Error ? caught.message : 'Re-run failed')
-  }
-  finally {
-    jobActionPending.value = false
-  }
-}
-
-function canResumeJob(job: { completedCount?: number }) {
-  return (job.completedCount ?? 0) > 0
-}
-
-function dnsChecksForLine(lineNo: number) {
-  return parsed.value?.dnsChecks?.filter(check => check.line === lineNo) ?? []
-}
-
-function dnsCheckLabel(status: DomainsDnsCheck['status']) {
-  switch (status) {
-    case 'ok': return 'OK'
-    case 'missing': return 'Missing'
-    case 'mismatch': return 'Mismatch'
-    case 'no_account': return 'No account'
-    case 'error': return 'Error'
-    default: return 'Pending'
-  }
-}
-
-function dnsCheckClass(status: DomainsDnsCheck['status']) {
-  switch (status) {
-    case 'ok': return 'text-signal'
-    case 'no_account': return 'text-muted'
-    case 'pending': return 'text-muted'
-    default: return 'text-danger'
-  }
 }
 
 function notifyDnsCheckResult(dnsChecks: DomainsDnsCheck[] | undefined) {
@@ -197,30 +102,6 @@ function notifyDnsCheckResult(dnsChecks: DomainsDnsCheck[] | undefined) {
       'DNS',
     )
   }
-}
-
-async function onDeleteJob(id: number) {
-  jobActionPending.value = true
-  try {
-    await deleteJob(id)
-    toasts.info(`Job #${id} deleted`, 'Queue')
-    await refresh()
-  }
-  catch (caught) {
-    toasts.error(caught instanceof Error ? caught.message : 'Delete failed')
-  }
-  finally {
-    jobActionPending.value = false
-  }
-}
-
-function jobLabel(id: number, source: string, mode: string) {
-  const tree = mode === 'staging' ? 'staging' : 'live'
-  return `#${id} ${tree}/${source}`
-}
-
-function activitySourceLabel(entry: CertActivityEntry) {
-  return certActivitySourceLabel(entry.source, entry.mode)
 }
 
 function notifyNewActivity(entries: CertActivityEntry[]) {
@@ -378,34 +259,9 @@ async function onApply(force = false) {
   }
 }
 
-function canIssueCert(entry: { inDomainsFile: boolean, status: string }) {
-  return entry.inDomainsFile && entry.status !== 'orphan'
-}
-
-function certInFlightOrQueued(certName: string) {
-  if (issuingCerts.value.includes(certName)) {
-    return true
-  }
-  const running = certQueue.value.running
-  if (running?.certNames?.includes(certName) || running?.currentCert === certName) {
-    return true
-  }
-  if (certJob.value.running && certJob.value.currentCert === certName) {
-    return true
-  }
-  return certQueue.value.queued.some(job => job.certNames?.includes(certName))
-}
-
-function issueDisabled(entry: { certName: string, inDomainsFile: boolean, status: string }) {
-  return dirty.value
-    || !canIssueCert(entry)
-    || certInFlightOrQueued(entry.certName)
-    || (directoryMode.value === 'production' && !acmeEnabled.value)
-}
-
 async function onIssueCert(certName: string, force = false) {
   actionsMenuOpen.value = null
-  if (certInFlightOrQueued(certName)) {
+  if (certInFlightOrQueued(certName, issuingCerts.value, certJob.value, certQueue.value)) {
     toasts.info(`${certName} is already queued or running`, 'Certificates')
     return
   }
@@ -452,88 +308,41 @@ async function onTrash(certName: string) {
   }
 }
 
-function statusLabel(status: string) {
-  switch (status) {
-    case 'ok': return 'OK'
-    case 'missing': return 'Missing'
-    case 'drift': return 'SAN drift'
-    case 'orphan': return 'Orphan'
-    default: return status
-  }
-}
+type JobQueueAction = 'cancel' | 'resume' | 'rerun' | 'delete'
 
-function activityLevelClass(level: string) {
-  switch (level) {
-    case 'error': return 'text-danger'
-    case 'warn': return 'text-muted'
-    default: return 'text-ink'
+async function onJobAction(action: JobQueueAction, id: number) {
+  jobActionPending.value = true
+  try {
+    if (action === 'cancel') {
+      await cancelJob(id)
+      toasts.info(`Job #${id} cancelled`, 'Queue')
+    }
+    else if (action === 'resume') {
+      await resumeJob(id)
+      toasts.ok(`Job #${id} resumed`, 'Queue')
+    }
+    else if (action === 'rerun') {
+      await rerunJob(id)
+      toasts.ok(`Job #${id} re-queued from start`, 'Queue')
+    }
+    else {
+      await deleteJob(id)
+      toasts.info(`Job #${id} deleted`, 'Queue')
+    }
+    await refresh()
   }
-}
-
-function activitySourceClass(entry: CertActivityEntry) {
-  if (entry.source === 'acme') {
-    return 'text-signal'
+  catch (caught) {
+    const errors: Record<JobQueueAction, string> = {
+      cancel: 'Cancel failed',
+      resume: 'Resume failed',
+      rerun: 'Re-run failed',
+      delete: 'Delete failed',
+    }
+    toasts.error(caught instanceof Error ? caught.message : errors[action])
   }
-  if (entry.mode === 'staging') {
-    return 'text-muted'
+  finally {
+    jobActionPending.value = false
   }
-  if (entry.mode === 'production') {
-    return 'text-live'
-  }
-  return 'text-muted'
-}
-
-function transportDotClass(mode: typeof transport.value) {
-  switch (mode) {
-    case 'live': return 'text-live'
-    case 'polling': return 'text-signal'
-    case 'connecting': return 'text-muted animate-pulse'
-    default: return 'text-muted'
-  }
-}
-
-function transportClass(mode: typeof transport.value) {
-  switch (mode) {
-    case 'live': return 'text-live'
-    case 'polling': return 'text-signal'
-    case 'connecting': return 'text-muted'
-    default: return 'text-muted'
-  }
-}
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleString()
-}
-
-function formatRemaining(untilIso: string) {
-  const ms = Date.parse(untilIso) - now.value.getTime()
-  if (ms <= 0) {
-    return 'ready'
-  }
-  const total = Math.max(0, Math.ceil(ms / 1000))
-  const days = Math.floor(total / 86400)
-  const hours = Math.floor((total % 86400) / 3600)
-  const minutes = Math.floor((total % 3600) / 60)
-  const seconds = total % 60
-  const parts: string[] = []
-  if (days > 0) {
-    parts.push(`${days}d`)
-  }
-  if (days > 0 || hours > 0) {
-    parts.push(`${hours}h`)
-  }
-  if (days > 0 || hours > 0 || minutes > 0) {
-    parts.push(`${minutes}m`)
-  }
-  parts.push(`${seconds}s`)
-  return parts.join(' ')
-}
-
-function rateLimitLabel(limit: CertRateLimit) {
-  const who = limit.scope === 'account'
-    ? `Account (${limit.mode})`
-    : (limit.certName || 'Certificate')
-  return `${who}: ${formatRemaining(limit.until)} left · until ${formatTime(limit.until)}`
 }
 </script>
 
@@ -600,459 +409,46 @@ function rateLimitLabel(limit: CertRateLimit) {
       </div>
     </div>
 
-    <UiPanel v-if="activeRateLimits.length">
-      <h2 class="text-sm font-semibold text-danger">
-        Let's Encrypt rate limit
-      </h2>
-      <p class="mt-1 text-xs text-muted">
-        Cooldown from HTTP 429 / Retry-After. Stored on disk so it survives refresh and reboot.
-      </p>
-      <ul class="mt-3 space-y-2 font-mono text-xs">
-        <li
-          v-for="limit in activeRateLimits"
-          :key="limit.id"
-          class="rounded-[6px] border border-danger/30 px-3 py-2 text-danger"
-        >
-          <p>{{ rateLimitLabel(limit) }}</p>
-          <p v-if="limit.detail" class="mt-1 text-[11px] text-muted">
-            {{ limit.detail }}
-            <span v-if="limit.endpoint"> · {{ limit.endpoint }}</span>
-          </p>
-        </li>
-      </ul>
-    </UiPanel>
+    <CertsRateLimits :limits="activeRateLimits" :now-ms="now.getTime()" />
 
-    <UiPanel v-if="hasQueue">
-      <h2 class="text-sm font-semibold text-ink">Job queue</h2>
-      <p class="mt-1 text-xs text-muted">
-        Each Apply or renewal is a batch session with its mode fixed at queue time.
-        Cancelled jobs can be resumed where they left off, or re-run from the first certificate.
-      </p>
-      <ul class="mt-3 space-y-2 font-mono text-xs">
-        <li
-          v-if="certQueue.running"
-          class="flex flex-wrap items-center justify-between gap-2 rounded-[6px] border border-signal px-3 py-2 text-ink"
-        >
-          <div>
-            <span class="text-signal">Running</span>
-            {{ jobLabel(certQueue.running.id, certQueue.running.source, certQueue.running.mode) }}
-            <span v-if="certQueue.running.taskTotal" class="font-semibold text-signal">
-              {{ certQueue.running.taskIndex ?? 0 }}/{{ certQueue.running.taskTotal }}
-            </span>
-            <span v-if="certQueue.running.currentCert" class="text-muted"> — {{ certQueue.running.currentCert }}</span>
-            <span v-if="certQueue.running.cancelRequested" class="ml-2 text-muted">(stopping…)</span>
-          </div>
-          <div class="flex gap-1">
-            <UiButton
-              variant="ghost"
-              size="sm"
-              :disabled="jobActionPending || certQueue.running.cancelRequested"
-              @click="onCancelJob(certQueue.running.id)"
-            >
-              Cancel
-            </UiButton>
-            <UiButton
-              variant="ghost"
-              size="sm"
-              :disabled="jobActionPending"
-              @click="onDeleteJob(certQueue.running.id)"
-            >
-              Delete
-            </UiButton>
-          </div>
-        </li>
-        <li
-          v-for="job in certQueue.queued"
-          :key="job.id"
-          class="flex flex-wrap items-center justify-between gap-2 rounded-[6px] border border-rule px-3 py-2 text-muted"
-        >
-          <div>
-            <span class="text-ink">Queued</span>
-            {{ jobLabel(job.id, job.source, job.mode) }}
-            <span v-if="job.taskTotal" class="text-muted"> · {{ job.taskTotal }} cert(s)</span>
-            <span v-else-if="job.certNames?.length" class="text-muted"> · {{ job.certNames.length }} cert(s)</span>
-          </div>
-          <div class="flex gap-1">
-            <UiButton variant="ghost" size="sm" :disabled="jobActionPending" @click="onCancelJob(job.id)">
-              Cancel
-            </UiButton>
-            <UiButton variant="ghost" size="sm" :disabled="jobActionPending" @click="onDeleteJob(job.id)">
-              Delete
-            </UiButton>
-          </div>
-        </li>
-        <li
-          v-for="job in certQueue.cancelled"
-          :key="`cancelled-${job.id}`"
-          class="flex flex-wrap items-center justify-between gap-2 rounded-[6px] border border-dashed border-rule px-3 py-2 text-muted"
-        >
-          <div>
-            <span class="text-ink">Cancelled</span>
-            {{ jobLabel(job.id, job.source, job.mode) }}
-            <span v-if="job.taskTotal && (job.completedCount ?? job.taskIndex)" class="text-muted">
-              · {{ job.completedCount ?? job.taskIndex }}/{{ job.taskTotal }} done
-            </span>
-          </div>
-          <div class="flex gap-1">
-            <UiButton
-              v-if="canResumeJob(job)"
-              size="sm"
-              :disabled="jobActionPending"
-              @click="onResumeJob(job.id)"
-            >
-              Resume
-            </UiButton>
-            <UiButton
-              variant="ghost"
-              size="sm"
-              :disabled="jobActionPending"
-              @click="onRerunJob(job.id)"
-            >
-              Re-run
-            </UiButton>
-            <UiButton variant="ghost" size="sm" :disabled="jobActionPending" @click="onDeleteJob(job.id)">
-              Delete
-            </UiButton>
-          </div>
-        </li>
-      </ul>
-    </UiPanel>
+    <CertsJobPanel
+      :queue="certQueue"
+      :pending="jobActionPending"
+      @cancel="onJobAction('cancel', $event)"
+      @resume="onJobAction('resume', $event)"
+      @rerun="onJobAction('rerun', $event)"
+      @delete="onJobAction('delete', $event)"
+    />
 
-    <UiPanel>
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-3">
-        <div class="flex flex-wrap items-center gap-3">
-          <div class="flex items-center gap-2">
-            <span class="text-xs uppercase tracking-wide text-muted">Directory</span>
-            <div class="inline-flex rounded-[6px] border border-rule p-0.5">
-              <button
-                type="button"
-                class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-                :class="directoryMode === 'production' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-                :disabled="pending"
-                @click="onMode('production')"
-              >
-                Production
-              </button>
-              <button
-                type="button"
-                class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-                :class="directoryMode === 'staging' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-                :disabled="pending"
-                @click="onMode('staging')"
-              >
-                Staging
-              </button>
-            </div>
-            <span
-              v-if="!acmeEnabled"
-              class="rounded-[4px] border border-danger px-2 py-0.5 text-xs text-danger"
-            >
-              Production ACME off
-            </span>
-          </div>
-          <label
-            class="inline-flex cursor-pointer items-center gap-2 rounded-[6px] border px-2.5 py-1 text-xs"
-            :class="renewSchedulerEnabled ? 'border-rule text-ink' : 'border-danger text-danger'"
-            title="Periodic production renew only. Does not block manual Apply or Force re-issue."
-          >
-            <input
-              type="checkbox"
-              class="accent-[var(--signal)]"
-              :checked="renewSchedulerEnabled"
-              :disabled="pending"
-              @click.prevent="onToggleRenewScheduler"
-            >
-            Auto renew
-            <span class="font-medium">{{ renewSchedulerEnabled ? 'on' : 'off' }}</span>
-          </label>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <UiButton variant="ghost" size="sm" :disabled="pending || !dirty" @click="onSave">
-            Save
-          </UiButton>
-          <UiButton
-            size="sm"
-            :disabled="pending || dirty || (directoryMode === 'production' && !acmeEnabled)"
-            @click="onApply(false)"
-          >
-            Apply
-          </UiButton>
-          <UiButton
-            variant="ghost"
-            size="sm"
-            :disabled="pending || dirty || (directoryMode === 'production' && !acmeEnabled)"
-            @click="onApply(true)"
-          >
-            Force re-issue
-          </UiButton>
-        </div>
-      </div>
+    <CertsDomainTable
+      v-model:text="text"
+      :parsed="parsed"
+      :directory-mode="directoryMode"
+      :acme-enabled="acmeEnabled"
+      :renew-scheduler-enabled="renewSchedulerEnabled"
+      :pending="pending"
+      :dirty="dirty"
+      :error="error"
+      :status-entries="statusEntries"
+      :cert-job="certJob"
+      :cert-queue="certQueue"
+      :issuing-certs="issuingCerts"
+      :download-pending="downloadPending"
+      :actions-menu-open="actionsMenuOpen"
+      :dns-recheck-pending="dnsRecheckPending"
+      :now-ms="now.getTime()"
+      @save="onSave"
+      @apply="onApply"
+      @mode="onMode"
+      @toggle-renew-scheduler="onToggleRenewScheduler"
+      @recheck-dns="onRecheckDns"
+      @issue="onIssueCert"
+      @download="onDownload"
+      @trash-request="requestTrash"
+      @update:actions-menu-open="actionsMenuOpen = $event"
+    />
 
-      <label class="mt-3 block">
-        <span class="sr-only">domains.txt</span>
-        <textarea
-          v-model="text"
-          class="min-h-[220px] w-full resize-y rounded-[6px] border border-rule bg-paper p-3 font-mono text-sm text-ink outline-none focus:border-signal"
-          spellcheck="false"
-          :disabled="pending"
-        />
-      </label>
-
-      <UiDisclosure v-if="parsed?.lines?.length" title="Parsed lines" :open="true" class="mt-4">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="text-xs text-muted">
-            Public CNAME checks for <span class="font-mono text-ink">_acme-challenge</span> names
-          </p>
-          <UiButton
-            variant="ghost"
-            size="sm"
-            :disabled="pending || dnsRecheckPending"
-            @click="onRecheckDns"
-          >
-            <ArrowsClockwise
-              :size="14"
-              weight="regular"
-              aria-hidden="true"
-              :class="dnsRecheckPending && 'animate-spin'"
-            />
-            Recheck DNS
-          </UiButton>
-        </div>
-        <ul class="mt-3 space-y-3">
-          <li
-            v-for="line in parsed.lines"
-            :key="`${line.line}-${line.certName}`"
-            class="rounded-[6px] border border-rule p-3"
-          >
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <p class="font-mono text-sm text-ink">
-                {{ line.certName }}
-                <span class="text-muted">(line {{ line.line }})</span>
-              </p>
-            </div>
-            <p class="mt-1 font-mono text-xs text-muted">
-              SANs: {{ line.expanded.join(', ') }}
-            </p>
-            <ul v-if="dnsChecksForLine(line.line).length" class="mt-3 space-y-2 border-t border-rule pt-3">
-              <li
-                v-for="check in dnsChecksForLine(line.line)"
-                :key="check.name"
-                class="font-mono text-xs"
-              >
-                <span
-                  class="mr-2 rounded-[4px] border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
-                  :class="dnsCheckClass(check.status)"
-                >
-                  {{ dnsCheckLabel(check.status) }}
-                </span>
-                <UiCopyable
-                  v-if="check.status === 'mismatch'"
-                  inline
-                  :value="check.name"
-                  label="DNS record name"
-                />
-                <span v-else class="break-all text-ink">{{ check.name }}</span>
-                <span class="text-muted"> → </span>
-                <UiCopyable
-                  v-if="check.expected && check.status === 'mismatch'"
-                  inline
-                  muted
-                  :value="check.expected"
-                  label="DNS content"
-                />
-                <span v-else class="break-all text-muted">{{ check.expected || '—' }}</span>
-                <span v-if="check.actual && check.status === 'mismatch'" class="text-danger">
-                  (found {{ check.actual }})
-                </span>
-                <span v-if="check.message && check.status !== 'ok'" class="text-muted">
-                  — {{ check.message }}
-                </span>
-              </li>
-            </ul>
-          </li>
-        </ul>
-      </UiDisclosure>
-
-      <p v-if="dirty" class="mt-2 text-xs text-muted">
-        Unsaved changes — Save before Apply.
-      </p>
-      <pre v-if="error" class="mt-2 whitespace-pre-wrap text-xs text-danger">{{ error }}</pre>
-    </UiPanel>
-
-    <UiPanel>
-      <h2 class="text-sm font-semibold text-ink">
-        Status ({{ directoryMode === 'staging' ? 'staging/' : 'live/' }})
-      </h2>
-      <p class="mt-1 text-xs text-muted">
-        Issue queues one Let's Encrypt job per apex; click several in a row and they run one after another.
-        Force Issue is in the ⋮ menu.
-      </p>
-      <div v-if="!statusEntries.length" class="mt-3 text-sm text-muted">
-        No certificates indexed yet.
-      </div>
-      <ul v-else class="mt-3 divide-y divide-rule">
-        <li
-          v-for="entry in statusEntries"
-          :key="entry.certName"
-          class="flex flex-wrap items-center justify-between gap-2 py-3"
-        >
-          <div class="min-w-0">
-            <p class="font-mono text-sm text-ink">
-              {{ entry.certName }}
-              <span
-                class="ml-2 rounded-[4px] border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted"
-              >{{ statusLabel(entry.status) }}</span>
-              <span
-                v-if="certJob.running && certJob.currentCert === entry.certName"
-                class="ml-2 rounded-[4px] border border-signal px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-signal"
-              >
-                <span v-if="certJob.taskTotal">{{ certJob.taskIndex }}/{{ certJob.taskTotal }}</span>
-                <span v-else>Working…</span>
-              </span>
-            </p>
-            <p v-if="entry.notAfter" class="mt-0.5 text-xs text-muted">
-              Expires {{ formatTime(entry.notAfter) }}
-            </p>
-            <p v-if="entry.sansOnDisk?.length" class="mt-0.5 font-mono text-[11px] text-muted">
-              On disk: {{ entry.sansOnDisk.join(', ') }}
-            </p>
-            <p v-if="entry.lastError" class="mt-0.5 text-xs text-danger">
-              Last error: {{ entry.lastError }}
-            </p>
-            <p v-if="entry.rateLimitedUntil && Date.parse(entry.rateLimitedUntil) > now.getTime()" class="mt-0.5 text-xs text-danger">
-              Rate limited · {{ formatRemaining(entry.rateLimitedUntil) }} left
-              <span class="text-muted"> (until {{ formatTime(entry.rateLimitedUntil) }})</span>
-            </p>
-          </div>
-          <div class="flex shrink-0 flex-wrap items-center gap-2">
-            <UiButton
-              v-if="canIssueCert(entry)"
-              size="sm"
-              title="Queue Let's Encrypt issue / renew for this apex only"
-              :disabled="issueDisabled(entry)"
-              @click="onIssueCert(entry.certName, false)"
-            >
-              <Lightning :size="14" weight="regular" aria-hidden="true" />
-              {{ issuingCerts.includes(entry.certName) ? 'Queuing…' : (certInFlightOrQueued(entry.certName) ? 'Queued' : 'Issue') }}
-            </UiButton>
-            <UiButton
-              v-if="entry.liveOnDisk"
-              variant="ghost"
-              size="sm"
-              title="Download production PEMs from live/"
-              :disabled="pending || certJob.running || downloadPending === entry.certName"
-              @click="onDownload(entry.certName)"
-            >
-              <Download :size="14" weight="regular" aria-hidden="true" />
-              {{ downloadPending === entry.certName ? 'Downloading…' : 'Download' }}
-            </UiButton>
-            <UiMenu
-              v-if="entry.tree !== 'none' || canIssueCert(entry)"
-              :open="actionsMenuOpen === entry.certName"
-              align="right"
-              @update:open="setActionsMenuOpen(entry.certName, $event)"
-            >
-              <template #trigger="{ open, toggle, panelId }">
-                <button
-                  type="button"
-                  class="inline-flex rounded-[6px] p-2 text-muted transition-colors hover:bg-paper hover:text-ink"
-                  :class="open && 'bg-paper text-ink'"
-                  :aria-expanded="open"
-                  aria-haspopup="menu"
-                  :aria-controls="panelId"
-                  :aria-label="`Actions for ${entry.certName}`"
-                  title="Actions"
-                  :disabled="pending || certJob.running"
-                  @click="toggle()"
-                >
-                  <Actions :size="16" weight="regular" aria-hidden="true" />
-                </button>
-              </template>
-              <template #default="{ close }">
-                <button
-                  v-if="canIssueCert(entry)"
-                  type="button"
-                  role="menuitem"
-                  class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
-                  :disabled="issueDisabled(entry)"
-                  @click="close(); onIssueCert(entry.certName, true)"
-                >
-                  <Lightning :size="16" weight="regular" aria-hidden="true" />
-                  Force Issue
-                </button>
-                <button
-                  v-if="entry.tree !== 'none'"
-                  type="button"
-                  role="menuitem"
-                  class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-danger hover:bg-paper"
-                  @click="close(); requestTrash(entry.certName)"
-                >
-                  <Trash :size="16" weight="regular" aria-hidden="true" />
-                  Delete
-                </button>
-              </template>
-            </UiMenu>
-          </div>
-        </li>
-      </ul>
-    </UiPanel>
-
-    <UiDisclosure title="Let's Encrypt log" :open="true">
-      <div class="mb-3 flex flex-wrap items-center gap-2">
-        <span class="text-xs text-muted">Show:</span>
-        <div class="inline-flex flex-wrap rounded-[6px] border border-rule p-0.5">
-          <button
-            type="button"
-            class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-            :class="logFilter === 'acme' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-            @click="logFilter = 'acme'"
-          >
-            ACME
-          </button>
-          <button
-            type="button"
-            class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-            :class="logFilter === 'live' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-            @click="logFilter = 'live'"
-          >
-            Live
-          </button>
-          <button
-            type="button"
-            class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-            :class="logFilter === 'staging' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-            @click="logFilter = 'staging'"
-          >
-            Staging
-          </button>
-          <button
-            type="button"
-            class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-            :class="logFilter === 'all' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-            @click="logFilter = 'all'"
-          >
-            All
-          </button>
-        </div>
-      </div>
-      <p v-if="!filteredActivity.length" class="text-sm text-muted">
-        ACME communication with Let's Encrypt appears here during Apply or renewal — HTTP requests,
-        dns-01 challenges, and validation. Also in <span class="font-mono">docker logs acmedns-stack</span>
-        (lines prefixed <span class="font-mono">[live/acme]</span> or <span class="font-mono">[staging/acme]</span>).
-      </p>
-      <ul v-else class="max-h-[420px] space-y-1 overflow-y-auto font-mono text-xs">
-        <li
-          v-for="entry in filteredActivity"
-          :key="entry.id"
-          :class="activityLevelClass(entry.level)"
-        >
-          <span class="text-muted">{{ formatTime(entry.at) }}</span>
-          <span class="mx-1" :class="activitySourceClass(entry)">[{{ activitySourceLabel(entry) }}]</span>
-          <span v-if="entry.certName" class="text-ink">{{ entry.certName }}:</span>
-          {{ entry.message }}
-        </li>
-      </ul>
-    </UiDisclosure>
+    <CertsActivityFeed v-model:log-filter="logFilter" :entries="activityEntries" />
 
     <UiPanel v-if="applyResults.length">
       <h2 class="text-sm font-semibold text-ink">Last Apply</h2>
