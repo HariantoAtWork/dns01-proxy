@@ -28,6 +28,7 @@ export function useCerts() {
   const statusEntries = ref<CertStatusEntry[]>([])
   const directoryMode = ref<LetsEncryptDirectoryMode>('production')
   const acmeEnabled = ref(true)
+  const renewSchedulerEnabled = ref(true)
   const applyResults = ref<CertApplyResult[]>([])
   const trashItems = ref<TrashItem[]>([])
   const lastSavedItems = ref<LastSavedItem[]>([])
@@ -50,18 +51,43 @@ export function useCerts() {
   }
 
   async function loadSettings() {
-    const data = await $fetch<CertSettings & { acmeEnabled: boolean }>('/api/certs/settings')
+    const data = await $fetch<CertSettings & {
+      acmeEnabled: boolean
+      renewSchedulerEnabled: boolean
+    }>('/api/certs/settings')
     directoryMode.value = data.directoryMode
     acmeEnabled.value = data.acmeEnabled
+    renewSchedulerEnabled.value = data.renewSchedulerEnabled
     return data
   }
 
   async function saveSettings(mode: LetsEncryptDirectoryMode) {
-    const data = await $fetch<CertSettings>('/api/certs/settings', {
+    const data = await $fetch<CertSettings & {
+      acmeEnabled: boolean
+      renewSchedulerEnabled: boolean
+    }>('/api/certs/settings', {
       method: 'PUT',
       body: { directoryMode: mode },
     })
     directoryMode.value = data.directoryMode
+    if (typeof data.acmeEnabled === 'boolean') {
+      acmeEnabled.value = data.acmeEnabled
+    }
+    if (typeof data.renewSchedulerEnabled === 'boolean') {
+      renewSchedulerEnabled.value = data.renewSchedulerEnabled
+    }
+    return data
+  }
+
+  async function setRenewSchedulerEnabled(enabled: boolean) {
+    const data = await $fetch<CertSettings & {
+      acmeEnabled: boolean
+      renewSchedulerEnabled: boolean
+    }>('/api/certs/settings', {
+      method: 'PUT',
+      body: { renewSchedulerEnabled: enabled },
+    })
+    renewSchedulerEnabled.value = data.renewSchedulerEnabled
     return data
   }
 
@@ -377,6 +403,7 @@ export function useCerts() {
     statusEntries,
     directoryMode,
     acmeEnabled,
+    renewSchedulerEnabled,
     applyResults,
     trashItems,
     lastSavedItems,
@@ -391,6 +418,7 @@ export function useCerts() {
     loadDomains,
     loadSettings,
     saveSettings,
+    setRenewSchedulerEnabled,
     saveDomains,
     validateDomains,
     recheckDomainsDns,

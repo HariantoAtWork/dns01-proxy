@@ -7,6 +7,8 @@ export interface AppSettingsFile {
   letsencryptEmail?: string
   renewInterval?: number
   certsAcmeDisabled?: boolean
+  /** When true, stop the periodic production renew timer (manual Apply still works). */
+  certsRenewDisabled?: boolean
   administratorPassword?: string
   tz?: string
 }
@@ -17,6 +19,7 @@ export interface OperatorSettingsView {
   letsencryptEmail: string
   renewInterval: number
   certsAcmeDisabled: boolean
+  certsRenewDisabled: boolean
   /** Empty string in GET when unset; never returns stored secret after save — use passwordSet. */
   administratorPassword: string
   passwordSet: boolean
@@ -27,6 +30,7 @@ export interface OperatorSettingsView {
     letsencryptEmail: SettingSource
     renewInterval: SettingSource
     certsAcmeDisabled: SettingSource
+    certsRenewDisabled: SettingSource
     administratorPassword: SettingSource
     tz: SettingSource
   }
@@ -100,6 +104,7 @@ export interface AppSettingsPutBody {
     letsencryptEmail: string
     renewInterval: number
     certsAcmeDisabled: boolean
+    certsRenewDisabled: boolean
     /** Omit or undefined = leave unchanged; empty string = clear password. */
     administratorPassword?: string | null
     tz: string

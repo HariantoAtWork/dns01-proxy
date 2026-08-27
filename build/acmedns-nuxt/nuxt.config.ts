@@ -50,6 +50,7 @@ export default defineNuxtConfig({
     letsencryptEmail: 'admin@example.com',
     renewInterval: 12,
     certsAcmeDisabled: false,
+    certsRenewDisabled: false,
     public: {
       defaultAcmednsUrl,
       restrictMode: false,
