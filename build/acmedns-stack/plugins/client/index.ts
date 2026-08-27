@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import type { RuntimeConfig } from 'nuxt/schema'
 import {
   addComponentsDir,
   addImportsDir,
@@ -11,18 +12,18 @@ import {
   extendPages,
 } from 'nuxt/kit'
 
-export interface AcmednsClientModuleOptions {
-  dataRoot: string
-  letsencryptDir: string
-  acmednsUrl: string
-  administratorPassword: string
-  letsencryptEmail: string
-  renewInterval: number
-  certsAcmeDisabled: boolean
-  certsRenewDisabled: boolean
-  defaultAcmednsUrl: string
-  restrictMode: boolean
-}
+/** Mirrors `runtimeConfig` keys — configure via `nuxt.config.ts`, not module defaults. */
+export type AcmednsClientModuleOptions = Pick<
+  RuntimeConfig,
+  | 'dataRoot'
+  | 'letsencryptDir'
+  | 'acmednsUrl'
+  | 'administratorPassword'
+  | 'letsencryptEmail'
+  | 'renewInterval'
+  | 'certsAcmeDisabled'
+  | 'certsRenewDisabled'
+> & Pick<RuntimeConfig['public'], 'defaultAcmednsUrl' | 'restrictMode'>
 
 function pageRouteFromFile(relPath: string): { name: string, path: string } {
   const withoutExt = relPath.replace(/\.vue$/, '')
@@ -77,28 +78,16 @@ function collectVueFiles(dir: string, base = dir): string[] {
   return out
 }
 
-export default defineNuxtModule<AcmednsClientModuleOptions>({
+export default defineNuxtModule({
   meta: {
     name: 'acmedns-client',
-    configKey: 'acmednsClient',
   },
-  defaults: {
-    dataRoot: '.data',
-    letsencryptDir: '.data/letsencrypt',
-    acmednsUrl: 'http://127.0.0.1',
-    administratorPassword: '',
-    letsencryptEmail: 'admin@example.com',
-    renewInterval: 12,
-    certsAcmeDisabled: false,
-    certsRenewDisabled: false,
-    defaultAcmednsUrl: 'http://127.0.0.1',
-    restrictMode: false,
-  },
-  setup(options, nuxt) {
+  setup(_options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const runtime = resolver.resolve('./runtime')
+    const shared = resolver.resolve('./runtime/shared')
 
-    nuxt.options.alias['#shared'] = resolver.resolve('./runtime/shared')
+    nuxt.options.alias['#shared'] = shared
     nuxt.options.alias['#client'] = runtime
 
     addServerScanDir(resolver.resolve('./runtime/server'))
@@ -153,16 +142,6 @@ export default defineNuxtModule<AcmednsClientModuleOptions>({
     const cssPath = resolver.resolve('./runtime/assets/css/main.css')
     if (existsSync(cssPath)) {
       nuxt.options.css.push(cssPath)
-    }
-
-    // Keep Vite able to resolve plugin runtime imports during build.
-    nuxt.options.vite = nuxt.options.vite || {}
-    const vite = nuxt.options.vite as { resolve?: { alias?: Record<string, string> } }
-    vite.resolve = vite.resolve || {}
-    vite.resolve.alias = {
-      ...(vite.resolve.alias || {}),
-      '#shared': resolver.resolve('./runtime/shared'),
-      '#client': runtime,
     }
   },
 })
