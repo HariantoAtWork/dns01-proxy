@@ -34,6 +34,11 @@ export function dnsCheckClass(status: DomainsDnsCheck['status']) {
   }
 }
 
+/** Missing/mismatch rows show copyable CNAME Name + Content. */
+export function dnsCheckNeedsCopy(status: DomainsDnsCheck['status']) {
+  return status === 'missing' || status === 'mismatch'
+}
+
 export function jobLabel(id: number, source: string, mode: string) {
   const tree = mode === 'staging' ? 'staging' : 'live'
   return `#${id} ${tree}/${source}`
