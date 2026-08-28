@@ -1,5 +1,6 @@
 import type {
   CertLiveActivityEvent,
+  CertLiveBatchSummariesEvent,
   CertLiveQueueEvent,
   CertLiveRateLimitsEvent,
   CertLiveSnapshot,
@@ -12,6 +13,7 @@ export type CertLiveBusEvent =
   | { type: 'queue', data: CertLiveQueueEvent }
   | { type: 'status', data: CertLiveStatusEvent }
   | { type: 'rateLimits', data: CertLiveRateLimitsEvent }
+  | { type: 'batchSummaries', data: CertLiveBatchSummariesEvent }
   | { type: 'ping', data: Record<string, never> }
 
 type CertLiveListener = (event: CertLiveBusEvent) => void

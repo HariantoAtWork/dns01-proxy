@@ -1,6 +1,7 @@
 import type {
   CertActivityEntry,
   CertLiveActivityEvent,
+  CertLiveBatchSummariesEvent,
   CertLiveQueueEvent,
   CertLiveRateLimitsEvent,
   CertLiveSnapshot,
@@ -42,6 +43,7 @@ export function useCertLiveStream(options: {
   onQueue: (data: CertLiveQueueEvent) => void
   onStatus: (data: CertLiveStatusEvent) => void
   onRateLimits: (data: CertLiveRateLimitsEvent) => void
+  onBatchSummaries: (data: CertLiveBatchSummariesEvent) => void
   onPoll: () => void | Promise<void>
   pollBlocked?: Ref<boolean>
 }) {
@@ -158,6 +160,11 @@ export function useCertLiveStream(options: {
 
     next.addEventListener('rateLimits', (event) => {
       options.onRateLimits(JSON.parse(event.data) as CertLiveRateLimitsEvent)
+      markLiveEvent()
+    })
+
+    next.addEventListener('batchSummaries', (event) => {
+      options.onBatchSummaries(JSON.parse(event.data) as CertLiveBatchSummariesEvent)
       markLiveEvent()
     })
 

@@ -1,10 +1,14 @@
 <script setup lang="ts">
-const { summaries, removeSummary, clearSummaries } = useCertBatchSummary()
+const { summaries, ensureLoaded, removeSummary, clearSummaries } = useCertBatchSummary()
 
 const clearConfirmOpen = ref(false)
 
+onMounted(() => {
+  void ensureLoaded()
+})
+
 function onClearAll() {
-  clearSummaries()
+  void clearSummaries()
   clearConfirmOpen.value = false
 }
 </script>
@@ -15,7 +19,7 @@ function onClearAll() {
       <div>
         <h2 class="text-sm font-semibold text-ink">Batch summaries</h2>
         <p class="mt-1 text-xs text-muted">
-          Saved in this browser after each Apply or renewal batch finishes. Delete any entry or clear the board anytime.
+          Saved on the server after each Apply or renewal batch finishes. Delete any entry or clear the board anytime.
         </p>
       </div>
       <UiButton
@@ -43,7 +47,7 @@ function onClearAll() {
       confirm-label="Clear board"
       @confirm="onClearAll"
     >
-      This removes every saved summary from this browser. Running jobs are not affected.
+      This removes every saved summary from the server. Running jobs are not affected.
     </UiConfirmDialog>
   </UiPanel>
 </template>
