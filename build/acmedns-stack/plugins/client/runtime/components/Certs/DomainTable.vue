@@ -11,12 +11,14 @@ import {
   certInFlightOrQueued,
   dnsCheckClass,
   dnsCheckLabel,
+  dnsCheckNeedsCopy,
   dnsChecksForLine,
   formatRemaining,
   formatTime,
   issueDisabled,
   statusLabel,
 } from '#shared/utils/certsUi'
+import { cloudflareChallengeName } from '#client/utils/domain'
 import { PhArrowsClockwise as ArrowsClockwise, PhDotsThreeVertical as Actions, PhDownload as Download, PhLightning as Lightning, PhTrash as Trash } from '@phosphor-icons/vue'
 
 const text = defineModel<string>('text', { required: true })
@@ -85,6 +87,10 @@ function isIssueDisabled(entry: CertStatusEntry) {
 
 function isCertInFlightOrQueued(certName: string) {
   return certInFlightOrQueued(certName, issuingCerts, certJob, certQueue)
+}
+
+function cloudflareNameForCheck(zone: string, lineApex: string) {
+  return cloudflareChallengeName(zone, lineApex)
 }
 </script>
 
@@ -210,34 +216,51 @@ function isCertInFlightOrQueued(certName: string) {
               :key="check.name"
               class="font-mono text-xs"
             >
-              <span
-                class="mr-2 rounded-[4px] border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
-                :class="dnsCheckClass(check.status)"
+              <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span
+                  class="rounded-[4px] border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
+                  :class="dnsCheckClass(check.status)"
+                >
+                  {{ dnsCheckLabel(check.status) }}
+                </span>
+                <span v-if="!dnsCheckNeedsCopy(check.status)" class="break-all text-ink">{{ check.name }}</span>
+                <template v-else>
+                  <span class="break-all text-ink">{{ check.name }}</span>
+                  <span v-if="check.actual && check.status === 'mismatch'" class="text-danger">
+                    (found {{ check.actual }})
+                  </span>
+                </template>
+                <span v-if="check.message && check.status !== 'ok'" class="text-muted">
+                  — {{ check.message }}
+                </span>
+              </div>
+              <dl
+                v-if="dnsCheckNeedsCopy(check.status) && check.expected"
+                class="mt-2 grid grid-cols-[5.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 rounded-[6px] border border-rule bg-paper p-2"
               >
-                {{ dnsCheckLabel(check.status) }}
-              </span>
-              <UiCopyable
-                v-if="check.status === 'mismatch'"
-                inline
-                :value="check.name"
-                label="DNS record name"
-              />
-              <span v-else class="break-all text-ink">{{ check.name }}</span>
-              <span class="text-muted"> → </span>
-              <UiCopyable
-                v-if="check.expected && check.status === 'mismatch'"
-                inline
-                muted
-                :value="check.expected"
-                label="DNS content"
-              />
-              <span v-else class="break-all text-muted">{{ check.expected || '—' }}</span>
-              <span v-if="check.actual && check.status === 'mismatch'" class="text-danger">
-                (found {{ check.actual }})
-              </span>
-              <span v-if="check.message && check.status !== 'ok'" class="text-muted">
-                — {{ check.message }}
-              </span>
+                <dt class="text-[10px] uppercase tracking-wide text-muted">Name</dt>
+                <dd class="min-w-0">
+                  <UiCopyable :value="check.name" label="Name" />
+                  <p class="mt-0.5 font-sans text-[11px] text-muted">
+                    Cloudflare:
+                    <UiCopyable
+                      inline
+                      :value="cloudflareNameForCheck(check.zone, line.certName)"
+                      label="Cloudflare Name"
+                    />
+                  </p>
+                </dd>
+                <dt class="text-[10px] uppercase tracking-wide text-muted">Content</dt>
+                <dd class="min-w-0">
+                  <UiCopyable :value="check.expected" label="Content" />
+                </dd>
+              </dl>
+              <p
+                v-else-if="!dnsCheckNeedsCopy(check.status)"
+                class="mt-1 break-all text-muted"
+              >
+                → {{ check.expected || '—' }}
+              </p>
             </li>
           </ul>
         </li>
