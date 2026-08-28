@@ -371,8 +371,8 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
               v-if="certJob.running && certJob.currentCert === entry.certName"
               class="ml-2 rounded-[4px] border border-signal px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-signal"
             >
-              <span v-if="certJob.taskTotal">{{ certJob.taskIndex }}/{{ certJob.taskTotal }}</span>
-              <span v-else>Working…</span>
+              <CertsJobProgress :job="certJob" :show-cert="false" compact />
+              <span v-if="!certJob.taskTotal && !certJob.requestIndex">Working…</span>
             </span>
           </p>
           <p v-if="entry.notAfter" class="mt-0.5 text-xs text-muted">

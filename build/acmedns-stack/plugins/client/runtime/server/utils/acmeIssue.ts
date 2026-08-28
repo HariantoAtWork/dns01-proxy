@@ -13,6 +13,12 @@ import { accountsDir, getLetsEncryptEmail } from './certSettings'
 import { writeLivePems } from './letsencryptFs'
 import { snapshotCertToLastSaved } from './certLastSaved'
 import { logAcmeStep, withAcmeLogContext } from './acmeLogger'
+import {
+  ACME_REQUEST_STEPS,
+  ACME_REQUEST_STEP_TOTAL,
+  acmeRequestStepLabel,
+  type AcmeRequestStepProgress,
+} from '#shared/utils/acmeIssueSteps'
 
 type AcmeClient = InstanceType<typeof acme.Client>
 
@@ -101,12 +107,21 @@ export async function issueCertificate(options: {
   certName: string
   altNames: string[]
   signal?: AbortSignal
+  onRequestStep?: (step: AcmeRequestStepProgress) => void
 }) {
   return withAcmeLogContext(
     { certName: options.certName, mode: options.mode },
     async (rateLimitSignal) => {
       const signal = combineSignals(options.signal, rateLimitSignal)
       throwIfAborted(signal)
+
+      const reportStep = (index: number, label?: string) => {
+        options.onRequestStep?.({
+          index,
+          total: ACME_REQUEST_STEP_TOTAL,
+          label: label ?? acmeRequestStepLabel(index),
+        })
+      }
 
       const preferUrl = resolveAcmeDnsBase()
       const storage = await readStorage()
@@ -127,6 +142,8 @@ export async function issueCertificate(options: {
       })
 
       throwIfAborted(signal)
+
+      reportStep(ACME_REQUEST_STEPS.ACME_ORDER)
 
       const certificate = await abortable(
         client.auto({
@@ -163,6 +180,8 @@ export async function issueCertificate(options: {
                 : `Publishing dns-01 TXT for ${domain} via acme-dns (${subdomain})`,
             )
 
+            reportStep(ACME_REQUEST_STEPS.PUBLISH_TXT, `Publish TXT ${domain}`)
+
             await updateAcmeDnsTxt({
               serverUrl: account.server_url || preferUrl,
               username: account.username,
@@ -172,6 +191,8 @@ export async function issueCertificate(options: {
             })
 
             throwIfAborted(signal)
+
+            reportStep(ACME_REQUEST_STEPS.TXT_ONLINE, `TXT online ${domain}`)
 
             const challengeName = challengeHost(apexName(domain))
             await waitForChallengeTxtOnline({
@@ -185,6 +206,8 @@ export async function issueCertificate(options: {
               options.certName,
               `dns-01 TXT ready for ${domain}; telling Let's Encrypt to validate`,
             )
+
+            reportStep(ACME_REQUEST_STEPS.VALIDATE_SAVE, `LE validate ${domain}`)
           },
           challengeRemoveFn: async () => {
             // acme-dns keeps a rolling TXT window; no delete API required
@@ -194,6 +217,8 @@ export async function issueCertificate(options: {
       )
 
       throwIfAborted(signal)
+
+      reportStep(ACME_REQUEST_STEPS.VALIDATE_SAVE, 'Save certificate')
 
       const { cert, chain, fullchain } = splitChain(certificate.toString())
       const tree = options.mode === 'staging' ? 'staging' : 'live'

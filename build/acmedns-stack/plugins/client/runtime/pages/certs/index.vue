@@ -536,8 +536,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
           <span v-if="lastRefreshedAt">Last refreshed {{ formatTime(lastRefreshedAt) }}</span>
           <span v-if="certJob.running" class="text-signal">
             · Job {{ jobLabel(certJob.id!, certJob.source!, certJob.mode!) }}
-            <span v-if="certJob.taskTotal"> — {{ certJob.taskIndex ?? 0 }}/{{ certJob.taskTotal }}</span>
-            <span v-if="certJob.currentCert"> · {{ certJob.currentCert }}</span>
+            <CertsJobProgress :job="certJob" />
             <span v-if="certJob.queueLength"> · {{ certJob.queueLength }} waiting</span>
           </span>
           <span v-else-if="certQueue.queued.length" class="ml-2 text-muted">

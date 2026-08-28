@@ -20,6 +20,8 @@ import {
   jobCancelledError,
   setPumping,
   setRunning,
+  setRunningJobRequest,
+  clearRunningJobRequest,
   type InternalJob,
   type JobSource,
   waiting,
@@ -28,6 +30,7 @@ import {
   running,
 } from './state'
 import { dnsPreflightForLine, rateLimitSkipMessage } from './preflight'
+import { ACME_REQUEST_STEPS } from '../../../shared/utils/acmeIssueSteps'
 
 /** Per-certificate ACME wall clock (production dns-01 can exceed proxy timeouts). */
 export const ACME_CERT_TIMEOUT_MS = Number(process.env.ACME_CERT_TIMEOUT_MS || 4 * 60 * 1000)
@@ -191,6 +194,7 @@ export async function executeApplyCertificates(options: {
       })
     }
 
+    setRunningJobRequest(ACME_REQUEST_STEPS.DNS_PREFLIGHT)
     const preflight = await dnsPreflightForLine(line)
     if (!preflight.ok && !options.force) {
       const result: CertApplyResult = {
@@ -233,6 +237,7 @@ export async function executeApplyCertificates(options: {
         certName: line.certName,
         altNames: line.expanded,
         signal: certIssueSignal(options.abortSignal),
+        onRequestStep: ({ index, label }) => setRunningJobRequest(index, label),
       })
       const after = await readCertMeta(options.mode, line.certName)
       const result: CertApplyResult = {
@@ -346,6 +351,7 @@ export function finishCancelledJob(job: InternalJob) {
   job.status = 'cancelled'
   job.finishedAt = new Date().toISOString()
   job.currentCert = undefined
+  clearRunningJobRequest()
   cancelled.push(job)
   appendCertActivity({
     source: job.source,
@@ -399,6 +405,11 @@ export async function pumpQueue() {
         job.currentCert = certName
         job.taskIndex = taskIndex
         job.taskTotal = taskTotal
+        if (certName) {
+          job.requestIndex = undefined
+          job.requestTotal = undefined
+          job.requestLabel = undefined
+        }
       },
       shouldCancel: () => Boolean(job.cancelRequested),
     })

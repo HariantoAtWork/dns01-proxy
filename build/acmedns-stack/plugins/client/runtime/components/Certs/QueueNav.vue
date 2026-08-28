@@ -5,6 +5,7 @@ import {
 } from '@phosphor-icons/vue'
 import {
   jobLabel,
+  formatJobProgress,
   transportClass,
   transportDotClass,
 } from '#shared/utils/certsUi'
@@ -36,10 +37,8 @@ const hasQueue = computed(() =>
 const queueSummary = computed(() => {
   if (certQueue.value.running) {
     const job = certQueue.value.running
-    const progress = job.taskTotal
-      ? ` ${job.taskIndex ?? 0}/${job.taskTotal}`
-      : ''
-    return `Running${progress}`
+    const progress = formatJobProgress(job)
+    return progress ? `Running · ${progress}` : 'Running'
   }
   if (certQueue.value.queued.length) {
     const count = certQueue.value.queued.length
@@ -143,8 +142,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
 
       <div v-if="certJob.running && !certQueue.running" class="mt-3 text-xs text-signal">
         Job {{ jobLabel(certJob.id!, certJob.source!, certJob.mode!) }}
-        <span v-if="certJob.taskTotal"> — {{ certJob.taskIndex ?? 0 }}/{{ certJob.taskTotal }}</span>
-        <span v-if="certJob.currentCert"> · {{ certJob.currentCert }}</span>
+        <CertsJobProgress :job="certJob" />
       </div>
 
       <div v-if="hasQueue" class="mt-4">

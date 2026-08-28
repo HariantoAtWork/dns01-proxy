@@ -44,6 +44,8 @@ export function jobLabel(id: number, source: string, mode: string) {
   return `#${id} ${tree}/${source}`
 }
 
+export { formatJobProgress, jobProgressParts, type JobProgressParts } from './jobProgress'
+
 export function activitySourceLabel(entry: CertActivityEntry) {
   return certActivitySourceLabel(entry.source, entry.mode)
 }
