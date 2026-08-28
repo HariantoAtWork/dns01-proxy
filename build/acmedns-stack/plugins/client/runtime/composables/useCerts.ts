@@ -12,6 +12,7 @@ import type {
   CertSettings,
   CertStatusEntry,
   CertUploadResult,
+  CertBatchUploadResult,
   DomainsParseResult,
   DomainsDnsCheck,
   LetsEncryptDirectoryMode,
@@ -285,6 +286,26 @@ export function useCerts() {
     triggerDownload(blob, filenameFromDisposition(response.headers.get('content-disposition')))
   }
 
+  async function downloadCertsBatch() {
+    const response = await fetch('/api/certs/download/batch', {
+      credentials: 'same-origin',
+    })
+    if (!response.ok) {
+      let message = 'Batch download failed'
+      try {
+        const body = await response.json() as { message?: string, statusMessage?: string }
+        message = body.message || body.statusMessage || message
+      }
+      catch {
+        // Keep the generic message when the error body is not JSON.
+      }
+      throw new Error(message)
+    }
+
+    const blob = await response.blob()
+    triggerDownload(blob, filenameFromDisposition(response.headers.get('content-disposition')))
+  }
+
   async function uploadCert(certName: string, file: File, overwrite = false): Promise<CertUploadResult> {
     const form = new FormData()
     form.append('file', file, file.name)
@@ -316,6 +337,44 @@ export function useCerts() {
     if (!body.success) {
       throw Object.assign(new Error(body.message || 'Upload failed'), {
         needsOverwrite: body.needsOverwrite,
+      })
+    }
+
+    return body
+  }
+
+  async function uploadCertsBatch(file: File, overwrite = false): Promise<CertBatchUploadResult> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+
+    const response = await fetch(
+      `/api/certs/upload/batch?overwrite=${overwrite ? '1' : '0'}`,
+      {
+        method: 'POST',
+        body: form,
+        credentials: 'same-origin',
+      },
+    )
+
+    let body: CertBatchUploadResult & { statusMessage?: string } = {
+      success: false,
+      message: 'Batch upload failed',
+    }
+    try {
+      body = await response.json() as CertBatchUploadResult & { statusMessage?: string }
+    }
+    catch {
+      // Keep the generic message when the error body is not JSON.
+    }
+
+    if (!response.ok) {
+      throw new Error(body.message || body.statusMessage || 'Batch upload failed')
+    }
+
+    if (!body.success) {
+      throw Object.assign(new Error(body.message || 'Batch upload failed'), {
+        needsOverwrite: body.needsOverwrite,
+        conflicts: body.conflicts,
       })
     }
 
@@ -465,7 +524,9 @@ export function useCerts() {
     apply,
     loadTrash,
     downloadCert,
+    downloadCertsBatch,
     uploadCert,
+    uploadCertsBatch,
     trashCert,
     restoreTrash,
     permanentDelete,

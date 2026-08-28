@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { promises as fs } from 'node:fs'
-import { certTreePath, PEM_NAMES, readPem } from './letsencryptFs'
+import { certTreePath, listCertNamesInTree, PEM_NAMES, readPem } from './letsencryptFs'
 import { createZipStore } from './zipStore'
 
 export function assertSafeCertName(name: string) {
@@ -11,7 +11,7 @@ export function assertSafeCertName(name: string) {
   return decoded
 }
 
-export async function buildLiveCertZip(certName: string) {
+async function readLiveCertPemBuffers(certName: string) {
   const safeName = assertSafeCertName(certName)
   const dir = certTreePath('production', safeName)
 
@@ -39,8 +39,40 @@ export async function buildLiveCertZip(certName: string) {
     }
   }
 
+  return { safeName, files }
+}
+
+export async function buildLiveCertZip(certName: string) {
+  const { safeName, files } = await readLiveCertPemBuffers(certName)
   return {
     buffer: createZipStore(files),
     filename: `${safeName}-live.zip`,
+  }
+}
+
+export async function buildLiveCertsBatchZip(certNames?: string[]) {
+  const names = certNames?.length
+    ? certNames.map(name => assertSafeCertName(name))
+    : await listCertNamesInTree('live')
+
+  if (!names.length) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'No production certificates in live/',
+    })
+  }
+
+  const files: Record<string, Buffer> = {}
+  for (const name of names) {
+    const { safeName, files: pems } = await readLiveCertPemBuffers(name)
+    for (const pemName of PEM_NAMES) {
+      files[`${safeName}/${pemName}`] = pems[pemName]!
+    }
+  }
+
+  return {
+    buffer: createZipStore(files),
+    filename: 'live-certificates.zip',
+    certNames: names,
   }
 }

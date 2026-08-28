@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { createZipStore, parseZipStore } from '../runtime/server/utils/zipStore'
+import { createZipStore, groupZipCertFolders, parseZipStore, parseZipStorePaths } from '../runtime/server/utils/zipStore'
 
 describe('zipStore', () => {
   test('round-trips store entries', () => {
@@ -19,5 +19,22 @@ describe('zipStore', () => {
       'live/example.org/fullchain.pem': 'fullchain',
     })
     expect(parseZipStore(zip)['fullchain.pem']?.toString('utf8')).toBe('fullchain')
+  })
+
+  test('groups cert folders for batch upload', () => {
+    const zip = createZipStore({
+      'example.org/cert.pem': 'cert-a',
+      'example.org/privkey.pem': 'key-a',
+      'other.org/cert.pem': 'cert-b',
+    })
+    expect(groupZipCertFolders(parseZipStorePaths(zip))).toEqual({
+      'example.org': {
+        'cert.pem': Buffer.from('cert-a', 'utf8'),
+        'privkey.pem': Buffer.from('key-a', 'utf8'),
+      },
+      'other.org': {
+        'cert.pem': Buffer.from('cert-b', 'utf8'),
+      },
+    })
   })
 })
