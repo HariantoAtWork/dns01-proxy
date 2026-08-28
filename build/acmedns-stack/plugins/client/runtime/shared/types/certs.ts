@@ -4,6 +4,7 @@ export type AcmeRequestStatus = 'pending' | 'running' | 'done' | 'failed'
 
 /** One ACME dns-01 request phase tracked in the job queue. */
 export interface AcmeRequestItem {
+  id: string
   step: number
   label: string
   status: AcmeRequestStatus

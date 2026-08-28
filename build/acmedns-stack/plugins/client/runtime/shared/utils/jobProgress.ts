@@ -1,11 +1,10 @@
 import type { AcmeRequestItem } from '#shared/types/certs'
-import { currentAcmeRequestView } from './acmeIssueSteps'
+import { currentAcmeRequestLabel } from './acmeIssueSteps'
 
 export interface JobProgressParts {
   task?: string
-  request?: string
-  cert?: string
   requestLabel?: string
+  cert?: string
 }
 
 export function jobProgressParts(job: {
@@ -19,10 +18,9 @@ export function jobProgressParts(job: {
     parts.task = `${job.taskIndex ?? 0}/${job.taskTotal}`
   }
 
-  const current = currentAcmeRequestView(job.requests)
-  if (current) {
-    parts.request = `${current.index}/${current.total}`
-    parts.requestLabel = current.label
+  const label = currentAcmeRequestLabel(job.requests)
+  if (label) {
+    parts.requestLabel = label
   }
 
   if (job.currentCert) {
@@ -37,13 +35,13 @@ export function formatJobProgress(job: {
   requests?: AcmeRequestItem[]
   currentCert?: string
 }) {
-  const { task, request, cert, requestLabel } = jobProgressParts(job)
+  const { task, cert, requestLabel } = jobProgressParts(job)
   const segments: string[] = []
   if (task) {
     segments.push(task)
   }
-  if (request) {
-    segments.push(requestLabel ? `${request} ${requestLabel}` : request)
+  if (requestLabel) {
+    segments.push(requestLabel)
   }
   if (cert) {
     segments.push(cert)

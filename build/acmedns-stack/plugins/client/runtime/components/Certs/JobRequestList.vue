@@ -23,12 +23,11 @@ function statusClass(status: AcmeRequestItem['status']) {
 <template>
   <ul class="mt-2 space-y-1 border-t border-rule pt-2">
     <li
-      v-for="(item, index) in requests"
-      :key="`${item.step}-${index}-${item.label}`"
+      v-for="item in requests"
+      :key="item.id"
       class="flex items-start justify-between gap-2"
     >
       <span :class="statusClass(item.status)">
-        {{ index + 1 }}/{{ requests.length }}
         {{ item.label }}
       </span>
       <span class="shrink-0 uppercase tracking-wide" :class="statusClass(item.status)">

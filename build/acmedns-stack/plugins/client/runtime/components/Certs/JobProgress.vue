@@ -18,20 +18,17 @@ const parts = computed(() => jobProgressParts(job))
 
 <template>
   <span
-    v-if="parts.task || parts.request"
+    v-if="parts.task || parts.requestLabel"
     :class="compact
       ? 'font-semibold'
       : 'font-semibold text-signal'"
   >
     <span v-if="parts.task">{{ parts.task }}</span>
-    <span v-if="parts.request">
-      <span v-if="parts.task"> · </span>{{ parts.request }}
-      <span
-        v-if="parts.requestLabel"
-        :class="compact ? 'opacity-80' : 'font-normal text-muted'"
-      >
-        {{ compact ? ` ${parts.requestLabel}` : ` ${parts.requestLabel}` }}
-      </span>
+    <span
+      v-if="parts.requestLabel"
+      :class="compact ? 'opacity-80' : parts.task ? 'font-normal text-muted' : ''"
+    >
+      <span v-if="parts.task"> · </span>{{ parts.requestLabel }}
     </span>
   </span>
   <span v-if="showCert && parts.cert" class="text-muted"> — {{ parts.cert }}</span>
