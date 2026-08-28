@@ -1,6 +1,6 @@
 import type { AcmeRequestItem } from '#shared/types/certs'
 
-/** Fixed ACME dns-01 request phases shown in the job queue (1/5 … 5/5). */
+/** Fixed ACME dns-01 request phases for the running job requests array. */
 export const ACME_REQUEST_STEP_TOTAL = 5
 
 export const ACME_REQUEST_STEPS = {
@@ -46,6 +46,19 @@ export function acmeRequestStepProgress(step: number, label?: string): AcmeReque
   }
 }
 
+function newAcmeRequestItem(
+  step: number,
+  label: string,
+  status: AcmeRequestItem['status'],
+): AcmeRequestItem {
+  return {
+    id: crypto.randomUUID(),
+    step,
+    label,
+    status,
+  }
+}
+
 export function createAcmeRequestPlan(): AcmeRequestItem[] {
   return [
     ACME_REQUEST_STEPS.DNS_PREFLIGHT,
@@ -53,11 +66,7 @@ export function createAcmeRequestPlan(): AcmeRequestItem[] {
     ACME_REQUEST_STEPS.PUBLISH_TXT,
     ACME_REQUEST_STEPS.TXT_ONLINE,
     ACME_REQUEST_STEPS.VALIDATE_SAVE,
-  ].map(step => ({
-    step,
-    label: acmeRequestStepLabel(step),
-    status: 'pending' as const,
-  }))
+  ].map(step => newAcmeRequestItem(step, acmeRequestStepLabel(step), 'pending'))
 }
 
 export function advanceAcmeRequestPlan(
@@ -75,15 +84,11 @@ export function advanceAcmeRequestPlan(
 
   const pendingIdx = next.findIndex(item => item.step === stepIndex && item.status === 'pending')
   if (pendingIdx >= 0) {
-    next[pendingIdx] = { step: stepIndex as AcmeRequestStep, label, status: 'running' }
+    next[pendingIdx] = { ...next[pendingIdx]!, label, status: 'running' }
     return next
   }
 
-  next.push({
-    step: stepIndex as AcmeRequestStep,
-    label,
-    status: 'running',
-  })
+  next.push(newAcmeRequestItem(stepIndex, label, 'running'))
   return next
 }
 
@@ -96,38 +101,19 @@ export function finishAcmeRequestPlan(requests: AcmeRequestItem[]): AcmeRequestI
   })
 }
 
-export function currentAcmeRequestView(requests: AcmeRequestItem[] | undefined) {
+export function currentAcmeRequestLabel(requests: AcmeRequestItem[] | undefined): string | undefined {
   if (!requests?.length) {
     return undefined
   }
 
-  const runningIdx = requests.findIndex(item => item.status === 'running')
-  if (runningIdx >= 0) {
-    return {
-      index: runningIdx + 1,
-      total: requests.length,
-      label: requests[runningIdx]!.label,
-      item: requests[runningIdx]!,
-    }
+  const running = requests.find(item => item.status === 'running')
+  if (running) {
+    return running.label
   }
 
-  const doneCount = requests.filter(item => item.status === 'done').length
-  if (doneCount > 0 && doneCount < requests.length) {
-    return {
-      index: doneCount,
-      total: requests.length,
-      label: requests[doneCount - 1]!.label,
-      item: requests[doneCount - 1]!,
-    }
-  }
-
-  if (doneCount === requests.length) {
-    return {
-      index: requests.length,
-      total: requests.length,
-      label: requests[requests.length - 1]!.label,
-      item: requests[requests.length - 1]!,
-    }
+  const done = requests.filter(item => item.status === 'done')
+  if (done.length > 0) {
+    return done[done.length - 1]!.label
   }
 
   return undefined

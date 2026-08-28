@@ -6,7 +6,7 @@ import {
   acmeRequestStepProgress,
   advanceAcmeRequestPlan,
   createAcmeRequestPlan,
-  currentAcmeRequestView,
+  currentAcmeRequestLabel,
   finishAcmeRequestPlan,
 } from '../runtime/shared/utils/acmeIssueSteps'
 import { formatJobProgress, jobProgressParts } from '../runtime/shared/utils/jobProgress'
@@ -25,15 +25,19 @@ describe('acmeIssueSteps', () => {
     })
   })
 
-  test('creates a pending request plan', () => {
+  test('creates a pending request plan with stable ids', () => {
     const plan = createAcmeRequestPlan()
     expect(plan).toHaveLength(5)
     expect(plan.every(item => item.status === 'pending')).toBe(true)
+    expect(plan.every(item => typeof item.id === 'string' && item.id.length > 0)).toBe(true)
+    expect(new Set(plan.map(item => item.id)).size).toBe(5)
   })
 
   test('advances the plan through running and done states', () => {
     let plan = createAcmeRequestPlan()
+    const firstId = plan[0]!.id
     plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    expect(plan[0]?.id).toBe(firstId)
     expect(plan[0]?.status).toBe('running')
 
     plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
@@ -61,17 +65,13 @@ describe('acmeIssueSteps', () => {
     expect(plan).toHaveLength(6)
     expect(plan[5]?.label).toContain('oib')
     expect(plan[5]?.status).toBe('running')
+    expect(plan[5]?.id).not.toBe(plan[4]?.id)
   })
 
-  test('derives current request view from the array', () => {
+  test('derives current request label from the array', () => {
     let plan = createAcmeRequestPlan()
     plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT example.com')
-    expect(currentAcmeRequestView(plan)).toEqual({
-      index: 3,
-      total: 5,
-      label: 'Publish TXT example.com',
-      item: plan[2],
-    })
+    expect(currentAcmeRequestLabel(plan)).toBe('Publish TXT example.com')
   })
 
   test('labels each step', () => {
@@ -90,7 +90,7 @@ describe('formatJobProgress', () => {
       taskTotal: 5,
       requests,
       currentCert: 'mdstn.com',
-    })).toBe('2/5 · 3/5 Publish TXT · mdstn.com')
+    })).toBe('2/5 · Publish TXT · mdstn.com')
   })
 
   test('omits request progress when the array is empty', () => {
