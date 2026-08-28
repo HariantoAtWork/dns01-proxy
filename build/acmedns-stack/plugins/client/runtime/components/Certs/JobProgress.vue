@@ -1,13 +1,12 @@
 <script setup lang="ts">
+import type { AcmeRequestItem } from '#shared/types/certs'
 import { jobProgressParts } from '#shared/utils/jobProgress'
 
 const { job, showCert = true, compact = false } = defineProps<{
   job: {
     taskIndex?: number
     taskTotal?: number
-    requestIndex?: number
-    requestTotal?: number
-    requestLabel?: string
+    requests?: AcmeRequestItem[]
     currentCert?: string
   }
   showCert?: boolean

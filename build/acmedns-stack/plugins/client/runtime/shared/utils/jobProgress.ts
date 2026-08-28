@@ -1,3 +1,6 @@
+import type { AcmeRequestItem } from '#shared/types/certs'
+import { currentAcmeRequestView } from './acmeIssueSteps'
+
 export interface JobProgressParts {
   task?: string
   request?: string
@@ -8,19 +11,20 @@ export interface JobProgressParts {
 export function jobProgressParts(job: {
   taskIndex?: number
   taskTotal?: number
-  requestIndex?: number
-  requestTotal?: number
-  requestLabel?: string
+  requests?: AcmeRequestItem[]
   currentCert?: string
 }): JobProgressParts {
   const parts: JobProgressParts = {}
   if (job.taskTotal) {
     parts.task = `${job.taskIndex ?? 0}/${job.taskTotal}`
   }
-  if (job.requestTotal && job.requestIndex) {
-    parts.request = `${job.requestIndex}/${job.requestTotal}`
-    parts.requestLabel = job.requestLabel
+
+  const current = currentAcmeRequestView(job.requests)
+  if (current) {
+    parts.request = `${current.index}/${current.total}`
+    parts.requestLabel = current.label
   }
+
   if (job.currentCert) {
     parts.cert = job.currentCert
   }
@@ -30,9 +34,7 @@ export function jobProgressParts(job: {
 export function formatJobProgress(job: {
   taskIndex?: number
   taskTotal?: number
-  requestIndex?: number
-  requestTotal?: number
-  requestLabel?: string
+  requests?: AcmeRequestItem[]
   currentCert?: string
 }) {
   const { task, request, cert, requestLabel } = jobProgressParts(job)
@@ -47,4 +49,17 @@ export function formatJobProgress(job: {
     segments.push(cert)
   }
   return segments.join(' · ')
+}
+
+export function acmeRequestStatusLabel(status: AcmeRequestItem['status']) {
+  switch (status) {
+    case 'done':
+      return 'Done'
+    case 'running':
+      return 'Running'
+    case 'failed':
+      return 'Failed'
+    default:
+      return 'Pending'
+  }
 }

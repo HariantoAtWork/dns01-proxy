@@ -20,8 +20,10 @@ import {
   jobCancelledError,
   setPumping,
   setRunning,
-  setRunningJobRequest,
-  clearRunningJobRequest,
+  initRunningJobRequests,
+  trackRunningJobRequest,
+  completeRunningJobRequests,
+  clearRunningJobRequests,
   type InternalJob,
   type JobSource,
   waiting,
@@ -194,7 +196,8 @@ export async function executeApplyCertificates(options: {
       })
     }
 
-    setRunningJobRequest(ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    initRunningJobRequests()
+    trackRunningJobRequest(ACME_REQUEST_STEPS.DNS_PREFLIGHT)
     const preflight = await dnsPreflightForLine(line)
     if (!preflight.ok && !options.force) {
       const result: CertApplyResult = {
@@ -237,8 +240,9 @@ export async function executeApplyCertificates(options: {
         certName: line.certName,
         altNames: line.expanded,
         signal: certIssueSignal(options.abortSignal),
-        onRequestStep: ({ index, label }) => setRunningJobRequest(index, label),
+        onRequestStep: ({ index, label }) => trackRunningJobRequest(index, label),
       })
+      completeRunningJobRequests()
       const after = await readCertMeta(options.mode, line.certName)
       const result: CertApplyResult = {
         certName: line.certName,
@@ -351,7 +355,7 @@ export function finishCancelledJob(job: InternalJob) {
   job.status = 'cancelled'
   job.finishedAt = new Date().toISOString()
   job.currentCert = undefined
-  clearRunningJobRequest()
+  clearRunningJobRequests()
   cancelled.push(job)
   appendCertActivity({
     source: job.source,
@@ -406,9 +410,7 @@ export async function pumpQueue() {
         job.taskIndex = taskIndex
         job.taskTotal = taskTotal
         if (certName) {
-          job.requestIndex = undefined
-          job.requestTotal = undefined
-          job.requestLabel = undefined
+          job.requests = undefined
         }
       },
       shouldCancel: () => Boolean(job.cancelRequested),

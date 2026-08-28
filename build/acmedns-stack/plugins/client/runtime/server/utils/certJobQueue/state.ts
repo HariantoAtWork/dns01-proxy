@@ -1,13 +1,15 @@
 import type {
   CertApplyResult,
+  AcmeRequestItem,
   CertJobQueueItem,
   CertJobQueueSnapshot,
   CertJobStatus,
   LetsEncryptDirectoryMode,
 } from '#shared/types/certs'
 import {
-  ACME_REQUEST_STEP_TOTAL,
-  acmeRequestStepLabel,
+  advanceAcmeRequestPlan,
+  createAcmeRequestPlan,
+  finishAcmeRequestPlan,
 } from '../../../shared/utils/acmeIssueSteps'
 import { publishCertLive } from '../certLiveBus'
 
@@ -24,9 +26,7 @@ export interface InternalJob {
   currentCert?: string
   taskIndex?: number
   taskTotal?: number
-  requestIndex?: number
-  requestTotal?: number
-  requestLabel?: string
+  requests?: AcmeRequestItem[]
   certNames?: string[]
   force?: boolean
   renewOnly?: boolean
@@ -90,9 +90,7 @@ export function toPublic(job: InternalJob): CertJobQueueItem {
     currentCert: job.currentCert,
     taskIndex: job.taskIndex,
     taskTotal: job.taskTotal,
-    requestIndex: job.requestIndex,
-    requestTotal: job.requestTotal,
-    requestLabel: job.requestLabel,
+    requests: job.requests,
     completedCount: job.results?.length ?? 0,
     certNames: job.certNames,
     force: job.force,
@@ -145,29 +143,40 @@ export function certJobStatus(): CertJobStatus {
     currentCert: running.currentCert,
     taskIndex: running.taskIndex,
     taskTotal: running.taskTotal,
-    requestIndex: running.requestIndex,
-    requestTotal: running.requestTotal,
-    requestLabel: running.requestLabel,
+    requests: running.requests,
     queueLength: waiting.length,
   }
 }
 
-export function clearRunningJobRequest() {
+export function clearRunningJobRequests() {
   if (!running) {
     return
   }
-  running.requestIndex = undefined
-  running.requestTotal = undefined
-  running.requestLabel = undefined
+  running.requests = undefined
 }
 
-export function setRunningJobRequest(stepIndex: number, stepLabel?: string) {
+export function initRunningJobRequests() {
   if (!running) {
     return
   }
-  running.requestIndex = stepIndex
-  running.requestTotal = ACME_REQUEST_STEP_TOTAL
-  running.requestLabel = stepLabel ?? acmeRequestStepLabel(stepIndex)
+  running.requests = createAcmeRequestPlan()
+  emitQueue()
+}
+
+export function trackRunningJobRequest(stepIndex: number, stepLabel?: string) {
+  if (!running) {
+    return
+  }
+  const base = running.requests?.length ? running.requests : createAcmeRequestPlan()
+  running.requests = advanceAcmeRequestPlan(base, stepIndex, stepLabel)
+  emitQueue()
+}
+
+export function completeRunningJobRequests() {
+  if (!running?.requests?.length) {
+    return
+  }
+  running.requests = finishAcmeRequestPlan(running.requests)
   emitQueue()
 }
 
