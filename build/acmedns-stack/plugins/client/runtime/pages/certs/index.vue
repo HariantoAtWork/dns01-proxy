@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CertActivityEntry, DomainsDnsCheck, LetsEncryptDirectoryMode } from '#shared/types/certs'
+import type { CertActivityEntry, DomainsDnsCheck, LetsEncryptDirectoryMode, CertBatchUploadPreview } from '#shared/types/certs'
 import {
   certInFlightOrQueued,
   formatTime,
@@ -49,6 +49,7 @@ const {
   downloadCertsBatch,
   uploadCert,
   uploadCertsBatch,
+  previewCertsBatch,
   trashCert,
   cancelJob,
   resumeJob,
@@ -85,9 +86,10 @@ const downloadPending = ref<string | null>(null)
 const uploadPending = ref<string | null>(null)
 const batchDownloadPending = ref(false)
 const batchUploadPending = ref(false)
+const batchUploadModalOpen = ref(false)
+const batchUploadPreview = ref<CertBatchUploadPreview | null>(null)
 const uploadTarget = ref<string | null>(null)
 const uploadConfirmOpen = ref(false)
-const batchUploadConfirmOpen = ref(false)
 const pendingUploadFile = ref<File | null>(null)
 const pendingBatchUploadFile = ref<File | null>(null)
 const certZipInput = useTemplateRef<HTMLInputElement>('cert-zip-input')
@@ -395,25 +397,17 @@ function onBatchUploadRequest() {
   certBatchZipInput.value?.click()
 }
 
-async function performBatchUpload(file: File, overwrite: boolean) {
+async function performBatchUpload(file: File, overwrite: string[]) {
   batchUploadPending.value = true
   try {
     const result = await uploadCertsBatch(file, overwrite)
     await loadStatus()
-    const count = result.imported?.length ?? 0
-    toasts.ok(result.message || `Imported ${count} certificate(s)`, 'Certificates')
+    toasts.ok(result.message || `Imported ${result.imported?.length ?? 0} certificate(s)`, 'Certificates')
+    batchUploadModalOpen.value = false
+    batchUploadPreview.value = null
+    pendingBatchUploadFile.value = null
   }
   catch (caught) {
-    if (
-      caught
-      && typeof caught === 'object'
-      && 'needsOverwrite' in caught
-      && (caught as { needsOverwrite?: boolean }).needsOverwrite
-    ) {
-      pendingBatchUploadFile.value = file
-      batchUploadConfirmOpen.value = true
-      return
-    }
     toasts.error(caught instanceof Error ? caught.message : 'Batch upload failed')
   }
   finally {
@@ -434,29 +428,37 @@ async function onBatchZipSelected(event: Event) {
     return
   }
 
-  const hasLive = statusEntries.value.some(entry => entry.liveOnDisk)
-  if (hasLive) {
-    pendingBatchUploadFile.value = file
-    batchUploadConfirmOpen.value = true
-    return
-  }
+  batchUploadPending.value = true
+  try {
+    const preview = await previewCertsBatch(file)
+    if (!preview.conflicts.length) {
+      await performBatchUpload(file, [])
+      return
+    }
 
-  await performBatchUpload(file, false)
+    pendingBatchUploadFile.value = file
+    batchUploadPreview.value = preview
+    batchUploadModalOpen.value = true
+  }
+  catch (caught) {
+    toasts.error(caught instanceof Error ? caught.message : 'Could not read ZIP')
+  }
+  finally {
+    batchUploadPending.value = false
+  }
 }
 
-async function confirmBatchUpload() {
+async function onBatchUploadConfirm(overwrite: string[]) {
   const file = pendingBatchUploadFile.value
-  batchUploadConfirmOpen.value = false
-  pendingBatchUploadFile.value = null
   if (!file) {
     return
   }
-
-  await performBatchUpload(file, true)
+  await performBatchUpload(file, overwrite)
 }
 
-function cancelBatchUpload() {
-  batchUploadConfirmOpen.value = false
+function onBatchUploadCancel() {
+  batchUploadModalOpen.value = false
+  batchUploadPreview.value = null
   pendingBatchUploadFile.value = null
 }
 
@@ -680,19 +682,12 @@ async function onJobAction(action: JobQueueAction, id: number) {
       </p>
     </UiConfirmDialog>
 
-    <UiConfirmDialog
-      v-model:open="batchUploadConfirmOpen"
-      title="Replace live certificates?"
-      confirm-label="Replace"
-      cancel-label="Cancel"
-      danger
-      @confirm="confirmBatchUpload"
-      @cancel="cancelBatchUpload"
-    >
-      <p>
-        Import every certificate folder from the uploaded ZIP into <span class="font-mono text-ink">live/</span>.
-        Existing PEMs are copied to last-saved before overwrite.
-      </p>
-    </UiConfirmDialog>
+    <CertsBatchUploadModal
+      v-model:open="batchUploadModalOpen"
+      :preview="batchUploadPreview"
+      :pending="batchUploadPending"
+      @confirm="onBatchUploadConfirm"
+      @cancel="onBatchUploadCancel"
+    />
   </div>
 </template>

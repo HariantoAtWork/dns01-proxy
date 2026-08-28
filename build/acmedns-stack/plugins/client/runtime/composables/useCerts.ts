@@ -13,6 +13,7 @@ import type {
   CertStatusEntry,
   CertUploadResult,
   CertBatchUploadResult,
+  CertBatchUploadPreview,
   DomainsParseResult,
   DomainsDnsCheck,
   LetsEncryptDirectoryMode,
@@ -343,18 +344,18 @@ export function useCerts() {
     return body
   }
 
-  async function uploadCertsBatch(file: File, overwrite = false): Promise<CertBatchUploadResult> {
+  async function uploadCertsBatch(file: File, overwrite: string[] = []): Promise<CertBatchUploadResult> {
     const form = new FormData()
     form.append('file', file, file.name)
+    if (overwrite.length) {
+      form.append('overwrite', JSON.stringify(overwrite))
+    }
 
-    const response = await fetch(
-      `/api/certs/upload/batch?overwrite=${overwrite ? '1' : '0'}`,
-      {
-        method: 'POST',
-        body: form,
-        credentials: 'same-origin',
-      },
-    )
+    const response = await fetch('/api/certs/upload/batch', {
+      method: 'POST',
+      body: form,
+      credentials: 'same-origin',
+    })
 
     let body: CertBatchUploadResult & { statusMessage?: string } = {
       success: false,
@@ -372,13 +373,35 @@ export function useCerts() {
     }
 
     if (!body.success) {
-      throw Object.assign(new Error(body.message || 'Batch upload failed'), {
-        needsOverwrite: body.needsOverwrite,
-        conflicts: body.conflicts,
-      })
+      throw new Error(body.message || 'Batch upload failed')
     }
 
     return body
+  }
+
+  async function previewCertsBatch(file: File): Promise<CertBatchUploadPreview> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+
+    const response = await fetch('/api/certs/upload/batch/preview', {
+      method: 'POST',
+      body: form,
+      credentials: 'same-origin',
+    })
+
+    if (!response.ok) {
+      let message = 'Could not read ZIP'
+      try {
+        const body = await response.json() as { message?: string, statusMessage?: string }
+        message = body.message || body.statusMessage || message
+      }
+      catch {
+        // Keep the generic message when the error body is not JSON.
+      }
+      throw new Error(message)
+    }
+
+    return await response.json() as CertBatchUploadPreview
   }
 
   async function trashCert(certName: string, fromTree: 'live' | 'staging' = 'live') {
@@ -527,6 +550,7 @@ export function useCerts() {
     downloadCertsBatch,
     uploadCert,
     uploadCertsBatch,
+    previewCertsBatch,
     trashCert,
     restoreTrash,
     permanentDelete,
