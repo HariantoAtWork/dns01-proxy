@@ -2,11 +2,13 @@ import { join } from 'node:path'
 import { promises as fs } from 'node:fs'
 import acme from 'acme-client'
 import type { LetsEncryptDirectoryMode } from '#shared/types/certs'
-import { findAccount } from '#shared/utils/domains'
+import { findAccount, apexName } from '#shared/utils/domains'
+import { challengeHost } from '#shared/utils/challengeDns'
 import { tinyApexLabel } from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { readStorage } from './storage'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
+import { waitForChallengeTxtOnline } from './challengeTxtOnline'
 import { accountsDir, getLetsEncryptEmail } from './certSettings'
 import { writeLivePems } from './letsencryptFs'
 import { snapshotCertToLastSaved } from './certLastSaved'
@@ -171,9 +173,17 @@ export async function issueCertificate(options: {
 
             throwIfAborted(signal)
 
+            const challengeName = challengeHost(apexName(domain))
+            await waitForChallengeTxtOnline({
+              challengeName,
+              expectedTxt: keyAuthorization,
+              certName: options.certName,
+              signal,
+            })
+
             logAcmeStep(
               options.certName,
-              `acme-dns TXT published for ${domain}; waiting for Let's Encrypt validation`,
+              `dns-01 TXT ready for ${domain}; telling Let's Encrypt to validate`,
             )
           },
           challengeRemoveFn: async () => {
