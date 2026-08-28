@@ -32,6 +32,8 @@ export interface DomainsDnsCheck {
   actual?: string
   status: DomainsDnsCheckStatus
   accountKey?: string
+  /** acme-dns API base for this check's account (e.g. https://auth.acme-dns.io). */
+  serverUrl?: string
   message?: string
 }
 

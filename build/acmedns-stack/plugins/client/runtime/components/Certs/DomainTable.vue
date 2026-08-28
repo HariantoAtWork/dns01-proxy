@@ -255,6 +255,12 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
                 <dd class="min-w-0">
                   <UiCopyable :value="check.expected" label="Content" />
                 </dd>
+                <template v-if="check.serverUrl">
+                  <dt class="text-[10px] uppercase tracking-wide text-muted">Server URL</dt>
+                  <dd class="min-w-0">
+                    <UiCopyable :value="check.serverUrl" label="Server URL" />
+                  </dd>
+                </template>
               </dl>
               <p
                 v-else-if="!dnsCheckNeedsCopy(check.status)"

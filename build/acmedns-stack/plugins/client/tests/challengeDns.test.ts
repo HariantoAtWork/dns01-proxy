@@ -70,6 +70,7 @@ describe('challengeDns', () => {
       name: `${CHALLENGE_LABEL}.mdstn.com`,
       expected: LOCAL.fulldomain,
       status: 'pending',
+      serverUrl: 'https://auth.uti.email',
     })
     expect(checks.find(c => c.zone === 'oib.mdstn.com')).toMatchObject({
       name: `${CHALLENGE_LABEL}.oib.mdstn.com`,
@@ -96,6 +97,31 @@ describe('challengeDns', () => {
       status: 'no_account',
       message: 'No acme-dns account for example.com',
     }])
+  })
+
+  test('derives fulldomain and server URL from external server_url', () => {
+    const external = {
+      username: 'u',
+      password: 'p',
+      subdomain: 'uuid-public',
+      fulldomain: 'uuid-public.auth.acme-dns.io',
+      server_url: 'https://auth.acme-dns.io/',
+    }
+    const checks = collectChallengeChecks([
+      {
+        line: 1,
+        names: ['other.org'],
+        certName: 'other.org',
+        expanded: ['other.org'],
+        raw: 'other.org',
+      },
+    ], { 'other.org': external })
+
+    expect(checks).toHaveLength(1)
+    expect(checks[0]).toMatchObject({
+      expected: 'uuid-public.auth.acme-dns.io',
+      serverUrl: 'https://auth.acme-dns.io',
+    })
   })
 
   test('shared mode targets encoded apex label under auth zone', () => {

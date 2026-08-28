@@ -53,7 +53,9 @@ watch(status, (value) => {
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0">
         <h1 class="text-2xl font-semibold tracking-tight">{{ entry.domain }}</h1>
-        <p class="mt-1 font-mono text-sm text-muted">{{ entry.details.server_url }}</p>
+        <p class="mt-1 font-mono text-sm text-muted">
+          <UiCopyable inline :value="entry.details.server_url" label="Server URL" />
+        </p>
       </div>
       <div class="flex flex-wrap gap-2">
         <UiButton @click="validate">
