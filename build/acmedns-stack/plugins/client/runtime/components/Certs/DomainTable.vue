@@ -78,7 +78,15 @@ const emit = defineEmits<{
   'update:actionsMenuOpen': [certName: string | null]
 }>()
 
+const statusActionsOpen = ref(false)
 const liveOnDiskCount = computed(() => statusEntries.filter(entry => entry.liveOnDisk).length)
+
+function showActionsMenu(entry: CertStatusEntry) {
+  return entry.tree !== 'none'
+    || canIssueCert(entry)
+    || entry.inDomainsFile
+    || entry.liveOnDisk
+}
 
 function setActionsMenuOpen(certName: string, open: boolean) {
   emit('update:actionsMenuOpen', open ? certName : (actionsMenuOpen === certName ? null : actionsMenuOpen))
@@ -299,31 +307,50 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
         </h2>
         <p class="mt-1 text-xs text-muted">
           Issue queues one Let's Encrypt job per apex; click several in a row and they run one after another.
-          Force Issue is in the ⋮ menu.
+          Download, Upload, and Force Issue are in the ⋮ menu.
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <UiButton
-          variant="ghost"
-          size="sm"
-          title="Download all production PEMs from live/ as one ZIP"
-          :disabled="pending || certJob.running || batchDownloadPending || !liveOnDiskCount"
-          @click="emit('batch-download')"
-        >
-          <Download :size="14" weight="regular" aria-hidden="true" />
-          {{ batchDownloadPending ? 'Downloading…' : 'Download all' }}
-        </UiButton>
-        <UiButton
-          variant="ghost"
-          size="sm"
-          title="Upload a batch ZIP with cert folders (example.org/cert.pem, …)"
-          :disabled="pending || certJob.running || batchUploadPending"
-          @click="emit('batch-upload')"
-        >
-          <Upload :size="14" weight="regular" aria-hidden="true" />
-          {{ batchUploadPending ? 'Uploading…' : 'Upload ZIP' }}
-        </UiButton>
-      </div>
+      <UiMenu v-model:open="statusActionsOpen" align="right">
+        <template #trigger="{ open, toggle, panelId }">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-[6px] border border-rule px-2.5 py-1 text-xs text-ink transition-colors hover:bg-paper"
+            :class="open && 'bg-paper'"
+            :aria-expanded="open"
+            aria-haspopup="menu"
+            :aria-controls="panelId"
+            aria-label="Certificate actions"
+            title="Certificate actions"
+            :disabled="pending || certJob.running"
+            @click="toggle()"
+          >
+            <Actions :size="14" weight="regular" aria-hidden="true" />
+            Actions
+          </button>
+        </template>
+        <template #default="{ close }">
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+            :disabled="batchDownloadPending || !liveOnDiskCount"
+            @click="close(); emit('batch-download')"
+          >
+            <Download :size="16" weight="regular" aria-hidden="true" />
+            {{ batchDownloadPending ? 'Downloading…' : 'Download all' }}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+            :disabled="batchUploadPending"
+            @click="close(); emit('batch-upload')"
+          >
+            <Upload :size="16" weight="regular" aria-hidden="true" />
+            {{ batchUploadPending ? 'Uploading…' : 'Upload ZIP' }}
+          </button>
+        </template>
+      </UiMenu>
     </div>
     <div v-if="!statusEntries.length" class="mt-3 text-sm text-muted">
       No certificates indexed yet.
@@ -373,30 +400,8 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
             <Lightning :size="14" weight="regular" aria-hidden="true" />
             {{ issuingCerts.includes(entry.certName) ? 'Queuing…' : (isCertInFlightOrQueued(entry.certName) ? 'Queued' : 'Issue') }}
           </UiButton>
-          <UiButton
-            v-if="entry.inDomainsFile"
-            variant="ghost"
-            size="sm"
-            title="Upload production PEMs to live/ (ZIP export from Download)"
-            :disabled="pending || certJob.running || uploadPending === entry.certName"
-            @click="emit('upload', entry.certName)"
-          >
-            <Upload :size="14" weight="regular" aria-hidden="true" />
-            {{ uploadPending === entry.certName ? 'Uploading…' : 'Upload' }}
-          </UiButton>
-          <UiButton
-            v-if="entry.liveOnDisk"
-            variant="ghost"
-            size="sm"
-            title="Download production PEMs from live/"
-            :disabled="pending || certJob.running || downloadPending === entry.certName"
-            @click="emit('download', entry.certName)"
-          >
-            <Download :size="14" weight="regular" aria-hidden="true" />
-            {{ downloadPending === entry.certName ? 'Downloading…' : 'Download' }}
-          </UiButton>
           <UiMenu
-            v-if="entry.tree !== 'none' || canIssueCert(entry)"
+            v-if="showActionsMenu(entry)"
             :open="actionsMenuOpen === entry.certName"
             align="right"
             @update:open="setActionsMenuOpen(entry.certName, $event)"
@@ -418,6 +423,28 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
               </button>
             </template>
             <template #default="{ close }">
+              <button
+                v-if="entry.liveOnDisk"
+                type="button"
+                role="menuitem"
+                class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+                :disabled="downloadPending === entry.certName"
+                @click="close(); emit('download', entry.certName)"
+              >
+                <Download :size="16" weight="regular" aria-hidden="true" />
+                {{ downloadPending === entry.certName ? 'Downloading…' : 'Download' }}
+              </button>
+              <button
+                v-if="entry.inDomainsFile"
+                type="button"
+                role="menuitem"
+                class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+                :disabled="uploadPending === entry.certName"
+                @click="close(); emit('upload', entry.certName)"
+              >
+                <Upload :size="16" weight="regular" aria-hidden="true" />
+                {{ uploadPending === entry.certName ? 'Uploading…' : 'Upload' }}
+              </button>
               <button
                 v-if="canIssueCert(entry)"
                 type="button"
