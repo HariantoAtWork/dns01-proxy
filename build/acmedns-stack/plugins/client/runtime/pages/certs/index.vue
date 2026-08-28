@@ -69,8 +69,6 @@ const {
   clearPageHooks,
 } = useCertQueueLive()
 
-useCertBatchSummaryCapture()
-
 const dirty = ref(false)
 const loaded = ref(false)
 const logFilter = ref<'all' | 'acme' | 'live' | 'staging'>('acme')

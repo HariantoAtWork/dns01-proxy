@@ -20,24 +20,23 @@ const emit = defineEmits<{
 
 <template>
   <details
-    class="ui-disclosure group border border-rule bg-panel"
-    style="border-radius: var(--radius-panel)"
+    class="ui-disclosure group rounded-[6px] border border-rule text-ink"
     :open="open || undefined"
   >
     <summary
-      class="flex cursor-pointer list-none items-center gap-2 px-1 py-1 marker:content-none md:gap-3 md:px-4 md:py-3 [&::-webkit-details-marker]:hidden"
+      class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 marker:content-none [&::-webkit-details-marker]:hidden"
     >
       <CaretDown
-        :size="16"
+        :size="14"
         weight="bold"
         class="shrink-0 text-muted transition-transform group-open:rotate-180"
         aria-hidden="true"
       />
       <div class="min-w-0 flex-1">
-        <p class="text-sm font-medium text-ink">
+        <p class="font-medium text-ink">
           {{ formatTime(summary.executedAt) }}
         </p>
-        <p class="truncate font-mono text-[11px] text-muted">
+        <p class="truncate text-muted">
           {{ certBatchSummaryTitle(summary) }}
         </p>
       </div>
@@ -54,23 +53,24 @@ const emit = defineEmits<{
         aria-label="Delete summary"
         @click.stop.prevent="emit('delete')"
       >
-        <Trash :size="14" weight="regular" aria-hidden="true" />
+        <Trash :size="12" weight="regular" aria-hidden="true" />
       </UiButton>
     </summary>
-    <div class="space-y-3 border-t border-rule px-1 py-1 md:space-y-4 md:px-4 md:py-4">
-      <p v-if="summary.error" class="text-xs text-danger">
+    <div class="space-y-2 border-t border-rule px-3 py-2">
+      <p v-if="summary.error" class="text-danger">
         {{ summary.error }}
       </p>
-      <p class="font-mono text-[11px] text-muted">
+      <p class="text-muted">
         Job {{ summary.jobId }}
         <span v-if="summary.force"> · Force Apply</span>
         <span v-if="summary.taskTotal"> · {{ summary.taskTotal }} cert(s)</span>
       </p>
       <CertsJobTaskList
         v-if="summary.tasks.length"
+        compact
         :tasks="summary.tasks"
       />
-      <p v-else class="text-xs text-muted">
+      <p v-else class="text-muted">
         No certificate task details were captured for this batch.
       </p>
     </div>

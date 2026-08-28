@@ -4,6 +4,7 @@ import { certJobTaskStatusLabel } from '#shared/utils/jobProgress'
 
 defineProps<{
   tasks: CertJobTask[]
+  compact?: boolean
 }>()
 
 function taskStatusClass(status: CertJobTask['status']) {
@@ -23,23 +24,22 @@ function taskStatusClass(status: CertJobTask['status']) {
 </script>
 
 <template>
-  <ul class="mt-2 w-full space-y-2 border-t border-rule pt-2">
+  <ul
+    class="w-full space-y-2"
+    :class="compact
+      ? 'border-0 pt-0'
+      : 'mt-2 border-t border-rule pt-2'"
+  >
     <li
       v-for="task in tasks"
       :key="task.id"
       class="space-y-1"
     >
-      <div class="flex items-start justify-between gap-2">
-        <span :class="taskStatusClass(task.status)">
-          {{ task.certName }}
-        </span>
-        <span
-          class="shrink-0 uppercase tracking-wide"
-          :class="taskStatusClass(task.status)"
-        >
-          {{ certJobTaskStatusLabel(task.status) }}
-        </span>
-      </div>
+      <CertsStepLeaderRow
+        :label="task.certName"
+        :status="certJobTaskStatusLabel(task.status)"
+        :status-class="taskStatusClass(task.status)"
+      />
       <p
         v-if="task.message"
         class="text-[10px] text-muted"
