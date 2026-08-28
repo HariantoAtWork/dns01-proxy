@@ -17,13 +17,24 @@ mock.module('../runtime/server/utils/certLastSaved', () => ({
   snapshotCertToLastSaved: async () => {},
 }))
 
-function makeZip() {
+function makeZip(certName = 'example.org') {
   return createZipStore({
     'cert.pem': CERT,
     'chain.pem': CHAIN,
     'fullchain.pem': FULLCHAIN,
     'privkey.pem': KEY,
   })
+}
+
+function makeBatchZip(certNames: string[]) {
+  const files: Record<string, string> = {}
+  for (const certName of certNames) {
+    files[`${certName}/cert.pem`] = CERT
+    files[`${certName}/chain.pem`] = CHAIN
+    files[`${certName}/fullchain.pem`] = FULLCHAIN
+    files[`${certName}/privkey.pem`] = KEY
+  }
+  return createZipStore(files)
 }
 
 beforeEach(() => {
@@ -64,5 +75,19 @@ describe('importLiveCertZip', () => {
 
     const replaced = await importLiveCertZip('example.org', makeZip(), { overwrite: true })
     expect(replaced).toMatchObject({ success: true })
+  })
+
+  test('imports multiple cert folders from batch zip', async () => {
+    const { importLiveCertsBatchZip } = await import('../runtime/server/utils/certUpload')
+    const { readPem } = await import('../runtime/server/utils/letsencryptFs')
+
+    const result = await importLiveCertsBatchZip(makeBatchZip(['example.org', 'other.org']))
+    expect(result).toMatchObject({
+      success: true,
+      imported: ['example.org', 'other.org'],
+    })
+
+    const other = await readPem(join(tempRoot, 'letsencrypt/live/other.org/privkey.pem'))
+    expect(other).toBe(KEY)
   })
 })

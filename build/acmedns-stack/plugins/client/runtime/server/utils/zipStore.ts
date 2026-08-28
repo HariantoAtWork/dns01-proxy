@@ -85,16 +85,57 @@ const CENTRAL_SIGNATURE = 0x02014B50
 const LOCAL_SIGNATURE = 0x04034B50
 
 function basenameFromZipPath(name: string) {
-  const normalized = name.replace(/\\/g, '/')
+  const normalized = normalizeZipPath(name)
   const base = normalized.split('/').pop() || ''
-  if (!base || base === '.' || base === '..' || normalized.includes('..')) {
+  if (!base || base === '.' || base === '..') {
     return ''
   }
   return base
 }
 
-/** Read an uncompressed (store) ZIP — same format as createZipStore. */
-export function parseZipStore(buffer: Buffer): Record<string, Buffer> {
+function normalizeZipPath(name: string) {
+  return name.replace(/\\/g, '/').replace(/^\/+/, '')
+}
+
+function isSafeZipPath(path: string) {
+  const normalized = normalizeZipPath(path)
+  if (!normalized || normalized.includes('..')) {
+    return false
+  }
+  return normalized.split('/').every(part => part && part !== '.' && part !== '..')
+}
+
+function readZipEntryData(
+  buffer: Buffer,
+  entryName: string,
+  method: number,
+  compressedSize: number,
+  localOffset: number,
+) {
+  if (method !== 0) {
+    throw new Error(
+      `ZIP entry "${entryName}" is compressed; upload an uncompressed export (use Download from this UI)`,
+    )
+  }
+
+  if (buffer.readUInt32LE(localOffset) !== LOCAL_SIGNATURE) {
+    throw new Error(`Invalid ZIP local header for ${entryName}`)
+  }
+
+  const localNameLength = buffer.readUInt16LE(localOffset + 26)
+  const localExtraLength = buffer.readUInt16LE(localOffset + 28)
+  const dataStart = localOffset + 30 + localNameLength + localExtraLength
+  const dataEnd = dataStart + compressedSize
+
+  if (dataEnd > buffer.length) {
+    throw new Error(`ZIP entry "${entryName}" is truncated`)
+  }
+
+  return Buffer.from(buffer.subarray(dataStart, dataEnd))
+}
+
+/** Read an uncompressed (store) ZIP keyed by full entry path. */
+export function parseZipStorePaths(buffer: Buffer): Record<string, Buffer> {
   if (buffer.length < 22) {
     throw new Error('ZIP file is too small')
   }
@@ -131,31 +172,46 @@ export function parseZipStore(buffer: Buffer): Record<string, Buffer> {
     const entryName = buffer.subarray(position + 46, position + 46 + nameLength).toString('utf8')
     position += 46 + nameLength + extraLength + commentLength
 
-    const baseName = basenameFromZipPath(entryName)
-    if (!baseName) {
+    const normalized = normalizeZipPath(entryName)
+    if (!isSafeZipPath(normalized)) {
       continue
     }
 
-    if (method !== 0) {
-      throw new Error(
-        `ZIP entry "${entryName}" is compressed; upload an uncompressed export (use Download from this UI)`,
-      )
+    files[normalized] = readZipEntryData(buffer, entryName, method, compressedSize, localOffset)
+  }
+
+  return files
+}
+
+/** Group batch ZIP paths as `{ certName: { pemName: data } }`. */
+export function groupZipCertFolders(paths: Record<string, Buffer>) {
+  const folders: Record<string, Record<string, Buffer>> = {}
+
+  for (const [path, data] of Object.entries(paths)) {
+    const parts = normalizeZipPath(path).split('/').filter(Boolean)
+    if (parts.length < 2) {
+      continue
     }
 
-    if (buffer.readUInt32LE(localOffset) !== LOCAL_SIGNATURE) {
-      throw new Error(`Invalid ZIP local header for ${entryName}`)
+    const certName = parts[0]!
+    const pemName = parts[parts.length - 1]!
+    folders[certName] ??= {}
+    folders[certName][pemName] = data
+  }
+
+  return folders
+}
+
+/** Read an uncompressed (store) ZIP — flat map by PEM basename (single-cert exports). */
+export function parseZipStore(buffer: Buffer): Record<string, Buffer> {
+  const paths = parseZipStorePaths(buffer)
+  const files: Record<string, Buffer> = {}
+
+  for (const [path, data] of Object.entries(paths)) {
+    const baseName = basenameFromZipPath(path)
+    if (baseName) {
+      files[baseName] = data
     }
-
-    const localNameLength = buffer.readUInt16LE(localOffset + 26)
-    const localExtraLength = buffer.readUInt16LE(localOffset + 28)
-    const dataStart = localOffset + 30 + localNameLength + localExtraLength
-    const dataEnd = dataStart + compressedSize
-
-    if (dataEnd > buffer.length) {
-      throw new Error(`ZIP entry "${entryName}" is truncated`)
-    }
-
-    files[baseName] = Buffer.from(buffer.subarray(dataStart, dataEnd))
   }
 
   return files

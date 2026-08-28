@@ -46,7 +46,9 @@ const {
   refresh,
   apply,
   downloadCert,
+  downloadCertsBatch,
   uploadCert,
+  uploadCertsBatch,
   trashCert,
   cancelJob,
   resumeJob,
@@ -81,10 +83,15 @@ const activeRateLimits = computed(() =>
 const dnsRecheckPending = ref(false)
 const downloadPending = ref<string | null>(null)
 const uploadPending = ref<string | null>(null)
+const batchDownloadPending = ref(false)
+const batchUploadPending = ref(false)
 const uploadTarget = ref<string | null>(null)
 const uploadConfirmOpen = ref(false)
+const batchUploadConfirmOpen = ref(false)
 const pendingUploadFile = ref<File | null>(null)
+const pendingBatchUploadFile = ref<File | null>(null)
 const certZipInput = useTemplateRef<HTMLInputElement>('cert-zip-input')
+const certBatchZipInput = useTemplateRef<HTMLInputElement>('cert-batch-zip-input')
 const issuingCerts = ref<string[]>([])
 const actionsMenuOpen = ref<string | null>(null)
 const trashConfirmName = ref<string | null>(null)
@@ -293,6 +300,20 @@ async function onDownload(certName: string) {
   }
 }
 
+async function onBatchDownload() {
+  batchDownloadPending.value = true
+  try {
+    await downloadCertsBatch()
+    toasts.ok('Downloaded live-certificates.zip', 'Certificates')
+  }
+  catch (caught) {
+    toasts.error(caught instanceof Error ? caught.message : 'Batch download failed')
+  }
+  finally {
+    batchDownloadPending.value = false
+  }
+}
+
 function onUploadRequest(certName: string) {
   uploadTarget.value = certName
   certZipInput.value?.click()
@@ -368,6 +389,75 @@ function cancelCertUpload() {
   uploadConfirmOpen.value = false
   pendingUploadFile.value = null
   uploadTarget.value = null
+}
+
+function onBatchUploadRequest() {
+  certBatchZipInput.value?.click()
+}
+
+async function performBatchUpload(file: File, overwrite: boolean) {
+  batchUploadPending.value = true
+  try {
+    const result = await uploadCertsBatch(file, overwrite)
+    await loadStatus()
+    const count = result.imported?.length ?? 0
+    toasts.ok(result.message || `Imported ${count} certificate(s)`, 'Certificates')
+  }
+  catch (caught) {
+    if (
+      caught
+      && typeof caught === 'object'
+      && 'needsOverwrite' in caught
+      && (caught as { needsOverwrite?: boolean }).needsOverwrite
+    ) {
+      pendingBatchUploadFile.value = file
+      batchUploadConfirmOpen.value = true
+      return
+    }
+    toasts.error(caught instanceof Error ? caught.message : 'Batch upload failed')
+  }
+  finally {
+    batchUploadPending.value = false
+  }
+}
+
+async function onBatchZipSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) {
+    return
+  }
+
+  if (!file.name.toLowerCase().endsWith('.zip')) {
+    toasts.error('Choose a .zip file')
+    return
+  }
+
+  const hasLive = statusEntries.value.some(entry => entry.liveOnDisk)
+  if (hasLive) {
+    pendingBatchUploadFile.value = file
+    batchUploadConfirmOpen.value = true
+    return
+  }
+
+  await performBatchUpload(file, false)
+}
+
+async function confirmBatchUpload() {
+  const file = pendingBatchUploadFile.value
+  batchUploadConfirmOpen.value = false
+  pendingBatchUploadFile.value = null
+  if (!file) {
+    return
+  }
+
+  await performBatchUpload(file, true)
+}
+
+function cancelBatchUpload() {
+  batchUploadConfirmOpen.value = false
+  pendingBatchUploadFile.value = null
 }
 
 async function onTrash(certName: string) {
@@ -508,6 +598,8 @@ async function onJobAction(action: JobQueueAction, id: number) {
       :issuing-certs="issuingCerts"
       :download-pending="downloadPending"
       :upload-pending="uploadPending"
+      :batch-download-pending="batchDownloadPending"
+      :batch-upload-pending="batchUploadPending"
       :actions-menu-open="actionsMenuOpen"
       :dns-recheck-pending="dnsRecheckPending"
       :now-ms="now.getTime()"
@@ -519,6 +611,8 @@ async function onJobAction(action: JobQueueAction, id: number) {
       @issue="onIssueCert"
       @download="onDownload"
       @upload="onUploadRequest"
+      @batch-download="onBatchDownload"
+      @batch-upload="onBatchUploadRequest"
       @trash-request="requestTrash"
       @update:actions-menu-open="actionsMenuOpen = $event"
     />
@@ -562,6 +656,15 @@ async function onJobAction(action: JobQueueAction, id: number) {
       @change="onCertZipSelected"
     >
 
+    <input
+      ref="cert-batch-zip-input"
+      type="file"
+      accept=".zip,application/zip"
+      class="sr-only"
+      aria-label="Upload batch certificate ZIP"
+      @change="onBatchZipSelected"
+    >
+
     <UiConfirmDialog
       v-model:open="uploadConfirmOpen"
       title="Replace live certificate?"
@@ -574,6 +677,21 @@ async function onJobAction(action: JobQueueAction, id: number) {
       <p v-if="uploadTarget">
         Replace <span class="font-mono text-ink">live/{{ uploadTarget }}</span> with the uploaded ZIP.
         The current PEMs are copied to last-saved before overwrite.
+      </p>
+    </UiConfirmDialog>
+
+    <UiConfirmDialog
+      v-model:open="batchUploadConfirmOpen"
+      title="Replace live certificates?"
+      confirm-label="Replace"
+      cancel-label="Cancel"
+      danger
+      @confirm="confirmBatchUpload"
+      @cancel="cancelBatchUpload"
+    >
+      <p>
+        Import every certificate folder from the uploaded ZIP into <span class="font-mono text-ink">live/</span>.
+        Existing PEMs are copied to last-saved before overwrite.
       </p>
     </UiConfirmDialog>
   </div>

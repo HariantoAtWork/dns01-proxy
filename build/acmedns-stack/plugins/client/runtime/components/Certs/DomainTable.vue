@@ -37,6 +37,8 @@ const {
   issuingCerts,
   downloadPending,
   uploadPending,
+  batchDownloadPending = false,
+  batchUploadPending = false,
   actionsMenuOpen,
   dnsRecheckPending,
   nowMs,
@@ -54,6 +56,8 @@ const {
   issuingCerts: string[]
   downloadPending: string | null
   uploadPending: string | null
+  batchDownloadPending?: boolean
+  batchUploadPending?: boolean
   actionsMenuOpen: string | null
   dnsRecheckPending: boolean
   nowMs: number
@@ -68,9 +72,13 @@ const emit = defineEmits<{
   issue: [certName: string, force: boolean]
   download: [certName: string]
   upload: [certName: string]
+  'batch-download': []
+  'batch-upload': []
   'trash-request': [certName: string]
   'update:actionsMenuOpen': [certName: string | null]
 }>()
+
+const liveOnDiskCount = computed(() => statusEntries.filter(entry => entry.liveOnDisk).length)
 
 function setActionsMenuOpen(certName: string, open: boolean) {
   emit('update:actionsMenuOpen', open ? certName : (actionsMenuOpen === certName ? null : actionsMenuOpen))
@@ -284,13 +292,39 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
   </UiPanel>
 
   <UiPanel>
-    <h2 class="text-sm font-semibold text-ink">
-      Status ({{ directoryMode === 'staging' ? 'staging/' : 'live/' }})
-    </h2>
-    <p class="mt-1 text-xs text-muted">
-      Issue queues one Let's Encrypt job per apex; click several in a row and they run one after another.
-      Force Issue is in the ⋮ menu.
-    </p>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="text-sm font-semibold text-ink">
+          Status ({{ directoryMode === 'staging' ? 'staging/' : 'live/' }})
+        </h2>
+        <p class="mt-1 text-xs text-muted">
+          Issue queues one Let's Encrypt job per apex; click several in a row and they run one after another.
+          Force Issue is in the ⋮ menu.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <UiButton
+          variant="ghost"
+          size="sm"
+          title="Download all production PEMs from live/ as one ZIP"
+          :disabled="pending || certJob.running || batchDownloadPending || !liveOnDiskCount"
+          @click="emit('batch-download')"
+        >
+          <Download :size="14" weight="regular" aria-hidden="true" />
+          {{ batchDownloadPending ? 'Downloading…' : 'Download all' }}
+        </UiButton>
+        <UiButton
+          variant="ghost"
+          size="sm"
+          title="Upload a batch ZIP with cert folders (example.org/cert.pem, …)"
+          :disabled="pending || certJob.running || batchUploadPending"
+          @click="emit('batch-upload')"
+        >
+          <Upload :size="14" weight="regular" aria-hidden="true" />
+          {{ batchUploadPending ? 'Uploading…' : 'Upload ZIP' }}
+        </UiButton>
+      </div>
+    </div>
     <div v-if="!statusEntries.length" class="mt-3 text-sm text-muted">
       No certificates indexed yet.
     </div>

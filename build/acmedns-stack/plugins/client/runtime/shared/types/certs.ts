@@ -73,6 +73,14 @@ export interface CertUploadResult {
   needsOverwrite?: boolean
 }
 
+export interface CertBatchUploadResult {
+  success: boolean
+  message: string
+  needsOverwrite?: boolean
+  conflicts?: string[]
+  imported?: string[]
+}
+
 export interface TrashItem {
   certName: string
   trashedAt: string
