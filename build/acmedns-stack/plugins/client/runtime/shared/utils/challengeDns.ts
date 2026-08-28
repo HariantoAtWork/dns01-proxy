@@ -1,5 +1,6 @@
 import type { ClientStorageMap } from '#shared/types/clientstorage'
 import type { DomainsDnsCheck, ParsedDomainsLine } from '#shared/types/certs'
+import { fulldomainForAccount } from './fulldomain'
 import {
   tinyApexFulldomain,
   type SharedModeContext,
@@ -88,6 +89,7 @@ export function collectChallengeChecks(
           ),
           status: 'pending',
           accountKey: lineApex,
+          serverUrl: shared.serverUrl.replace(/\/$/, ''),
         })
         continue
       }
@@ -106,13 +108,20 @@ export function collectChallengeChecks(
         continue
       }
 
+      const fulldomain = fulldomainForAccount(
+        account.subdomain,
+        account.server_url,
+        account.fulldomain,
+      )
+
       seen.set(name, {
         line: line.line,
         zone,
         name,
-        expected: expectedChallengeTarget(lineApex, zone, key, account.fulldomain),
+        expected: expectedChallengeTarget(lineApex, zone, key, fulldomain),
         status: 'pending',
         accountKey: key,
+        serverUrl: account.server_url.replace(/\/$/, ''),
       })
     }
   }

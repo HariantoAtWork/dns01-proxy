@@ -179,6 +179,15 @@ function reset() {
     />
 
     <template v-else-if="pendingData">
+      <UiPanel class="font-mono text-sm">
+        <dl class="grid grid-cols-[5.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2">
+          <dt class="text-xs uppercase tracking-wide text-muted">Server URL</dt>
+          <dd>
+            <UiCopyable :value="pendingData.server_url" label="Server URL" />
+          </dd>
+        </dl>
+      </UiPanel>
+
       <CnameRecipe compact :domain="domain.trim()" :fulldomain="pendingData.fulldomain" />
 
       <DnsProgress
@@ -204,6 +213,16 @@ function reset() {
         <p class="text-sm text-muted">
           acme-dns will not show this username and password again. Save them now, or they are gone.
         </p>
+        <dl class="grid grid-cols-[5.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 font-mono text-sm">
+          <dt class="text-xs uppercase tracking-wide text-muted">Server URL</dt>
+          <dd>
+            <UiCopyable :value="pendingData.server_url" label="Server URL" />
+          </dd>
+          <dt class="text-xs uppercase tracking-wide text-muted">Full domain</dt>
+          <dd>
+            <UiCopyable :value="pendingData.fulldomain" label="Full domain" />
+          </dd>
+        </dl>
         <UiSecretField label="Username" :value="pendingData.username" />
         <UiSecretField label="Password" :value="pendingData.password" />
         <div class="flex flex-wrap gap-2">

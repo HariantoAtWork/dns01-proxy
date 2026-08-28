@@ -67,6 +67,19 @@ function mask(value: string) {
         </button>
       </dd>
 
+      <dt class="text-xs uppercase tracking-wide text-muted">Server URL</dt>
+      <dd class="flex min-w-0 items-center gap-1">
+        <UiCopyable class="min-w-0 flex-1" :value="details.server_url" label="Server URL" />
+        <button
+          type="button"
+          class="inline-flex h-7 w-7 shrink-0 items-center justify-center text-muted hover:text-ink"
+          aria-label="Copy Server URL"
+          @click="copyText(details.server_url, 'Server URL', $event)"
+        >
+          <Copy :size="14" weight="regular" aria-hidden="true" />
+        </button>
+      </dd>
+
       <dt class="text-xs uppercase tracking-wide text-muted">Subdomain</dt>
       <dd class="flex min-w-0 items-center gap-1">
         <UiCopyable class="min-w-0 flex-1" :value="details.subdomain" label="Subdomain" />
