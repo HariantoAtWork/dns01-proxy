@@ -35,7 +35,7 @@ export async function dnsPreflightForLine(line: ParsedDomainsLine): Promise<{
   message: string
   checks: DomainsDnsCheck[]
 }> {
-  const checks = await checkDomainsDns([line])
+  const checks = await checkDomainsDns([line], { mode: 'preflight' })
   const failed = checks.filter(check => check.status !== 'ok')
   if (!failed.length) {
     return { ok: true, message: '', checks }

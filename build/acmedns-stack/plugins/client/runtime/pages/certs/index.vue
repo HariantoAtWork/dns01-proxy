@@ -347,7 +347,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
         <p class="mt-1 text-sm text-muted">
           Edit <span class="font-mono text-ink">domains.txt</span>, save to validate, then Apply to issue.
           Production writes <span class="font-mono">live/</span>; Staging writes <span class="font-mono">staging/</span> only.
-          Apply checks challenge CNAMEs first and skips Let's Encrypt when DNS is not ready; Force re-issue bypasses that preflight.
+          Apply checks challenge CNAMEs on your zone's authoritative nameservers first (Let's Encrypt's dns-01 path) and skips issue when DNS is not ready; Force re-issue bypasses that preflight. Recheck DNS also queries public resolvers for propagation hints.
         </p>
         <p v-if="loaded" class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
           <span

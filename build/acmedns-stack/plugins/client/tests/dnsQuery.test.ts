@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { evaluateCnameResolverOutcomes } from '../runtime/shared/utils/dnsMatch'
+import { evaluateAuthoritativeCnameOutcomes, evaluateCnameResolverOutcomes } from '../runtime/shared/utils/dnsMatch'
 
 describe('evaluateCnameResolverOutcomes', () => {
   const name = '_acme-challenge.example.com'
@@ -52,5 +52,24 @@ describe('evaluateCnameResolverOutcomes', () => {
     ], name, expected)
 
     expect(result.status).toBe('mismatch')
+  })
+})
+
+describe('evaluateAuthoritativeCnameOutcomes', () => {
+  const name = '_acme-challenge.example.com'
+  const expected = 'uuid.auth.example.test'
+
+  test('reports error when no nameservers are found', () => {
+    const result = evaluateAuthoritativeCnameOutcomes([], name, expected)
+    expect(result.status).toBe('error')
+    expect(result.message).toContain('authoritative nameservers')
+  })
+
+  test('accepts match from authoritative nameservers only', () => {
+    const result = evaluateAuthoritativeCnameOutcomes([
+      { server: 'auth:ns1.example.com', lookup: 'ok', records: [{ name, data: [expected] }] },
+    ], name, expected)
+    expect(result.status).toBe('ok')
+    expect(result.message).toContain('Authoritative')
   })
 })
