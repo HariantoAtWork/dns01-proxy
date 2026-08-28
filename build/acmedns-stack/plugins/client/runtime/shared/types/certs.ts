@@ -79,6 +79,13 @@ export interface CertBatchUploadResult {
   needsOverwrite?: boolean
   conflicts?: string[]
   imported?: string[]
+  skipped?: string[]
+}
+
+export interface CertBatchUploadPreview {
+  certNames: string[]
+  conflicts: string[]
+  newCerts: string[]
 }
 
 export interface TrashItem {

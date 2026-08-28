@@ -90,4 +90,48 @@ describe('importLiveCertZip', () => {
     const other = await readPem(join(tempRoot, 'letsencrypt/live/other.org/privkey.pem'))
     expect(other).toBe(KEY)
   })
+
+  test('previews conflicts and new certs', async () => {
+    const { importLiveCertZip, previewLiveCertsBatchZip } = await import('../runtime/server/utils/certUpload')
+
+    await importLiveCertZip('example.org', makeZip())
+
+    const preview = await previewLiveCertsBatchZip(makeBatchZip(['example.org', 'other.org']))
+    expect(preview).toEqual({
+      certNames: ['example.org', 'other.org'],
+      conflicts: ['example.org'],
+      newCerts: ['other.org'],
+    })
+  })
+
+  test('imports only selected overwrites from batch zip', async () => {
+    const { importLiveCertsBatchZip } = await import('../runtime/server/utils/certUpload')
+    const { readPem, writeLivePems } = await import('../runtime/server/utils/letsencryptFs')
+
+    await writeLivePems('production', 'example.org', {
+      cert: CERT,
+      chain: CHAIN,
+      fullchain: FULLCHAIN,
+      privkey: '-----BEGIN PRIVATE KEY-----\nOLD\n-----END PRIVATE KEY-----\n',
+    })
+    await writeLivePems('production', 'keep.org', {
+      cert: CERT,
+      chain: CHAIN,
+      fullchain: FULLCHAIN,
+      privkey: '-----BEGIN PRIVATE KEY-----\nKEEP\n-----END PRIVATE KEY-----\n',
+    })
+
+    const result = await importLiveCertsBatchZip(makeBatchZip(['example.org', 'keep.org', 'other.org']), {
+      overwrite: ['example.org'],
+    })
+
+    expect(result).toMatchObject({
+      success: true,
+      imported: ['example.org', 'other.org'],
+      skipped: ['keep.org'],
+    })
+
+    const kept = await readPem(join(tempRoot, 'letsencrypt/live/keep.org/privkey.pem'))
+    expect(kept).toContain('KEEP')
+  })
 })
