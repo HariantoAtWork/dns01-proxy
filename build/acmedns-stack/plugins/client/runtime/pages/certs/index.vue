@@ -26,7 +26,6 @@ const {
   directoryMode,
   acmeEnabled,
   renewSchedulerEnabled,
-  applyResults,
   activityEntries,
   rateLimits,
   certJob,
@@ -69,6 +68,8 @@ const {
   registerPageHooks,
   clearPageHooks,
 } = useCertQueueLive()
+
+useCertBatchSummaryCapture()
 
 const dirty = ref(false)
 const loaded = ref(false)
@@ -584,6 +585,8 @@ async function onJobAction(action: JobQueueAction, id: number) {
       @delete="onJobAction('delete', $event)"
     />
 
+    <CertsBatchSummaryBoard />
+
     <CertsDomainTable
       v-model:text="text"
       :parsed="parsed"
@@ -619,19 +622,6 @@ async function onJobAction(action: JobQueueAction, id: number) {
     />
 
     <CertsActivityFeed v-model:log-filter="logFilter" :entries="activityEntries" />
-
-    <UiPanel v-if="applyResults.length">
-      <h2 class="text-sm font-semibold text-ink">Last Apply</h2>
-      <ul class="mt-2 space-y-1 font-mono text-xs">
-        <li
-          v-for="r in applyResults"
-          :key="r.certName"
-          :class="r.ok ? 'text-muted' : 'text-danger'"
-        >
-          {{ r.certName }}: {{ r.message }}
-        </li>
-      </ul>
-    </UiPanel>
 
     <UiConfirmDialog
       v-model:open="trashConfirmOpen"

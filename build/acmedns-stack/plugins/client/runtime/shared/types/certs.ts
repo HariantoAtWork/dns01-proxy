@@ -196,6 +196,22 @@ export interface CertJobQueueSnapshot {
   cancelled: CertJobQueueItem[]
 }
 
+export type CertBatchSummaryStatus = 'completed' | 'failed' | 'cancelled'
+
+/** Client-side snapshot of a finished Apply / renew batch (browser storage). */
+export interface CertBatchSummary {
+  id: string
+  executedAt: string
+  jobId: number
+  source: 'apply' | 'renew'
+  mode: LetsEncryptDirectoryMode
+  force?: boolean
+  status: CertBatchSummaryStatus
+  taskTotal?: number
+  tasks: CertJobTask[]
+  error?: string
+}
+
 export interface CertActivityResponse {
   entries: CertActivityEntry[]
   job: CertJobStatus
