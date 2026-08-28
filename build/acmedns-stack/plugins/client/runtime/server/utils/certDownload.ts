@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs'
 import { certTreePath, PEM_NAMES, readPem } from './letsencryptFs'
 import { createZipStore } from './zipStore'
 
-function assertSafeCertName(name: string) {
+export function assertSafeCertName(name: string) {
   const decoded = decodeURIComponent(name)
   if (!decoded || /[/\\]/.test(decoded) || decoded.includes('..')) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid cert name' })

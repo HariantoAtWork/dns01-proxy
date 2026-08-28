@@ -79,3 +79,84 @@ export function createZipStore(files: Record<string, Buffer | string>) {
 
   return Buffer.concat([localData, centralDir, end])
 }
+
+const EOCD_SIGNATURE = 0x06054B50
+const CENTRAL_SIGNATURE = 0x02014B50
+const LOCAL_SIGNATURE = 0x04034B50
+
+function basenameFromZipPath(name: string) {
+  const normalized = name.replace(/\\/g, '/')
+  const base = normalized.split('/').pop() || ''
+  if (!base || base === '.' || base === '..' || normalized.includes('..')) {
+    return ''
+  }
+  return base
+}
+
+/** Read an uncompressed (store) ZIP — same format as createZipStore. */
+export function parseZipStore(buffer: Buffer): Record<string, Buffer> {
+  if (buffer.length < 22) {
+    throw new Error('ZIP file is too small')
+  }
+
+  let eocdOffset = -1
+  const searchStart = Math.max(0, buffer.length - 65557)
+  for (let index = buffer.length - 22; index >= searchStart; index -= 1) {
+    if (buffer.readUInt32LE(index) === EOCD_SIGNATURE) {
+      eocdOffset = index
+      break
+    }
+  }
+
+  if (eocdOffset < 0) {
+    throw new Error('ZIP end of central directory not found')
+  }
+
+  const totalEntries = buffer.readUInt16LE(eocdOffset + 10)
+  const centralOffset = buffer.readUInt32LE(eocdOffset + 16)
+  const files: Record<string, Buffer> = {}
+  let position = centralOffset
+
+  for (let entry = 0; entry < totalEntries; entry += 1) {
+    if (buffer.readUInt32LE(position) !== CENTRAL_SIGNATURE) {
+      throw new Error('Invalid ZIP central directory')
+    }
+
+    const method = buffer.readUInt16LE(position + 10)
+    const compressedSize = buffer.readUInt32LE(position + 20)
+    const nameLength = buffer.readUInt16LE(position + 28)
+    const extraLength = buffer.readUInt16LE(position + 30)
+    const commentLength = buffer.readUInt16LE(position + 32)
+    const localOffset = buffer.readUInt32LE(position + 42)
+    const entryName = buffer.subarray(position + 46, position + 46 + nameLength).toString('utf8')
+    position += 46 + nameLength + extraLength + commentLength
+
+    const baseName = basenameFromZipPath(entryName)
+    if (!baseName) {
+      continue
+    }
+
+    if (method !== 0) {
+      throw new Error(
+        `ZIP entry "${entryName}" is compressed; upload an uncompressed export (use Download from this UI)`,
+      )
+    }
+
+    if (buffer.readUInt32LE(localOffset) !== LOCAL_SIGNATURE) {
+      throw new Error(`Invalid ZIP local header for ${entryName}`)
+    }
+
+    const localNameLength = buffer.readUInt16LE(localOffset + 26)
+    const localExtraLength = buffer.readUInt16LE(localOffset + 28)
+    const dataStart = localOffset + 30 + localNameLength + localExtraLength
+    const dataEnd = dataStart + compressedSize
+
+    if (dataEnd > buffer.length) {
+      throw new Error(`ZIP entry "${entryName}" is truncated`)
+    }
+
+    files[baseName] = Buffer.from(buffer.subarray(dataStart, dataEnd))
+  }
+
+  return files
+}

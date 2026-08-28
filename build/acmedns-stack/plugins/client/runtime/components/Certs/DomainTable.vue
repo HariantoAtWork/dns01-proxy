@@ -19,7 +19,7 @@ import {
   statusLabel,
 } from '#shared/utils/certsUi'
 import { cloudflareChallengeName } from '#client/utils/domain'
-import { PhArrowsClockwise as ArrowsClockwise, PhDotsThreeVertical as Actions, PhDownload as Download, PhLightning as Lightning, PhTrash as Trash } from '@phosphor-icons/vue'
+import { PhArrowsClockwise as ArrowsClockwise, PhDotsThreeVertical as Actions, PhDownload as Download, PhLightning as Lightning, PhTrash as Trash, PhUpload as Upload } from '@phosphor-icons/vue'
 
 const text = defineModel<string>('text', { required: true })
 
@@ -36,6 +36,7 @@ const {
   certQueue,
   issuingCerts,
   downloadPending,
+  uploadPending,
   actionsMenuOpen,
   dnsRecheckPending,
   nowMs,
@@ -52,6 +53,7 @@ const {
   certQueue: CertJobQueueSnapshot
   issuingCerts: string[]
   downloadPending: string | null
+  uploadPending: string | null
   actionsMenuOpen: string | null
   dnsRecheckPending: boolean
   nowMs: number
@@ -65,6 +67,7 @@ const emit = defineEmits<{
   'recheck-dns': []
   issue: [certName: string, force: boolean]
   download: [certName: string]
+  upload: [certName: string]
   'trash-request': [certName: string]
   'update:actionsMenuOpen': [certName: string | null]
 }>()
@@ -335,6 +338,17 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
           >
             <Lightning :size="14" weight="regular" aria-hidden="true" />
             {{ issuingCerts.includes(entry.certName) ? 'Queuing…' : (isCertInFlightOrQueued(entry.certName) ? 'Queued' : 'Issue') }}
+          </UiButton>
+          <UiButton
+            v-if="entry.inDomainsFile"
+            variant="ghost"
+            size="sm"
+            title="Upload production PEMs to live/ (ZIP export from Download)"
+            :disabled="pending || certJob.running || uploadPending === entry.certName"
+            @click="emit('upload', entry.certName)"
+          >
+            <Upload :size="14" weight="regular" aria-hidden="true" />
+            {{ uploadPending === entry.certName ? 'Uploading…' : 'Upload' }}
           </UiButton>
           <UiButton
             v-if="entry.liveOnDisk"

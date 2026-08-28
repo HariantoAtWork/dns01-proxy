@@ -46,6 +46,7 @@ const {
   refresh,
   apply,
   downloadCert,
+  uploadCert,
   trashCert,
   cancelJob,
   resumeJob,
@@ -79,6 +80,11 @@ const activeRateLimits = computed(() =>
 
 const dnsRecheckPending = ref(false)
 const downloadPending = ref<string | null>(null)
+const uploadPending = ref<string | null>(null)
+const uploadTarget = ref<string | null>(null)
+const uploadConfirmOpen = ref(false)
+const pendingUploadFile = ref<File | null>(null)
+const certZipInput = useTemplateRef<HTMLInputElement>('cert-zip-input')
 const issuingCerts = ref<string[]>([])
 const actionsMenuOpen = ref<string | null>(null)
 const trashConfirmName = ref<string | null>(null)
@@ -287,6 +293,83 @@ async function onDownload(certName: string) {
   }
 }
 
+function onUploadRequest(certName: string) {
+  uploadTarget.value = certName
+  certZipInput.value?.click()
+}
+
+async function performUpload(certName: string, file: File, overwrite: boolean) {
+  uploadPending.value = certName
+  try {
+    await uploadCert(certName, file, overwrite)
+    await loadStatus()
+    toasts.ok(`Imported live/${certName}`, 'Certificates')
+  }
+  catch (caught) {
+    if (
+      caught
+      && typeof caught === 'object'
+      && 'needsOverwrite' in caught
+      && (caught as { needsOverwrite?: boolean }).needsOverwrite
+    ) {
+      pendingUploadFile.value = file
+      uploadTarget.value = certName
+      uploadConfirmOpen.value = true
+      return
+    }
+    toasts.error(caught instanceof Error ? caught.message : 'Upload failed')
+  }
+  finally {
+    uploadPending.value = null
+  }
+}
+
+async function onCertZipSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  const certName = uploadTarget.value
+  if (!certName || !file) {
+    return
+  }
+
+  if (!file.name.toLowerCase().endsWith('.zip')) {
+    toasts.error('Choose a .zip file')
+    uploadTarget.value = null
+    return
+  }
+
+  const entry = statusEntries.value.find(item => item.certName === certName)
+  if (entry?.liveOnDisk) {
+    pendingUploadFile.value = file
+    uploadConfirmOpen.value = true
+    return
+  }
+
+  await performUpload(certName, file, false)
+  uploadTarget.value = null
+}
+
+async function confirmCertUpload() {
+  const file = pendingUploadFile.value
+  const certName = uploadTarget.value
+  uploadConfirmOpen.value = false
+  pendingUploadFile.value = null
+  if (!file || !certName) {
+    uploadTarget.value = null
+    return
+  }
+
+  await performUpload(certName, file, true)
+  uploadTarget.value = null
+}
+
+function cancelCertUpload() {
+  uploadConfirmOpen.value = false
+  pendingUploadFile.value = null
+  uploadTarget.value = null
+}
+
 async function onTrash(certName: string) {
   try {
     await trashCert(certName, directoryMode.value === 'staging' ? 'staging' : 'live')
@@ -424,6 +507,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
       :cert-queue="certQueue"
       :issuing-certs="issuingCerts"
       :download-pending="downloadPending"
+      :upload-pending="uploadPending"
       :actions-menu-open="actionsMenuOpen"
       :dns-recheck-pending="dnsRecheckPending"
       :now-ms="now.getTime()"
@@ -434,6 +518,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
       @recheck-dns="onRecheckDns"
       @issue="onIssueCert"
       @download="onDownload"
+      @upload="onUploadRequest"
       @trash-request="requestTrash"
       @update:actions-menu-open="actionsMenuOpen = $event"
     />
@@ -465,6 +550,30 @@ async function onJobAction(action: JobQueueAction, id: number) {
       <p v-if="trashConfirmName">
         Move <span class="font-mono text-ink">{{ trashConfirmName }}</span> from
         {{ directoryMode === 'staging' ? 'staging/' : 'live/' }} to trash. You can restore it from the Trash page.
+      </p>
+    </UiConfirmDialog>
+
+    <input
+      ref="cert-zip-input"
+      type="file"
+      accept=".zip,application/zip"
+      class="sr-only"
+      aria-label="Upload certificate ZIP"
+      @change="onCertZipSelected"
+    >
+
+    <UiConfirmDialog
+      v-model:open="uploadConfirmOpen"
+      title="Replace live certificate?"
+      confirm-label="Replace"
+      cancel-label="Cancel"
+      danger
+      @confirm="confirmCertUpload"
+      @cancel="cancelCertUpload"
+    >
+      <p v-if="uploadTarget">
+        Replace <span class="font-mono text-ink">live/{{ uploadTarget }}</span> with the uploaded ZIP.
+        The current PEMs are copied to last-saved before overwrite.
       </p>
     </UiConfirmDialog>
   </div>

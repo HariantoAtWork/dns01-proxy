@@ -67,6 +67,12 @@ export interface CertApplyResult {
   notAfter?: string
 }
 
+export interface CertUploadResult {
+  success: boolean
+  message: string
+  needsOverwrite?: boolean
+}
+
 export interface TrashItem {
   certName: string
   trashedAt: string
