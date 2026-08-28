@@ -5,6 +5,10 @@ import type {
   CertJobStatus,
   LetsEncryptDirectoryMode,
 } from '#shared/types/certs'
+import {
+  ACME_REQUEST_STEP_TOTAL,
+  acmeRequestStepLabel,
+} from '../../../shared/utils/acmeIssueSteps'
 import { publishCertLive } from '../certLiveBus'
 
 export type JobSource = 'renew' | 'apply'
@@ -20,6 +24,9 @@ export interface InternalJob {
   currentCert?: string
   taskIndex?: number
   taskTotal?: number
+  requestIndex?: number
+  requestTotal?: number
+  requestLabel?: string
   certNames?: string[]
   force?: boolean
   renewOnly?: boolean
@@ -83,6 +90,9 @@ export function toPublic(job: InternalJob): CertJobQueueItem {
     currentCert: job.currentCert,
     taskIndex: job.taskIndex,
     taskTotal: job.taskTotal,
+    requestIndex: job.requestIndex,
+    requestTotal: job.requestTotal,
+    requestLabel: job.requestLabel,
     completedCount: job.results?.length ?? 0,
     certNames: job.certNames,
     force: job.force,
@@ -135,8 +145,30 @@ export function certJobStatus(): CertJobStatus {
     currentCert: running.currentCert,
     taskIndex: running.taskIndex,
     taskTotal: running.taskTotal,
+    requestIndex: running.requestIndex,
+    requestTotal: running.requestTotal,
+    requestLabel: running.requestLabel,
     queueLength: waiting.length,
   }
+}
+
+export function clearRunningJobRequest() {
+  if (!running) {
+    return
+  }
+  running.requestIndex = undefined
+  running.requestTotal = undefined
+  running.requestLabel = undefined
+}
+
+export function setRunningJobRequest(stepIndex: number, stepLabel?: string) {
+  if (!running) {
+    return
+  }
+  running.requestIndex = stepIndex
+  running.requestTotal = ACME_REQUEST_STEP_TOTAL
+  running.requestLabel = stepLabel ?? acmeRequestStepLabel(stepIndex)
+  emitQueue()
 }
 
 export function certJobQueueSnapshot(): CertJobQueueSnapshot {

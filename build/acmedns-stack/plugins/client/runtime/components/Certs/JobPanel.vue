@@ -37,10 +37,7 @@ const hasQueue = computed(() =>
         <div>
           <span class="text-signal">Running</span>
           {{ jobLabel(queue.running.id, queue.running.source, queue.running.mode) }}
-          <span v-if="queue.running.taskTotal" class="font-semibold text-signal">
-            {{ queue.running.taskIndex ?? 0 }}/{{ queue.running.taskTotal }}
-          </span>
-          <span v-if="queue.running.currentCert" class="text-muted"> — {{ queue.running.currentCert }}</span>
+          <CertsJobProgress :job="queue.running" />
           <span v-if="queue.running.cancelRequested" class="ml-2 text-muted">(stopping…)</span>
         </div>
         <div class="flex gap-1">
@@ -127,10 +124,7 @@ const hasQueue = computed(() =>
       <div>
         <span class="text-signal">Running</span>
         {{ jobLabel(queue.running.id, queue.running.source, queue.running.mode) }}
-        <span v-if="queue.running.taskTotal" class="font-semibold text-signal">
-          {{ queue.running.taskIndex ?? 0 }}/{{ queue.running.taskTotal }}
-        </span>
-        <span v-if="queue.running.currentCert" class="text-muted"> — {{ queue.running.currentCert }}</span>
+        <CertsJobProgress :job="queue.running" />
         <span v-if="queue.running.cancelRequested" class="ml-2 text-muted">(stopping…)</span>
       </div>
       <div class="flex gap-1">

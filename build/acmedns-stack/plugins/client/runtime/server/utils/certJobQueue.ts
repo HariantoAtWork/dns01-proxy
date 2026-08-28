@@ -140,6 +140,9 @@ function requeueCancelledJob(id: number, mode: 'continue' | 'rerun'): CertJobQue
   removed.finishedAt = undefined
   removed.currentCert = undefined
   removed.taskIndex = undefined
+  removed.requestIndex = undefined
+  removed.requestTotal = undefined
+  removed.requestLabel = undefined
   removed.error = undefined
   removed.abortController = undefined
   detachPromiseHandlers(removed)

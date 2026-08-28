@@ -141,6 +141,12 @@ export interface CertJobStatus {
   taskIndex?: number
   /** Total certificate lines in this job batch */
   taskTotal?: number
+  /** 1-based ACME dns-01 request step for the current certificate (e.g. 3/5) */
+  requestIndex?: number
+  /** Total ACME request steps per certificate (always 5) */
+  requestTotal?: number
+  /** Short label for the current ACME request step */
+  requestLabel?: string
   queueLength?: number
 }
 
@@ -157,6 +163,9 @@ export interface CertJobQueueItem {
   currentCert?: string
   taskIndex?: number
   taskTotal?: number
+  requestIndex?: number
+  requestTotal?: number
+  requestLabel?: string
   /** Certificate lines already finished before cancel (for continue) */
   completedCount?: number
   certNames?: string[]
