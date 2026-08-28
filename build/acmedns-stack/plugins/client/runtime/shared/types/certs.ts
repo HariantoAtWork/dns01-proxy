@@ -10,6 +10,17 @@ export interface AcmeRequestItem {
   status: AcmeRequestStatus
 }
 
+export type CertJobTaskStatus = AcmeRequestStatus | 'skipped'
+
+/** One certificate line (apex) in a running Apply / renew batch. */
+export interface CertJobTask {
+  id: string
+  certName: string
+  status: CertJobTaskStatus
+  message?: string
+  requests?: AcmeRequestItem[]
+}
+
 export interface DomainsLineError {
   line: number
   message: string
@@ -151,8 +162,8 @@ export interface CertJobStatus {
   taskIndex?: number
   /** Total certificate lines in this job batch */
   taskTotal?: number
-  /** ACME dns-01 request phases for the current certificate (each array item is one step) */
-  requests?: AcmeRequestItem[]
+  /** Certificate apex lines in this batch, each with nested ACME request steps */
+  tasks?: CertJobTask[]
   queueLength?: number
 }
 
@@ -169,7 +180,7 @@ export interface CertJobQueueItem {
   currentCert?: string
   taskIndex?: number
   taskTotal?: number
-  requests?: AcmeRequestItem[]
+  tasks?: CertJobTask[]
   /** Certificate lines already finished before cancel (for continue) */
   completedCount?: number
   certNames?: string[]
