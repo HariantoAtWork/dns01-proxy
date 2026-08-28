@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { AcmeRequestItem } from '#shared/types/certs'
+import { sortAcmeRequestItems } from '#shared/utils/acmeIssueSteps'
 import { acmeRequestStatusLabel } from '#shared/utils/jobProgress'
 
-defineProps<{
+const props = defineProps<{
   requests: AcmeRequestItem[]
+  certName?: string
   nested?: boolean
 }>()
+
+const displayRequests = computed(() => {
+  if (!props.certName) {
+    return props.requests
+  }
+  return sortAcmeRequestItems(props.requests, props.certName)
+})
 
 function statusClass(status: AcmeRequestItem['status']) {
   switch (status) {
@@ -29,7 +39,7 @@ function statusClass(status: AcmeRequestItem['status']) {
       : 'mt-2 border-t border-rule pt-2'"
   >
     <li
-      v-for="item in requests"
+      v-for="item in displayRequests"
       :key="item.id"
     >
       <CertsStepLeaderRow

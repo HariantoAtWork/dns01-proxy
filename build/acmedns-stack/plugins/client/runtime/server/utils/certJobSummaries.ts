@@ -7,7 +7,7 @@ import {
   certBatchSummaryFilename,
   resolveCertBatchSummaryStatus,
 } from '../../shared/utils/certBatchSummary'
-import { getClientstoragePath } from '../../../../../server/utils/paths'
+import { getDataRoot } from '../../../../../server/utils/paths'
 import { publishCertLive } from './certLiveBus'
 import { type InternalJob, toPublic } from './certJobQueue/state'
 
@@ -17,7 +17,7 @@ let cache: CertBatchSummary[] | null = null
 let loadPromise: Promise<void> | null = null
 
 export function getJobSummariesDir() {
-  return join(getClientstoragePath(), 'job-summaries')
+  return join(getDataRoot(), 'client', 'job-summaries')
 }
 
 function sortSummaries(summaries: CertBatchSummary[]) {

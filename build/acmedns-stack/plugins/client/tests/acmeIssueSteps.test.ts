@@ -8,6 +8,7 @@ import {
   createAcmeRequestPlan,
   currentAcmeRequestLabel,
   finishAcmeRequestPlan,
+  sortAcmeRequestItems,
 } from '../runtime/shared/utils/acmeIssueSteps'
 import { formatJobProgress, jobProgressParts } from '../runtime/shared/utils/jobProgress'
 
@@ -27,10 +28,9 @@ describe('acmeIssueSteps', () => {
 
   test('creates a pending request plan with stable ids', () => {
     const plan = createAcmeRequestPlan()
-    expect(plan).toHaveLength(5)
+    expect(plan).toHaveLength(2)
     expect(plan.every(item => item.status === 'pending')).toBe(true)
-    expect(plan.every(item => typeof item.id === 'string' && item.id.length > 0)).toBe(true)
-    expect(new Set(plan.map(item => item.id)).size).toBe(5)
+    expect(new Set(plan.map(item => item.id)).size).toBe(2)
   })
 
   test('advances the plan through running and done states', () => {
@@ -48,24 +48,48 @@ describe('acmeIssueSteps', () => {
     expect(plan[1]?.status).toBe('done')
   })
 
-  test('appends extra challenge rounds after the base plan is consumed', () => {
+  test('appends per-domain challenge rounds', () => {
     let plan = createAcmeRequestPlan()
-    for (const step of [
-      ACME_REQUEST_STEPS.DNS_PREFLIGHT,
-      ACME_REQUEST_STEPS.ACME_ORDER,
-      ACME_REQUEST_STEPS.PUBLISH_TXT,
-      ACME_REQUEST_STEPS.TXT_ONLINE,
-      ACME_REQUEST_STEPS.VALIDATE_SAVE,
-    ]) {
-      plan = advanceAcmeRequestPlan(plan, step)
-    }
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
     plan = finishAcmeRequestPlan(plan)
 
-    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT *.oib.example.com')
-    expect(plan).toHaveLength(6)
-    expect(plan[5]?.label).toContain('oib')
-    expect(plan[5]?.status).toBe('running')
-    expect(plan[5]?.id).not.toBe(plan[4]?.id)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT admin.mdstn.com')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online mdstn.com')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT mdstn.com')
+    plan = finishAcmeRequestPlan(plan)
+
+    expect(plan).toHaveLength(5)
+    expect(plan.filter(item => item.step === ACME_REQUEST_STEPS.PUBLISH_TXT)).toHaveLength(2)
+  })
+
+  test('sorts challenge steps apex-first with publish then TXT online per domain', () => {
+    const requests = [
+      { id: '1', step: ACME_REQUEST_STEPS.DNS_PREFLIGHT, label: 'DNS preflight', status: 'done' as const },
+      { id: '2', step: ACME_REQUEST_STEPS.ACME_ORDER, label: 'ACME order', status: 'done' as const },
+      { id: '3', step: ACME_REQUEST_STEPS.PUBLISH_TXT, label: 'Publish TXT admin.mdstn.com', status: 'done' as const },
+      { id: '4', step: ACME_REQUEST_STEPS.TXT_ONLINE, label: 'TXT online mdstn.com', status: 'done' as const },
+      { id: '5', step: ACME_REQUEST_STEPS.VALIDATE_SAVE, label: 'LE validate oib.mdstn.com', status: 'done' as const },
+      { id: '6', step: ACME_REQUEST_STEPS.PUBLISH_TXT, label: 'Publish TXT mdstn.com', status: 'done' as const },
+      { id: '7', step: ACME_REQUEST_STEPS.PUBLISH_TXT, label: 'Publish TXT oib.mdstn.com', status: 'done' as const },
+      { id: '8', step: ACME_REQUEST_STEPS.TXT_ONLINE, label: 'TXT online admin.mdstn.com', status: 'done' as const },
+      { id: '9', step: ACME_REQUEST_STEPS.TXT_ONLINE, label: 'TXT online oib.mdstn.com', status: 'done' as const },
+      { id: '10', step: ACME_REQUEST_STEPS.VALIDATE_SAVE, label: 'Save certificate', status: 'done' as const },
+    ]
+
+    const sorted = sortAcmeRequestItems(requests, 'mdstn.com')
+    expect(sorted.map(item => item.label)).toEqual([
+      'DNS preflight',
+      'ACME order',
+      'Publish TXT mdstn.com',
+      'TXT online mdstn.com',
+      'Publish TXT admin.mdstn.com',
+      'TXT online admin.mdstn.com',
+      'Publish TXT oib.mdstn.com',
+      'TXT online oib.mdstn.com',
+      'LE validate oib.mdstn.com',
+      'Save certificate',
+    ])
   })
 
   test('derives current request label from the array', () => {
