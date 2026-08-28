@@ -43,11 +43,16 @@ async function queryViaNameserver(
   const recordType = type.toUpperCase()
   const label = `auth:${nameserverHost}`
 
-  if (recordType !== 'CNAME') {
+  if (recordType !== 'CNAME' && recordType !== 'TXT') {
     return { server: label, records: [] as DnsRecordGroup[], lookup: 'timeout' }
   }
 
-  const outcome = await dnsUdpQuery(name, 'CNAME', serverAddress, QUERY_TIMEOUT_MS)
+  const outcome = await dnsUdpQuery(
+    name,
+    recordType as 'CNAME' | 'TXT',
+    serverAddress,
+    QUERY_TIMEOUT_MS,
+  )
   return { server: label, ...outcome }
 }
 
