@@ -31,14 +31,12 @@ function statusClass(status: AcmeRequestItem['status']) {
     <li
       v-for="item in requests"
       :key="item.id"
-      class="flex items-start justify-between gap-2"
     >
-      <span :class="statusClass(item.status)">
-        {{ item.label }}
-      </span>
-      <span class="shrink-0 uppercase tracking-wide" :class="statusClass(item.status)">
-        {{ acmeRequestStatusLabel(item.status) }}
-      </span>
+      <CertsStepLeaderRow
+        :label="item.label"
+        :status="acmeRequestStatusLabel(item.status)"
+        :status-class="statusClass(item.status)"
+      />
     </li>
   </ul>
 </template>

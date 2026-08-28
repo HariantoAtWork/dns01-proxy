@@ -27,7 +27,7 @@ function onClearAll() {
       </UiButton>
     </div>
 
-    <div class="mt-3 space-y-2">
+    <div class="mt-3 space-y-2 font-mono text-xs">
       <CertsBatchSummaryDrawer
         v-for="(summary, index) in summaries"
         :key="summary.id"
