@@ -11,6 +11,7 @@ import type {
   CertRateLimit,
   CertSettings,
   CertStatusEntry,
+  CertUploadResult,
   DomainsParseResult,
   DomainsDnsCheck,
   LetsEncryptDirectoryMode,
@@ -284,6 +285,43 @@ export function useCerts() {
     triggerDownload(blob, filenameFromDisposition(response.headers.get('content-disposition')))
   }
 
+  async function uploadCert(certName: string, file: File, overwrite = false): Promise<CertUploadResult> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+
+    const response = await fetch(
+      `/api/certs/upload/${encodeURIComponent(certName)}?overwrite=${overwrite ? '1' : '0'}`,
+      {
+        method: 'POST',
+        body: form,
+        credentials: 'same-origin',
+      },
+    )
+
+    let body: CertUploadResult & { statusMessage?: string } = {
+      success: false,
+      message: 'Upload failed',
+    }
+    try {
+      body = await response.json() as CertUploadResult & { statusMessage?: string }
+    }
+    catch {
+      // Keep the generic message when the error body is not JSON.
+    }
+
+    if (!response.ok) {
+      throw new Error(body.message || body.statusMessage || 'Upload failed')
+    }
+
+    if (!body.success) {
+      throw Object.assign(new Error(body.message || 'Upload failed'), {
+        needsOverwrite: body.needsOverwrite,
+      })
+    }
+
+    return body
+  }
+
   async function trashCert(certName: string, fromTree: 'live' | 'staging' = 'live') {
     await $fetch(`/api/certs/trash/${encodeURIComponent(certName)}`, {
       method: 'POST',
@@ -427,6 +465,7 @@ export function useCerts() {
     apply,
     loadTrash,
     downloadCert,
+    uploadCert,
     trashCert,
     restoreTrash,
     permanentDelete,
