@@ -178,7 +178,8 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
     <UiDisclosure v-if="parsed?.lines?.length" title="Parsed lines" :open="true" class="mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <p class="text-xs text-muted">
-          Public CNAME checks for <span class="font-mono text-ink">_acme-challenge</span> names
+          Public + authoritative CNAME checks for <span class="font-mono text-ink">_acme-challenge</span> names.
+          Apply preflight uses authoritative NS only (Let's Encrypt path).
         </p>
         <UiButton
           variant="ghost"

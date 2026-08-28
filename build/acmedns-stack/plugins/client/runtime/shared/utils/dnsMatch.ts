@@ -111,6 +111,25 @@ function evaluateCnameGroup(
   }
 }
 
+/** LE-style check: authoritative nameservers only (no public-recursor cache). */
+export function evaluateAuthoritativeCnameOutcomes(
+  outcomes: DnsResolverOutcome[],
+  name: string,
+  expected: string,
+): DnsCnameMatchResult {
+  if (!outcomes.length) {
+    return {
+      status: 'error',
+      message: 'Could not find authoritative nameservers for this challenge name',
+    }
+  }
+
+  return evaluateCnameGroup(outcomes, name, expected, 'Authoritative', outcomes.length) ?? {
+    status: 'error',
+    message: 'All authoritative nameserver queries failed or timed out',
+  }
+}
+
 export function evaluateCnameResolverOutcomes(
   outcomes: DnsResolverOutcome[],
   name: string,
