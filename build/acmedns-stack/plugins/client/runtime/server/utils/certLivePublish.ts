@@ -2,6 +2,7 @@ import type { CertLiveSnapshot, CertLiveStatusEvent, LetsEncryptDirectoryMode } 
 import { getCertActivityEntries, getLastCertErrors } from './certActivity'
 import { getCertJobQueueSnapshot, getCertJobStatus } from './certJobQueue'
 import { getCertRateLimitsSync, rateLimitForCert } from './certRateLimit'
+import { getCertJobSummariesSync } from './certJobSummaries'
 import { buildCertStatus } from './certStatus'
 import { publishCertLive } from './certLiveBus'
 
@@ -12,6 +13,7 @@ export function buildCertLiveSnapshot(): CertLiveSnapshot {
     queue: getCertJobQueueSnapshot(),
     lastErrors: getLastCertErrors(),
     rateLimits: getCertRateLimitsSync(),
+    batchSummaries: getCertJobSummariesSync(),
   }
 }
 

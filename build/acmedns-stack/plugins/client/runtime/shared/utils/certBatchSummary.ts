@@ -81,3 +81,14 @@ export function certBatchSummaryStatusClass(status: CertBatchSummaryStatus) {
 export function cloneCertJobQueueItem(job: CertJobQueueItem): CertJobQueueItem {
   return structuredClone(job)
 }
+
+/** Server job-summaries filename: ISO time with `:` → `-`, plus first 8 hex chars of UUID. */
+export function certBatchSummaryFilename(executedAt: string, id: string): string {
+  const safeTime = executedAt.replace(/:/g, '-')
+  const shortId = id.replace(/-/g, '').slice(0, 8).toLowerCase()
+  return `${safeTime}-${shortId}.json`
+}
+
+/** Safe to delete — rejects path traversal and unexpected names. */
+export const CERT_BATCH_SUMMARY_FILE_RE
+  = /^\d{4}-\d{2}-\d{2}T[\d\-+.TZtz]+-[0-9a-f]{8}\.json$/

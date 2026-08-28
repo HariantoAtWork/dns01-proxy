@@ -1,12 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import type { CertJobQueueItem } from '../runtime/shared/types/certs'
 import {
+  certBatchSummaryFilename,
   certBatchSummaryHeadline,
   certBatchSummaryStats,
   resolveCertBatchSummaryStatus,
 } from '../runtime/shared/utils/certBatchSummary'
 
 describe('certBatchSummary', () => {
+  test('builds changelog-style summary filenames', () => {
+    expect(certBatchSummaryFilename('2026-08-29T00:49:52.123Z', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'))
+      .toBe('2026-08-29T00-49-52.123Z-a1b2c3d4.json')
+  })
+
   test('counts task outcomes', () => {
     expect(certBatchSummaryStats([
       { id: '1', certName: 'a.test', status: 'done' },

@@ -2,6 +2,7 @@ import type {
   CertActivityResponse,
   CertJobQueueItem,
   CertLiveActivityEvent,
+  CertLiveBatchSummariesEvent,
   CertLiveQueueEvent,
   CertLiveRateLimitsEvent,
   CertLiveSnapshot,
@@ -9,7 +10,7 @@ import type {
   LetsEncryptDirectoryMode,
 } from '#shared/types/certs'
 import { useCertLiveStream } from '#client/composables/useCertLiveStream'
-import { trackCertQueueForBatchSummary } from '#client/composables/useCertBatchSummary'
+import { applyCertBatchSummariesEvent } from '#client/composables/useCertBatchSummary'
 import { useCertQueueState } from '#client/composables/useCertQueueState'
 import { useDocumentVisibility } from '@vueuse/core'
 
@@ -19,6 +20,7 @@ export type CertLivePageHooks = {
   onQueue?: (data: CertLiveQueueEvent) => void
   onStatus?: (data: CertLiveStatusEvent) => void
   onRateLimits?: (data: CertLiveRateLimitsEvent) => void
+  onBatchSummaries?: (data: CertLiveBatchSummariesEvent) => void
   onPoll?: () => void | Promise<void>
   pollBlocked?: Ref<boolean>
   directoryMode?: Ref<LetsEncryptDirectoryMode>
@@ -46,13 +48,12 @@ export function useCertQueueLive() {
         await pageHooks.value?.onPoll?.()
         if (!pageHooks.value?.onPoll) {
           const data = await $fetch<CertActivityResponse>('/api/certs/activity', { query: { limit: 50 } })
-          trackCertQueueForBatchSummary(data.queue)
           certJob.value = data.job
           certQueue.value = data.queue
         }
       },
       onSnapshot: (data) => {
-        trackCertQueueForBatchSummary(data.queue)
+        applyCertBatchSummariesEvent({ summaries: data.batchSummaries })
         certJob.value = data.job
         certQueue.value = data.queue
         pageHooks.value?.onSnapshot?.(data)
@@ -61,7 +62,6 @@ export function useCertQueueLive() {
         pageHooks.value?.onActivity?.(data, notify)
       },
       onQueue: (data) => {
-        trackCertQueueForBatchSummary(data.queue)
         certJob.value = data.job
         certQueue.value = data.queue
         pageHooks.value?.onQueue?.(data)
@@ -71,6 +71,10 @@ export function useCertQueueLive() {
       },
       onRateLimits: (data) => {
         pageHooks.value?.onRateLimits?.(data)
+      },
+      onBatchSummaries: (data) => {
+        applyCertBatchSummariesEvent(data)
+        pageHooks.value?.onBatchSummaries?.(data)
       },
     })
   }
@@ -86,7 +90,6 @@ export function useCertQueueLive() {
     })
     certJob.value = data.job
     certQueue.value = data.queue
-    trackCertQueueForBatchSummary(data.queue)
     return data
   }
 

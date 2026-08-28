@@ -198,9 +198,11 @@ export interface CertJobQueueSnapshot {
 
 export type CertBatchSummaryStatus = 'completed' | 'failed' | 'cancelled'
 
-/** Client-side snapshot of a finished Apply / renew batch (browser storage). */
+/** Snapshot of a finished Apply / renew batch (browser or server job-summaries/). */
 export interface CertBatchSummary {
   id: string
+  /** Disk filename when stored on the server (ISO time with `:` → `-`, plus id prefix). */
+  filename?: string
   executedAt: string
   jobId: number
   source: 'apply' | 'renew'
@@ -209,7 +211,12 @@ export interface CertBatchSummary {
   status: CertBatchSummaryStatus
   taskTotal?: number
   tasks: CertJobTask[]
+  results?: CertApplyResult[]
   error?: string
+}
+
+export interface CertLiveBatchSummariesEvent {
+  summaries: CertBatchSummary[]
 }
 
 export interface CertActivityResponse {
@@ -226,6 +233,7 @@ export interface CertLiveSnapshot {
   queue: CertJobQueueSnapshot
   lastErrors: Record<string, { message: string, at: string }>
   rateLimits: CertRateLimit[]
+  batchSummaries: CertBatchSummary[]
 }
 
 export interface CertLiveActivityEvent {

@@ -12,6 +12,7 @@ import { buildCertLiveStatus } from '../certLivePublish'
 import { buildCertStatus, needsRenewal, readCertMeta } from '../certStatus'
 import { clearRateLimitAfterSuccess } from '../acmeLogger'
 import { getCertRateLimits, rateLimitForCert } from '../certRateLimit'
+import { persistCertJobSummary } from '../certJobSummaries'
 import { enrichLetsEncryptDnsError } from '../enrichLeDnsError'
 import {
   allocateJobId,
@@ -374,6 +375,7 @@ export function finishCancelledJob(job: InternalJob) {
   job.status = 'cancelled'
   job.finishedAt = new Date().toISOString()
   job.currentCert = undefined
+  void persistCertJobSummary(job, true)
   clearRunningJobTasks()
   cancelled.push(job)
   appendCertActivity({
@@ -440,6 +442,7 @@ export async function pumpQueue() {
     else {
       job.status = 'completed'
       job.finishedAt = new Date().toISOString()
+      void persistCertJobSummary(job, false)
       job.resolve(results)
     }
   }
@@ -451,6 +454,7 @@ export async function pumpQueue() {
       job.status = 'failed'
       job.error = error instanceof Error ? error.message : 'Job failed'
       job.finishedAt = new Date().toISOString()
+      void persistCertJobSummary(job, false)
       appendCertActivity({
         source: job.source,
         mode: job.mode,
