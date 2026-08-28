@@ -81,21 +81,26 @@ describe('acmeIssueSteps', () => {
 })
 
 describe('formatJobProgress', () => {
-  test('includes cert batch and ACME request steps from the array', () => {
+  test('includes cert batch and ACME request steps from nested tasks', () => {
     let requests = createAcmeRequestPlan()
     requests = advanceAcmeRequestPlan(requests, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT')
 
     expect(formatJobProgress({
       taskIndex: 2,
       taskTotal: 5,
-      requests,
+      tasks: [{
+        id: 'task-1',
+        certName: 'mdstn.com',
+        status: 'running',
+        requests,
+      }],
       currentCert: 'mdstn.com',
     })).toBe('2/5 · Publish TXT · mdstn.com')
   })
 
-  test('omits request progress when the array is empty', () => {
+  test('omits request progress when no running task has requests', () => {
     expect(jobProgressParts({
-      requests: [],
+      tasks: [],
     })).toEqual({})
   })
 })

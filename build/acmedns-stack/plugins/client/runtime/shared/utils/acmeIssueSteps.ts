@@ -101,6 +101,14 @@ export function finishAcmeRequestPlan(requests: AcmeRequestItem[]): AcmeRequestI
   })
 }
 
+/** Mark every non-failed ACME step done (batch or cert finished). */
+export function closeAcmeRequestPlan(requests: AcmeRequestItem[]): AcmeRequestItem[] {
+  return requests.map(item => ({
+    ...item,
+    status: item.status === 'failed' ? 'failed' : 'done',
+  }))
+}
+
 export function currentAcmeRequestLabel(requests: AcmeRequestItem[] | undefined): string | undefined {
   if (!requests?.length) {
     return undefined

@@ -20,10 +20,12 @@ import {
   jobCancelledError,
   setPumping,
   setRunning,
-  initRunningJobRequests,
+  ensureRunningJobTasks,
+  beginRunningJobTask,
+  finishRunningJobTask,
   trackRunningJobRequest,
   completeRunningJobRequests,
-  clearRunningJobRequests,
+  clearRunningJobTasks,
   type InternalJob,
   type JobSource,
   waiting,
@@ -33,6 +35,7 @@ import {
 } from './state'
 import { dnsPreflightForLine, rateLimitSkipMessage } from './preflight'
 import { ACME_REQUEST_STEPS } from '../../../shared/utils/acmeIssueSteps'
+import { createCertJobTaskPlan } from '../../../shared/utils/certJobTasks'
 
 /** Per-certificate ACME wall clock (production dns-01 can exceed proxy timeouts). */
 export const ACME_CERT_TIMEOUT_MS = Number(process.env.ACME_CERT_TIMEOUT_MS || 4 * 60 * 1000)
@@ -116,6 +119,11 @@ export async function executeApplyCertificates(options: {
   const completedNames = new Set(results.map(r => r.certName))
   const taskTotal = wanted.length
 
+  ensureRunningJobTasks(
+    wanted.map(line => line.certName),
+    completedNames,
+  )
+
   for (let index = 0; index < wanted.length; index += 1) {
     const line = wanted[index]!
     const taskIndex = index + 1
@@ -144,22 +152,26 @@ export async function executeApplyCertificates(options: {
 
     if (options.renewOnly) {
       if (!meta || !due) {
+        const message = meta ? 'Not due for renewal' : 'No certificate to renew'
         results.push({
           certName: line.certName,
           ok: true,
-          message: meta ? 'Not due for renewal' : 'No certificate to renew',
+          message,
           notAfter: meta?.notAfter,
         })
+        finishRunningJobTask(line.certName, 'skipped', message)
         continue
       }
     }
     else if (!options.force && !missing && !drift) {
+      const message = 'Up to date'
       results.push({
         certName: line.certName,
         ok: true,
-        message: 'Up to date',
+        message,
         notAfter: meta?.notAfter,
       })
+      finishRunningJobTask(line.certName, 'skipped', message)
       continue
     }
 
@@ -183,6 +195,7 @@ export async function executeApplyCertificates(options: {
         certName: line.certName,
         message: result.message,
       })
+      finishRunningJobTask(line.certName, 'failed', result.message)
       continue
     }
 
@@ -196,7 +209,7 @@ export async function executeApplyCertificates(options: {
       })
     }
 
-    initRunningJobRequests()
+    beginRunningJobTask(line.certName)
     trackRunningJobRequest(ACME_REQUEST_STEPS.DNS_PREFLIGHT)
     const preflight = await dnsPreflightForLine(line)
     if (!preflight.ok && !options.force) {
@@ -214,6 +227,7 @@ export async function executeApplyCertificates(options: {
         certName: line.certName,
         message: result.message,
       })
+      finishRunningJobTask(line.certName, 'failed', result.message)
       continue
     }
     if (!preflight.ok && options.force) {
@@ -251,6 +265,7 @@ export async function executeApplyCertificates(options: {
         notAfter: after?.notAfter,
       }
       results.push(result)
+      finishRunningJobTask(line.certName, 'done')
       logApplyResult(options.source, options.mode, result)
       await clearRateLimitAfterSuccess(options.mode, line.certName)
       await emitStatus(options.mode)
@@ -273,6 +288,7 @@ export async function executeApplyCertificates(options: {
           message,
         }
         results.push(result)
+        finishRunningJobTask(line.certName, 'failed', message)
         logApplyResult(options.source, options.mode, result)
         appendCertActivity({
           source: options.source,
@@ -306,9 +322,11 @@ export async function executeApplyCertificates(options: {
             message: `ACME timed out after ${Math.round(ACME_CERT_TIMEOUT_MS / 1000)}s (dns-01 / Let's Encrypt). Check CNAME → auth zone and try again.`,
           }
           results.push(result)
+          finishRunningJobTask(line.certName, 'failed', result.message)
           logApplyResult(options.source, options.mode, result)
           continue
         }
+        finishRunningJobTask(line.certName, 'failed')
         return { results, cancelled: true }
       }
       const rawMessage = error instanceof Error ? error.message : 'Issue failed'
@@ -319,6 +337,7 @@ export async function executeApplyCertificates(options: {
         message,
       }
       results.push(result)
+      finishRunningJobTask(line.certName, 'failed', message)
       logApplyResult(options.source, options.mode, result)
     }
   }
@@ -355,7 +374,7 @@ export function finishCancelledJob(job: InternalJob) {
   job.status = 'cancelled'
   job.finishedAt = new Date().toISOString()
   job.currentCert = undefined
-  clearRunningJobRequests()
+  clearRunningJobTasks()
   cancelled.push(job)
   appendCertActivity({
     source: job.source,
@@ -409,9 +428,6 @@ export async function pumpQueue() {
         job.currentCert = certName
         job.taskIndex = taskIndex
         job.taskTotal = taskTotal
-        if (certName) {
-          job.requests = undefined
-        }
       },
       shouldCancel: () => Boolean(job.cancelRequested),
     })
@@ -471,6 +487,7 @@ export async function createQueuedJob(options: {
   }
 
   let taskTotal: number | undefined
+  let tasks: InternalJob['tasks']
   try {
     const domains = await readDomainsFile()
     if (domains.ok) {
@@ -478,6 +495,9 @@ export async function createQueuedJob(options: {
         ? domains.lines.filter(l => options.certNames!.includes(l.certName))
         : domains.lines
       taskTotal = wanted.length
+      if (taskTotal) {
+        tasks = createCertJobTaskPlan(wanted.map(line => line.certName))
+      }
     }
   }
   catch {
@@ -494,6 +514,7 @@ export async function createQueuedJob(options: {
     force: options.force,
     renewOnly: options.renewOnly,
     taskTotal,
+    tasks,
     resolve: options.resolve,
     reject: options.reject,
   }

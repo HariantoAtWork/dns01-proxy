@@ -1,16 +1,18 @@
 import type {
   CertApplyResult,
-  AcmeRequestItem,
   CertJobQueueItem,
   CertJobQueueSnapshot,
   CertJobStatus,
   LetsEncryptDirectoryMode,
 } from '#shared/types/certs'
 import {
-  advanceAcmeRequestPlan,
-  createAcmeRequestPlan,
-  finishAcmeRequestPlan,
-} from '../../../shared/utils/acmeIssueSteps'
+  completeCertJobTaskRequests,
+  createCertJobTaskPlan,
+  finishCertJobTask,
+  runningCertJobTask,
+  startCertJobTask,
+  trackCertJobTaskRequest,
+} from '../../../shared/utils/certJobTasks'
 import { publishCertLive } from '../certLiveBus'
 
 export type JobSource = 'renew' | 'apply'
@@ -26,7 +28,7 @@ export interface InternalJob {
   currentCert?: string
   taskIndex?: number
   taskTotal?: number
-  requests?: AcmeRequestItem[]
+  tasks?: CertJobQueueItem['tasks']
   certNames?: string[]
   force?: boolean
   renewOnly?: boolean
@@ -90,7 +92,7 @@ export function toPublic(job: InternalJob): CertJobQueueItem {
     currentCert: job.currentCert,
     taskIndex: job.taskIndex,
     taskTotal: job.taskTotal,
-    requests: job.requests,
+    tasks: job.tasks,
     completedCount: job.results?.length ?? 0,
     certNames: job.certNames,
     force: job.force,
@@ -143,41 +145,79 @@ export function certJobStatus(): CertJobStatus {
     currentCert: running.currentCert,
     taskIndex: running.taskIndex,
     taskTotal: running.taskTotal,
-    requests: running.requests,
+    tasks: running.tasks,
     queueLength: waiting.length,
   }
 }
 
-export function clearRunningJobRequests() {
+export function initRunningJobTasks(certNames: string[], completed = new Set<string>()) {
   if (!running) {
     return
   }
-  running.requests = undefined
+  running.tasks = createCertJobTaskPlan(certNames, completed)
+  emitQueue()
 }
 
-export function initRunningJobRequests() {
+export function ensureRunningJobTasks(certNames: string[], completed = new Set<string>()) {
   if (!running) {
     return
   }
-  running.requests = createAcmeRequestPlan()
+  if (running.tasks?.length === certNames.length) {
+    return
+  }
+  initRunningJobTasks(certNames, completed)
+}
+
+export function beginRunningJobTask(certName: string) {
+  if (!running) {
+    return
+  }
+  running.tasks = startCertJobTask(running.tasks ?? [], certName)
+  emitQueue()
+}
+
+export function finishRunningJobTask(
+  certName: string,
+  status: 'done' | 'failed' | 'skipped',
+  message?: string,
+) {
+  if (!running?.tasks?.length) {
+    return
+  }
+  running.tasks = finishCertJobTask(running.tasks, certName, status, message)
   emitQueue()
 }
 
 export function trackRunningJobRequest(stepIndex: number, stepLabel?: string) {
-  if (!running) {
+  if (!running?.currentCert || !running.tasks?.length) {
     return
   }
-  const base = running.requests?.length ? running.requests : createAcmeRequestPlan()
-  running.requests = advanceAcmeRequestPlan(base, stepIndex, stepLabel)
+  running.tasks = trackCertJobTaskRequest(
+    running.tasks,
+    running.currentCert,
+    stepIndex,
+    stepLabel,
+  )
   emitQueue()
 }
 
 export function completeRunningJobRequests() {
-  if (!running?.requests?.length) {
+  if (!running?.currentCert || !running.tasks?.length) {
     return
   }
-  running.requests = finishAcmeRequestPlan(running.requests)
+  running.tasks = completeCertJobTaskRequests(running.tasks, running.currentCert)
   emitQueue()
+}
+
+export function clearRunningJobTasks() {
+  if (!running) {
+    return
+  }
+  running.tasks = undefined
+}
+
+export function runningJobTaskRequests() {
+  return runningCertJobTask(running?.tasks)?.requests
 }
 
 export function certJobQueueSnapshot(): CertJobQueueSnapshot {

@@ -1,5 +1,6 @@
-import type { AcmeRequestItem } from '#shared/types/certs'
+import type { AcmeRequestItem, CertJobTask } from '#shared/types/certs'
 import { currentAcmeRequestLabel } from './acmeIssueSteps'
+import { runningCertJobTask } from './certJobTasks'
 
 export interface JobProgressParts {
   task?: string
@@ -10,7 +11,7 @@ export interface JobProgressParts {
 export function jobProgressParts(job: {
   taskIndex?: number
   taskTotal?: number
-  requests?: AcmeRequestItem[]
+  tasks?: CertJobTask[]
   currentCert?: string
 }): JobProgressParts {
   const parts: JobProgressParts = {}
@@ -18,7 +19,7 @@ export function jobProgressParts(job: {
     parts.task = `${job.taskIndex ?? 0}/${job.taskTotal}`
   }
 
-  const label = currentAcmeRequestLabel(job.requests)
+  const label = currentAcmeRequestLabel(runningCertJobTask(job.tasks)?.requests)
   if (label) {
     parts.requestLabel = label
   }
@@ -32,7 +33,7 @@ export function jobProgressParts(job: {
 export function formatJobProgress(job: {
   taskIndex?: number
   taskTotal?: number
-  requests?: AcmeRequestItem[]
+  tasks?: CertJobTask[]
   currentCert?: string
 }) {
   const { task, cert, requestLabel } = jobProgressParts(job)
@@ -51,6 +52,21 @@ export function formatJobProgress(job: {
 
 export function acmeRequestStatusLabel(status: AcmeRequestItem['status']) {
   switch (status) {
+    case 'done':
+      return 'Done'
+    case 'running':
+      return 'Running'
+    case 'failed':
+      return 'Failed'
+    default:
+      return 'Pending'
+  }
+}
+
+export function certJobTaskStatusLabel(status: CertJobTask['status']) {
+  switch (status) {
+    case 'skipped':
+      return 'Skipped'
     case 'done':
       return 'Done'
     case 'running':

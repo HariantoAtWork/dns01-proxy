@@ -38,9 +38,9 @@ const hasQueue = computed(() =>
           <span class="text-signal">Running</span>
           {{ jobLabel(queue.running.id, queue.running.source, queue.running.mode) }}
           <CertsJobProgress :job="queue.running" />
-          <CertsJobRequestList
-            v-if="queue.running.requests?.length"
-            :requests="queue.running.requests"
+          <CertsJobTaskList
+            v-if="queue.running.tasks?.length"
+            :tasks="queue.running.tasks"
           />
           <span v-if="queue.running.cancelRequested" class="ml-2 text-muted">(stopping…)</span>
         </div>
@@ -129,9 +129,9 @@ const hasQueue = computed(() =>
         <span class="text-signal">Running</span>
         {{ jobLabel(queue.running.id, queue.running.source, queue.running.mode) }}
         <CertsJobProgress :job="queue.running" />
-        <CertsJobRequestList
-          v-if="queue.running.requests?.length"
-          :requests="queue.running.requests"
+        <CertsJobTaskList
+          v-if="queue.running.tasks?.length"
+          :tasks="queue.running.tasks"
         />
         <span v-if="queue.running.cancelRequested" class="ml-2 text-muted">(stopping…)</span>
       </div>

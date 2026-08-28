@@ -4,6 +4,7 @@ import { acmeRequestStatusLabel } from '#shared/utils/jobProgress'
 
 defineProps<{
   requests: AcmeRequestItem[]
+  nested?: boolean
 }>()
 
 function statusClass(status: AcmeRequestItem['status']) {
@@ -21,7 +22,12 @@ function statusClass(status: AcmeRequestItem['status']) {
 </script>
 
 <template>
-  <ul class="mt-2 space-y-1 border-t border-rule pt-2">
+  <ul
+    class="space-y-1"
+    :class="nested
+      ? 'ml-2 border-l border-rule pl-2'
+      : 'mt-2 border-t border-rule pt-2'"
+  >
     <li
       v-for="item in requests"
       :key="item.id"
