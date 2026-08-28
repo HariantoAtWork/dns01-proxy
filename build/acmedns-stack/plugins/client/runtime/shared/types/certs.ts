@@ -1,5 +1,14 @@
 export type LetsEncryptDirectoryMode = 'production' | 'staging'
 
+export type AcmeRequestStatus = 'pending' | 'running' | 'done' | 'failed'
+
+/** One ACME dns-01 request phase tracked in the job queue. */
+export interface AcmeRequestItem {
+  step: number
+  label: string
+  status: AcmeRequestStatus
+}
+
 export interface DomainsLineError {
   line: number
   message: string
@@ -141,12 +150,8 @@ export interface CertJobStatus {
   taskIndex?: number
   /** Total certificate lines in this job batch */
   taskTotal?: number
-  /** 1-based ACME dns-01 request step for the current certificate (e.g. 3/5) */
-  requestIndex?: number
-  /** Total ACME request steps per certificate (always 5) */
-  requestTotal?: number
-  /** Short label for the current ACME request step */
-  requestLabel?: string
+  /** ACME dns-01 request phases for the current certificate (each array item is one step) */
+  requests?: AcmeRequestItem[]
   queueLength?: number
 }
 
@@ -163,9 +168,7 @@ export interface CertJobQueueItem {
   currentCert?: string
   taskIndex?: number
   taskTotal?: number
-  requestIndex?: number
-  requestTotal?: number
-  requestLabel?: string
+  requests?: AcmeRequestItem[]
   /** Certificate lines already finished before cancel (for continue) */
   completedCount?: number
   certNames?: string[]

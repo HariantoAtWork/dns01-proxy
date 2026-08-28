@@ -372,7 +372,7 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
               class="ml-2 rounded-[4px] border border-signal px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-signal"
             >
               <CertsJobProgress :job="certJob" :show-cert="false" compact />
-              <span v-if="!certJob.taskTotal && !certJob.requestIndex">Working…</span>
+              <span v-if="!certJob.taskTotal && !certJob.requests?.length">Working…</span>
             </span>
           </p>
           <p v-if="entry.notAfter" class="mt-0.5 text-xs text-muted">
