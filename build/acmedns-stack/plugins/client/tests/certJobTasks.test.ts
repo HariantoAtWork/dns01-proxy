@@ -22,7 +22,7 @@ describe('certJobTasks', () => {
     const next = startCertJobTask(tasks, 'b.test')
 
     expect(runningCertJobTask(next)?.certName).toBe('b.test')
-    expect(runningCertJobTask(next)?.requests).toHaveLength(5)
+    expect(runningCertJobTask(next)?.requests).toHaveLength(2)
   })
 
   test('trackCertJobTaskRequest advances nested ACME steps on the active task', () => {
@@ -53,7 +53,7 @@ describe('certJobTasks', () => {
   test('completeCertJobTaskRequests marks all request steps done', () => {
     let tasks = createCertJobTaskPlan(['a.test'])
     tasks = startCertJobTask(tasks, 'a.test')
-    tasks = trackCertJobTaskRequest(tasks, 'a.test', ACME_REQUEST_STEPS.LE_VALIDATE)
+    tasks = trackCertJobTaskRequest(tasks, 'a.test', ACME_REQUEST_STEPS.VALIDATE_SAVE)
     tasks = completeCertJobTaskRequests(tasks, 'a.test')
 
     expect(tasks[0]?.requests?.every(item => item.status === 'done')).toBe(true)

@@ -1,4 +1,5 @@
 import type { AcmeRequestItem } from '#shared/types/certs'
+import { apexName, canonicalSans } from './domains'
 
 /** Fixed ACME dns-01 request phases for the running job requests array. */
 export const ACME_REQUEST_STEP_TOTAL = 5
@@ -59,13 +60,24 @@ function newAcmeRequestItem(
   }
 }
 
+export function acmeRequestDomain(label: string): string | undefined {
+  for (const prefix of ['Publish TXT ', 'TXT online ', 'LE validate ']) {
+    if (label.startsWith(prefix)) {
+      const domain = label.slice(prefix.length).trim()
+      return domain || undefined
+    }
+  }
+  return undefined
+}
+
+function isChallengeStep(stepIndex: number) {
+  return stepIndex >= ACME_REQUEST_STEPS.PUBLISH_TXT
+}
+
 export function createAcmeRequestPlan(): AcmeRequestItem[] {
   return [
     ACME_REQUEST_STEPS.DNS_PREFLIGHT,
     ACME_REQUEST_STEPS.ACME_ORDER,
-    ACME_REQUEST_STEPS.PUBLISH_TXT,
-    ACME_REQUEST_STEPS.TXT_ONLINE,
-    ACME_REQUEST_STEPS.VALIDATE_SAVE,
   ].map(step => newAcmeRequestItem(step, acmeRequestStepLabel(step), 'pending'))
 }
 
@@ -76,10 +88,26 @@ export function advanceAcmeRequestPlan(
 ): AcmeRequestItem[] {
   const label = stepLabel ?? acmeRequestStepLabel(stepIndex)
   const next = requests.map(item => ({ ...item }))
+  const domain = acmeRequestDomain(label)
 
   const runningIdx = next.findIndex(item => item.status === 'running')
   if (runningIdx >= 0) {
     next[runningIdx] = { ...next[runningIdx]!, status: 'done' }
+  }
+
+  if (isChallengeStep(stepIndex) && domain) {
+    const pendingIdx = next.findIndex(
+      item => item.step === stepIndex
+        && acmeRequestDomain(item.label) === domain
+        && item.status === 'pending',
+    )
+    if (pendingIdx >= 0) {
+      next[pendingIdx] = { ...next[pendingIdx]!, label, status: 'running' }
+      return next
+    }
+
+    next.push(newAcmeRequestItem(stepIndex, label, 'running'))
+    return next
   }
 
   const pendingIdx = next.findIndex(item => item.step === stepIndex && item.status === 'pending')
@@ -125,4 +153,53 @@ export function currentAcmeRequestLabel(requests: AcmeRequestItem[] | undefined)
   }
 
   return undefined
+}
+
+const CHALLENGE_STEP_ORDER = [
+  ACME_REQUEST_STEPS.PUBLISH_TXT,
+  ACME_REQUEST_STEPS.TXT_ONLINE,
+  ACME_REQUEST_STEPS.VALIDATE_SAVE,
+] as const
+
+/** Group dns-01 steps by domain — apex first, then each SAN publish → TXT online → LE validate. */
+export function sortAcmeRequestItems(
+  requests: AcmeRequestItem[],
+  certName: string,
+): AcmeRequestItem[] {
+  if (!requests.length) {
+    return requests
+  }
+
+  const preamble = requests.filter(item => item.step <= ACME_REQUEST_STEPS.ACME_ORDER)
+  const epilogue = requests.filter(
+    item => item.step === ACME_REQUEST_STEPS.VALIDATE_SAVE && !acmeRequestDomain(item.label),
+  )
+  const challenge = requests.filter(item => Boolean(acmeRequestDomain(item.label)))
+
+  const domains = canonicalSans([
+    ...new Set(challenge.map(item => acmeRequestDomain(item.label)).filter(Boolean) as string[]),
+  ])
+  if (!domains.length) {
+    domains.push(apexName(certName))
+  }
+
+  const grouped: AcmeRequestItem[] = []
+  const used = new Set<string>()
+
+  for (const domain of domains) {
+    for (const step of CHALLENGE_STEP_ORDER) {
+      for (const item of challenge) {
+        if (used.has(item.id)) {
+          continue
+        }
+        if (item.step === step && acmeRequestDomain(item.label) === domain) {
+          grouped.push(item)
+          used.add(item.id)
+        }
+      }
+    }
+  }
+
+  const orphans = challenge.filter(item => !used.has(item.id))
+  return [...preamble, ...grouped, ...orphans, ...epilogue]
 }

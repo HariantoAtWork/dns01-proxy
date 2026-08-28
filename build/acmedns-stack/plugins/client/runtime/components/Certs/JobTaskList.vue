@@ -49,6 +49,7 @@ function taskStatusClass(status: CertJobTask['status']) {
       <CertsJobRequestList
         v-if="task.requests?.length"
         nested
+        :cert-name="task.certName"
         :requests="task.requests"
       />
     </li>
