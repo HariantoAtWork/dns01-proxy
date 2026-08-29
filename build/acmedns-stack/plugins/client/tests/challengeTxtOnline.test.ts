@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import {
   collectTxtValues,
   evaluateChallengeTxtProbe,
+  formatDns01ProbeLog,
+  formatDns01TxtList,
   normaliseTxtValue,
   pickCnameTarget,
 } from '../runtime/shared/utils/challengeTxtProbe'
@@ -54,5 +56,30 @@ describe('challengeTxtOnline', () => {
       { server: 'auth:ns1.example.com', lookup: 'ok', records: [{ name: '_acme-challenge.oib.example.com', data: ['_acme-challenge.example.com'] }] },
     ])
     expect(target).toBe('_acme-challenge.example.com')
+  })
+
+  test('formatDns01ProbeLog summarises LE token, publish, and authoritative answers', () => {
+    const token = 'abcdefghijklmnopqrstuvwxyz0123456789abcdefg'
+    const line = formatDns01ProbeLog({
+      challengeName: '_acme-challenge.sylo.space',
+      leToken: token,
+      publishedToken: token,
+      attempt: 1,
+      matched: false,
+      hops: [{
+        qname: '_acme-challenge.sylo.space',
+        txtValues: ['stale-a', 'stale-b'],
+        cnameTarget: 'uuid.auth.acme-dns.io',
+      }],
+    })
+    expect(line).toContain(`LE token: ${token}`)
+    expect(line).toContain(`published: ${token}`)
+    expect(line).toContain('stale-a, stale-b')
+    expect(line).toContain('uuid.auth.acme-dns.io')
+    expect(line).toContain('no match')
+  })
+
+  test('formatDns01TxtList shows (none) for empty values', () => {
+    expect(formatDns01TxtList([])).toBe('(none)')
   })
 })
