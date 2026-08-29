@@ -3,6 +3,7 @@ import {
   port53ProbeFromLookup,
   port53StatusLabel,
   port53SummaryLabel,
+  port53SummaryTone,
   summarizePort53Reachability,
 } from '../runtime/shared/utils/port53Reachability'
 
@@ -88,5 +89,11 @@ describe('port53 labels', () => {
     expect(port53StatusLabel('ok')).toBe('Reachable')
     expect(port53SummaryLabel('ok')).toBe('Port 53 reachable on public IP')
     expect(port53SummaryLabel('failed')).toBe('Port 53 not reachable on public IP')
+  })
+
+  test('maps summary to traffic-light tone', () => {
+    expect(port53SummaryTone('ok')).toBe('ok')
+    expect(port53SummaryTone('failed')).toBe('bad')
+    expect(port53SummaryTone('unknown')).toBe('muted')
   })
 })

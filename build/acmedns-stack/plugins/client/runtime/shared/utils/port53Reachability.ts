@@ -180,3 +180,44 @@ export function port53SummaryLabel(summary: Port53ReachabilitySummary) {
       return 'Port 53 unknown'
   }
 }
+
+export type Port53SummaryTone = 'ok' | 'warn' | 'bad' | 'muted'
+
+export function port53SummaryTone(summary: Port53ReachabilitySummary | undefined): Port53SummaryTone {
+  switch (summary) {
+    case 'ok':
+      return 'ok'
+    case 'partial':
+      return 'warn'
+    case 'failed':
+      return 'bad'
+    default:
+      return 'muted'
+  }
+}
+
+export function port53ToneTextClass(tone: Port53SummaryTone) {
+  switch (tone) {
+    case 'ok':
+      return 'text-live'
+    case 'warn':
+      return 'text-signal'
+    case 'bad':
+      return 'text-danger'
+    default:
+      return 'text-muted'
+  }
+}
+
+export function port53ToneBarClass(tone: Port53SummaryTone) {
+  switch (tone) {
+    case 'ok':
+      return 'border-live/35 bg-live/[0.06]'
+    case 'warn':
+      return 'border-signal/35 bg-signal/[0.06]'
+    case 'bad':
+      return 'border-danger/35 bg-danger/[0.06]'
+    default:
+      return 'border-rule bg-panel'
+  }
+}

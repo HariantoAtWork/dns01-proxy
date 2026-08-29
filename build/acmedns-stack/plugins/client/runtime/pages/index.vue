@@ -49,6 +49,7 @@ const domainsLineCount = computed(() => domainsFile.value?.lines?.length ?? 0)
 const domainsFileOk = computed(() => domainsFile.value?.ok !== false)
 
 const backupCount = computed(() => backupItems.value.length)
+const { refresh: refreshReachability } = usePublicIps()
 
 const loading = computed(() =>
   storageStatus.value === 'pending'
@@ -61,6 +62,7 @@ async function refreshAll() {
   await Promise.all([
     refreshStorage(),
     refreshCerts(),
+    refreshReachability(),
   ])
 }
 </script>
@@ -78,6 +80,8 @@ async function refreshAll() {
         Refresh
       </UiButton>
     </header>
+
+    <NetworkReachableBar />
 
     <div
       v-if="loading && !accountCount && !certEntries.length"
