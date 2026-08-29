@@ -226,10 +226,13 @@ async function onRecheckDns() {
 }
 
 async function onMode(mode: LetsEncryptDirectoryMode) {
+  if (directoryMode.value === mode) {
+    return
+  }
   try {
     await saveSettings(mode)
     await loadStatus(mode)
-    toasts.ok(mode === 'staging' ? 'Staging mode (writes staging/ only)' : 'Production mode (writes live/)')
+    toasts.ok(mode === 'staging' ? 'Staging (writes staging/ only)' : 'Live (writes live/)')
   }
   catch (caught) {
     toasts.error(caught instanceof Error ? caught.message : 'Could not change mode')
@@ -520,7 +523,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
         </h1>
         <p class="mt-1 text-sm text-muted">
           Edit <span class="font-mono text-ink">domains.txt</span>, save to validate, then Apply to issue.
-          Production writes <span class="font-mono">live/</span>; Staging writes <span class="font-mono">staging/</span> only.
+          Live writes <span class="font-mono">live/</span>; Staging writes <span class="font-mono">staging/</span> only.
           Apply checks challenge CNAMEs on your zone's authoritative nameservers first (Let's Encrypt's dns-01 path) and skips issue when DNS is not ready; Force re-issue bypasses that preflight. Recheck DNS also queries public resolvers for propagation hints.
         </p>
         <p v-if="loaded" class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
@@ -572,6 +575,54 @@ async function onJobAction(action: JobQueueAction, id: number) {
       </div>
     </div>
 
+    <div
+      class="sticky top-12 z-[15] -mx-1 space-y-1 bg-paper/95 px-1 py-1 backdrop-blur-md md:top-16 md:-mx-6 md:px-6"
+    >
+      <div
+        role="tablist"
+        aria-label="Certificate environment"
+        class="grid w-full grid-cols-2 gap-1.5"
+      >
+        <button
+          id="cert-tab-live"
+          type="button"
+          role="tab"
+          :aria-selected="directoryMode === 'production'"
+          aria-controls="cert-panel-main"
+          class="rounded-[6px] border px-3 py-1.5 text-center text-sm font-medium transition-colors"
+          :class="directoryMode === 'production'
+            ? 'border-signal bg-panel text-ink shadow-sm'
+            : 'border-rule text-muted hover:border-muted hover:bg-paper hover:text-ink'"
+          :disabled="pending"
+          @click="onMode('production')"
+        >
+          Live
+        </button>
+        <button
+          id="cert-tab-staging"
+          type="button"
+          role="tab"
+          :aria-selected="directoryMode === 'staging'"
+          aria-controls="cert-panel-main"
+          class="rounded-[6px] border px-3 py-1.5 text-center text-sm font-medium transition-colors"
+          :class="directoryMode === 'staging'
+            ? 'border-signal bg-panel text-ink shadow-sm'
+            : 'border-rule text-muted hover:border-muted hover:bg-paper hover:text-ink'"
+          :disabled="pending"
+          @click="onMode('staging')"
+        >
+          Staging
+        </button>
+      </div>
+      <p
+        v-if="directoryMode === 'production' && !acmeEnabled"
+        class="text-[11px] leading-tight text-danger"
+      >
+        Live ACME off
+      </p>
+    </div>
+
+    <div id="cert-panel-main" role="tabpanel" :aria-labelledby="directoryMode === 'staging' ? 'cert-tab-staging' : 'cert-tab-live'">
     <CertsRateLimits :limits="activeRateLimits" :now-ms="now.getTime()" />
 
     <CertsJobPanel
@@ -607,7 +658,6 @@ async function onJobAction(action: JobQueueAction, id: number) {
       :now-ms="now.getTime()"
       @save="onSave"
       @apply="onApply"
-      @mode="onMode"
       @toggle-renew-scheduler="onToggleRenewScheduler"
       @recheck-dns="onRecheckDns"
       @issue="onIssueCert"
@@ -620,6 +670,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
     />
 
     <CertsActivityFeed v-model:log-filter="logFilter" :entries="activityEntries" />
+    </div>
 
     <UiConfirmDialog
       v-model:open="trashConfirmOpen"
