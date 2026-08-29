@@ -273,7 +273,7 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="text-sm font-semibold text-ink">
-          Status
+          Status ({{ directoryMode === 'staging' ? 'staging/' : 'live/' }})
         </h2>
         <p class="mt-1 text-xs text-muted">
           Issue queues one Let's Encrypt job per apex; click several in a row and they run one after another.
