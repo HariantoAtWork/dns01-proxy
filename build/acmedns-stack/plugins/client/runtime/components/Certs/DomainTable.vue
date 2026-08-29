@@ -66,7 +66,6 @@ const {
 const emit = defineEmits<{
   save: []
   apply: [force: boolean]
-  mode: [mode: LetsEncryptDirectoryMode]
   'toggle-renew-scheduler': []
   'recheck-dns': []
   issue: [certName: string, force: boolean]
@@ -117,35 +116,6 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
   <UiPanel>
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-3">
       <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-2">
-          <span class="text-xs uppercase tracking-wide text-muted">Directory</span>
-          <div class="inline-flex rounded-[6px] border border-rule p-0.5">
-            <button
-              type="button"
-              class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-              :class="directoryMode === 'production' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-              :disabled="pending"
-              @click="emit('mode', 'production')"
-            >
-              Production
-            </button>
-            <button
-              type="button"
-              class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"
-              :class="directoryMode === 'staging' ? 'bg-panel text-ink' : 'text-muted hover:text-ink'"
-              :disabled="pending"
-              @click="emit('mode', 'staging')"
-            >
-              Staging
-            </button>
-          </div>
-          <span
-            v-if="!acmeEnabled"
-            class="rounded-[4px] border border-danger px-2 py-0.5 text-xs text-danger"
-          >
-            Production ACME off
-          </span>
-        </div>
         <label
           class="inline-flex cursor-pointer items-center gap-2 rounded-[6px] border px-2.5 py-1 text-xs"
           :class="renewSchedulerEnabled ? 'border-rule text-ink' : 'border-danger text-danger'"
@@ -303,7 +273,7 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="text-sm font-semibold text-ink">
-          Status ({{ directoryMode === 'staging' ? 'staging/' : 'live/' }})
+          Status
         </h2>
         <p class="mt-1 text-xs text-muted">
           Issue queues one Let's Encrypt job per apex; click several in a row and they run one after another.
