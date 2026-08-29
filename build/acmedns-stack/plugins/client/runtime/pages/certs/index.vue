@@ -598,10 +598,8 @@ async function onJobAction(action: JobQueueAction, id: number) {
     >
       <button
         type="button"
-        class="inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 transition-colors"
-        :class="configModalOpen
-          ? 'border-signal bg-panel text-ink shadow-sm'
-          : 'border-rule bg-transparent text-muted hover:border-muted hover:text-ink'"
+        class="inline-flex shrink-0 items-center justify-center rounded-full p-1.5 transition-colors"
+        :class="configModalOpen ? 'text-ink' : 'text-muted hover:text-ink'"
         aria-label="Edit domains.txt"
         title="domains.txt and DNS checks"
         :disabled="pending"
