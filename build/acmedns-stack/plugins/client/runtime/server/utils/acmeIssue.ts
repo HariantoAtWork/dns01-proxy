@@ -8,7 +8,7 @@ import { tinyApexLabel } from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { readStorage } from './storage'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
-import { waitForChallengeTxtOnline } from './challengeTxtOnline'
+import { acmeTxtSettleMs, waitForChallengeTxtOnline } from './challengeTxtOnline'
 import { accountsDir, getLetsEncryptEmail } from './certSettings'
 import { writeLivePems } from './letsencryptFs'
 import { snapshotCertToLastSaved } from './certLastSaved'
@@ -74,6 +74,29 @@ function throwIfAborted(signal?: AbortSignal) {
   throw err
 }
 
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) {
+    return Promise.resolve()
+  }
+  throwIfAborted(signal)
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      try {
+        throwIfAborted(signal)
+      }
+      catch (error) {
+        reject(error)
+      }
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (!signal) {
     return promise
@@ -100,6 +123,102 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
       },
     )
   })
+}
+
+function createChallengeSerialGate() {
+  let gate = Promise.resolve()
+  let releaseActive: (() => void) | undefined
+
+  return {
+    async acquire() {
+      const previous = gate
+      gate = previous.then(() => new Promise<void>((resolve) => {
+        releaseActive = resolve
+      }))
+      await previous
+    },
+    release() {
+      releaseActive?.()
+      releaseActive = undefined
+    },
+    releaseOnError() {
+      this.release()
+    },
+  }
+}
+
+async function runDns01Challenge(options: {
+  authzIdentifier: string
+  keyAuthorization: string
+  certName: string
+  preferUrl: string
+  shared: ReturnType<typeof getSharedModeContext>
+  storage: Awaited<ReturnType<typeof readStorage>>
+  signal?: AbortSignal
+  reportStep: (index: number, label?: string) => void
+}) {
+  throwIfAborted(options.signal)
+  const domain = options.authzIdentifier
+  const { key: storageKey, account } = options.shared
+    ? { key: domain, account: options.shared.account }
+    : findAccount(options.storage, domain)
+  if (!account || (!options.shared && !storageKey)) {
+    throw new Error(`No acme-dns account for ${domain}`)
+  }
+
+  const subdomain = options.shared
+    ? tinyApexLabel(options.certName)
+    : account.subdomain
+  if (!subdomain) {
+    throw new Error(`No acme-dns subdomain for ${domain}`)
+  }
+
+  logAcmeStep(
+    options.certName,
+    options.shared
+      ? `Publishing dns-01 TXT for ${domain} via shared acme-dns (${subdomain})`
+      : `Publishing dns-01 TXT for ${domain} via acme-dns (${subdomain})`,
+  )
+
+  options.reportStep(ACME_REQUEST_STEPS.PUBLISH_TXT, `Publish TXT ${domain}`)
+
+  await updateAcmeDnsTxt({
+    serverUrl: account.server_url || options.preferUrl,
+    username: account.username,
+    password: account.password,
+    subdomain,
+    txt: options.keyAuthorization,
+  })
+
+  throwIfAborted(options.signal)
+
+  options.reportStep(ACME_REQUEST_STEPS.TXT_ONLINE, `TXT online ${domain}`)
+
+  const challengeName = challengeHost(apexName(domain))
+  await waitForChallengeTxtOnline({
+    challengeName,
+    expectedTxt: options.keyAuthorization,
+    certName: options.certName,
+    signal: options.signal,
+  })
+
+  const settleMs = acmeTxtSettleMs()
+  if (settleMs > 0) {
+    const settleSeconds = Math.max(1, Math.round(settleMs / 1000))
+    options.reportStep(ACME_REQUEST_STEPS.DNS_SETTLE, `DNS settle ${domain}`)
+    logAcmeStep(
+      options.certName,
+      `dns-01 TXT visible for ${domain}; waiting ${settleSeconds}s before LE validate`,
+    )
+    await abortableDelay(settleMs, options.signal)
+  }
+
+  logAcmeStep(
+    options.certName,
+    `dns-01 TXT ready for ${domain}; telling Let's Encrypt to validate`,
+  )
+
+  options.reportStep(ACME_REQUEST_STEPS.VALIDATE_SAVE, `LE validate ${domain}`)
 }
 
 export async function issueCertificate(options: {
@@ -145,6 +264,8 @@ export async function issueCertificate(options: {
 
       reportStep(ACME_REQUEST_STEPS.ACME_ORDER)
 
+      const challengeSerial = createChallengeSerialGate()
+
       const certificate = await abortable(
         client.auto({
           csr,
@@ -157,60 +278,33 @@ export async function issueCertificate(options: {
             if (challenge.type !== 'dns-01') {
               throw new Error(`Unsupported challenge type: ${challenge.type}`)
             }
+
             const domain = authz.identifier.value
-            const { key: storageKey, account } = shared
-              ? { key: domain, account: shared.account }
-              : findAccount(storage, domain)
-            if (!account || (!shared && !storageKey)) {
-              throw new Error(`No acme-dns account for ${domain}`)
+            await challengeSerial.acquire()
+            try {
+              logAcmeStep(
+                options.certName,
+                `Starting dns-01 authorization for ${domain} (serial queue)`,
+              )
+              await runDns01Challenge({
+                authzIdentifier: domain,
+                keyAuthorization,
+                certName: options.certName,
+                preferUrl,
+                shared,
+                storage,
+                signal,
+                reportStep,
+              })
             }
-
-            // Tiny: `_mdstn-com_` under auth zone (deterministic from cert-line apex).
-            const subdomain = shared
-              ? tinyApexLabel(options.certName)
-              : account.subdomain
-            if (!subdomain) {
-              throw new Error(`No acme-dns subdomain for ${domain}`)
+            catch (error) {
+              challengeSerial.releaseOnError()
+              throw error
             }
-
-            logAcmeStep(
-              options.certName,
-              shared
-                ? `Publishing dns-01 TXT for ${domain} via shared acme-dns (${subdomain})`
-                : `Publishing dns-01 TXT for ${domain} via acme-dns (${subdomain})`,
-            )
-
-            reportStep(ACME_REQUEST_STEPS.PUBLISH_TXT, `Publish TXT ${domain}`)
-
-            await updateAcmeDnsTxt({
-              serverUrl: account.server_url || preferUrl,
-              username: account.username,
-              password: account.password,
-              subdomain,
-              txt: keyAuthorization,
-            })
-
-            throwIfAborted(signal)
-
-            reportStep(ACME_REQUEST_STEPS.TXT_ONLINE, `TXT online ${domain}`)
-
-            const challengeName = challengeHost(apexName(domain))
-            await waitForChallengeTxtOnline({
-              challengeName,
-              expectedTxt: keyAuthorization,
-              certName: options.certName,
-              signal,
-            })
-
-            logAcmeStep(
-              options.certName,
-              `dns-01 TXT ready for ${domain}; telling Let's Encrypt to validate`,
-            )
-
-            reportStep(ACME_REQUEST_STEPS.VALIDATE_SAVE, `LE validate ${domain}`)
           },
           challengeRemoveFn: async () => {
-            // acme-dns keeps a rolling TXT window; no delete API required
+            // Release the next authorization only after LE finished this one.
+            challengeSerial.release()
           },
         }),
         signal,

@@ -2,14 +2,15 @@ import type { AcmeRequestItem } from '#shared/types/certs'
 import { apexName, canonicalSans } from './domains'
 
 /** Fixed ACME dns-01 request phases for the running job requests array. */
-export const ACME_REQUEST_STEP_TOTAL = 5
+export const ACME_REQUEST_STEP_TOTAL = 6
 
 export const ACME_REQUEST_STEPS = {
   DNS_PREFLIGHT: 1,
   ACME_ORDER: 2,
   PUBLISH_TXT: 3,
   TXT_ONLINE: 4,
-  VALIDATE_SAVE: 5,
+  DNS_SETTLE: 5,
+  VALIDATE_SAVE: 6,
 } as const
 
 export type AcmeRequestStep = typeof ACME_REQUEST_STEPS[keyof typeof ACME_REQUEST_STEPS]
@@ -26,6 +27,8 @@ export function acmeRequestStepLabel(step: number): string {
       return 'Publish TXT'
     case ACME_REQUEST_STEPS.TXT_ONLINE:
       return 'TXT online'
+    case ACME_REQUEST_STEPS.DNS_SETTLE:
+      return 'DNS settle'
     case ACME_REQUEST_STEPS.VALIDATE_SAVE:
       return 'LE validate'
     default:
@@ -61,7 +64,7 @@ function newAcmeRequestItem(
 }
 
 export function acmeRequestDomain(label: string): string | undefined {
-  for (const prefix of ['Publish TXT ', 'TXT online ', 'LE validate ']) {
+  for (const prefix of ['Publish TXT ', 'TXT online ', 'DNS settle ', 'LE validate ']) {
     if (label.startsWith(prefix)) {
       const domain = label.slice(prefix.length).trim()
       return domain || undefined
@@ -158,6 +161,7 @@ export function currentAcmeRequestLabel(requests: AcmeRequestItem[] | undefined)
 const CHALLENGE_STEP_ORDER = [
   ACME_REQUEST_STEPS.PUBLISH_TXT,
   ACME_REQUEST_STEPS.TXT_ONLINE,
+  ACME_REQUEST_STEPS.DNS_SETTLE,
   ACME_REQUEST_STEPS.VALIDATE_SAVE,
 ] as const
 

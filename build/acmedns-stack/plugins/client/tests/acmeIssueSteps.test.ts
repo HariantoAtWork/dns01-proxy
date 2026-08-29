@@ -13,15 +13,16 @@ import {
 import { formatJobProgress, jobProgressParts } from '../runtime/shared/utils/jobProgress'
 
 describe('acmeIssueSteps', () => {
-  test('defines five ACME request steps', () => {
-    expect(ACME_REQUEST_STEP_TOTAL).toBe(5)
-    expect(ACME_REQUEST_STEPS.VALIDATE_SAVE).toBe(5)
+  test('defines six ACME request steps', () => {
+    expect(ACME_REQUEST_STEP_TOTAL).toBe(6)
+    expect(ACME_REQUEST_STEPS.DNS_SETTLE).toBe(5)
+    expect(ACME_REQUEST_STEPS.VALIDATE_SAVE).toBe(6)
   })
 
   test('builds step progress payload', () => {
     expect(acmeRequestStepProgress(ACME_REQUEST_STEPS.TXT_ONLINE)).toEqual({
       index: 4,
-      total: 5,
+      total: 6,
       label: 'TXT online',
     })
   })
@@ -92,6 +93,27 @@ describe('acmeIssueSteps', () => {
     ])
   })
 
+  test('sorts DNS settle between TXT online and LE validate per domain', () => {
+    const requests = [
+      { id: '1', step: ACME_REQUEST_STEPS.DNS_PREFLIGHT, label: 'DNS preflight', status: 'done' as const },
+      { id: '2', step: ACME_REQUEST_STEPS.ACME_ORDER, label: 'ACME order', status: 'done' as const },
+      { id: '3', step: ACME_REQUEST_STEPS.VALIDATE_SAVE, label: 'LE validate mdstn.com', status: 'done' as const },
+      { id: '4', step: ACME_REQUEST_STEPS.TXT_ONLINE, label: 'TXT online mdstn.com', status: 'done' as const },
+      { id: '5', step: ACME_REQUEST_STEPS.DNS_SETTLE, label: 'DNS settle mdstn.com', status: 'done' as const },
+      { id: '6', step: ACME_REQUEST_STEPS.PUBLISH_TXT, label: 'Publish TXT mdstn.com', status: 'done' as const },
+    ]
+
+    const sorted = sortAcmeRequestItems(requests, 'mdstn.com')
+    expect(sorted.map(item => item.label)).toEqual([
+      'DNS preflight',
+      'ACME order',
+      'Publish TXT mdstn.com',
+      'TXT online mdstn.com',
+      'DNS settle mdstn.com',
+      'LE validate mdstn.com',
+    ])
+  })
+
   test('derives current request label from the array', () => {
     let plan = createAcmeRequestPlan()
     plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT example.com')
@@ -100,6 +122,7 @@ describe('acmeIssueSteps', () => {
 
   test('labels each step', () => {
     expect(acmeRequestStepLabel(ACME_REQUEST_STEPS.DNS_PREFLIGHT)).toBe('DNS preflight')
+    expect(acmeRequestStepLabel(ACME_REQUEST_STEPS.DNS_SETTLE)).toBe('DNS settle')
     expect(acmeRequestStepLabel(ACME_REQUEST_STEPS.VALIDATE_SAVE)).toBe('LE validate')
   })
 })
