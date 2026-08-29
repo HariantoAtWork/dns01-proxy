@@ -87,6 +87,7 @@ export function usePublicIps() {
 
   const host = computed(() => data.value?.host ?? [])
   const visit = computed(() => data.value?.visit ?? null)
+  const port53 = computed(() => data.value?.port53 ?? null)
   const addresses = computed(() => mergeAddresses([...host.value, ...browser.value]))
 
   const multiplePerFamily = computed(() => {
@@ -150,6 +151,7 @@ export function usePublicIps() {
     load,
     host,
     visit,
+    port53,
     addresses,
     multiplePerFamily,
     ipv6OnlyInBrowser,

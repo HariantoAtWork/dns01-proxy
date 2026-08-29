@@ -15,7 +15,7 @@ export interface DnsUdpOutcome {
  * Query a resolver over UDP with dns2 so NOERROR/NODATA is not confused with
  * NXDOMAIN (Bun's node:dns maps empty answers to ENOTFOUND).
  */
-export type DnsUdpRecordType = 'CNAME' | 'NS' | 'A' | 'TXT'
+export type DnsUdpRecordType = 'CNAME' | 'NS' | 'SOA' | 'A' | 'TXT'
 
 export async function dnsUdpQuery(
   name: string,
@@ -55,6 +55,16 @@ export async function dnsUdpQuery(
       const data = response.answers
         .filter(answer => answer.type === Packet.TYPE.NS)
         .map(answer => String((answer as { ns?: string }).ns ?? '').replace(/\.$/, '').toLowerCase())
+        .filter(Boolean)
+      return data.length > 0
+        ? { records: [{ name, data }], lookup: 'ok' }
+        : { records: [], lookup: 'nodata' }
+    }
+
+    if (type === 'SOA') {
+      const data = response.answers
+        .filter(answer => answer.type === Packet.TYPE.SOA)
+        .map(answer => String((answer as { primary?: string }).primary ?? '').replace(/\.$/, '').toLowerCase())
         .filter(Boolean)
       return data.length > 0
         ? { records: [{ name, data }], lookup: 'ok' }
