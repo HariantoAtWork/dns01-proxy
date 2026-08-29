@@ -13,6 +13,7 @@ import {
   PhCertificate as Certificate,
   PhCircle as Circle,
   PhFloppyDisk as FloppyDisk,
+  PhGear as Gear,
   PhTrash as Trash,
 } from '@phosphor-icons/vue'
 
@@ -69,8 +70,17 @@ const {
   clearPageHooks,
 } = useCertQueueLive()
 
+type CertEnvironment = 'live' | 'staging'
+
 const dirty = ref(false)
 const loaded = ref(false)
+const configModalOpen = ref(false)
+const certEnvironment = computed<CertEnvironment>({
+  get: () => (directoryMode.value === 'staging' ? 'staging' : 'live'),
+  set: (value) => {
+    void onMode(value === 'staging' ? 'staging' : 'production')
+  },
+})
 const logFilter = ref<'all' | 'acme' | 'live' | 'staging'>('acme')
 const now = useNow({ interval: 1000 })
 
@@ -146,6 +156,14 @@ watch(directoryMode, async (mode) => {
   }
   await loadStatus(mode)
 })
+
+const certPanelId = computed(() =>
+  directoryMode.value === 'staging' ? 'cert-panel-staging' : 'cert-panel-live',
+)
+
+const certTabLabelId = computed(() =>
+  directoryMode.value === 'staging' ? 'cert-tab-staging' : 'cert-tab-live',
+)
 
 onMounted(async () => {
   registerPageHooks({
@@ -576,53 +594,34 @@ async function onJobAction(action: JobQueueAction, id: number) {
     </div>
 
     <div
-      class="sticky top-12 z-[15] -mx-1 space-y-1 bg-paper/95 px-1 py-1 backdrop-blur-md md:top-16 md:-mx-6 md:px-6"
+      class="sticky top-12 z-[15] -mx-1 flex items-stretch gap-2 bg-paper/95 px-1 py-1 backdrop-blur-md md:top-16 md:-mx-6 md:px-6"
     >
-      <div
-        role="tablist"
-        aria-label="Certificate environment"
-        class="grid w-full grid-cols-2 gap-1.5"
+      <button
+        type="button"
+        class="inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 transition-colors"
+        :class="configModalOpen
+          ? 'border-signal bg-panel text-ink shadow-sm'
+          : 'border-rule bg-transparent text-muted hover:border-muted hover:text-ink'"
+        aria-label="Edit domains.txt"
+        title="domains.txt and DNS checks"
+        :disabled="pending"
+        @click="configModalOpen = true"
       >
-        <button
-          id="cert-tab-live"
-          type="button"
-          role="tab"
-          :aria-selected="directoryMode === 'production'"
-          aria-controls="cert-panel-main"
-          class="rounded-[6px] border px-3 py-1.5 text-center text-sm font-medium transition-colors"
-          :class="directoryMode === 'production'
-            ? 'border-signal bg-panel text-ink shadow-sm'
-            : 'border-rule text-muted hover:border-muted hover:bg-paper hover:text-ink'"
-          :disabled="pending"
-          @click="onMode('production')"
-        >
-          Live
-        </button>
-        <button
-          id="cert-tab-staging"
-          type="button"
-          role="tab"
-          :aria-selected="directoryMode === 'staging'"
-          aria-controls="cert-panel-main"
-          class="rounded-[6px] border px-3 py-1.5 text-center text-sm font-medium transition-colors"
-          :class="directoryMode === 'staging'
-            ? 'border-signal bg-panel text-ink shadow-sm'
-            : 'border-rule text-muted hover:border-muted hover:bg-paper hover:text-ink'"
-          :disabled="pending"
-          @click="onMode('staging')"
-        >
-          Staging
-        </button>
-      </div>
-      <p
-        v-if="directoryMode === 'production' && !acmeEnabled"
-        class="text-[11px] leading-tight text-danger"
-      >
-        Live ACME off
-      </p>
+        <Gear :size="18" weight="regular" aria-hidden="true" />
+      </button>
+      <CertsEnvironmentTabs
+        v-model="certEnvironment"
+        class="min-w-0 flex-1"
+        :pending="pending"
+        :live-acme-off="directoryMode === 'production' && !acmeEnabled"
+      />
     </div>
 
-    <div id="cert-panel-main" role="tabpanel" :aria-labelledby="directoryMode === 'staging' ? 'cert-tab-staging' : 'cert-tab-live'">
+    <div
+      :id="certPanelId"
+      role="tabpanel"
+      :aria-labelledby="certTabLabelId"
+    >
     <CertsRateLimits :limits="activeRateLimits" :now-ms="now.getTime()" />
 
     <CertsJobPanel
@@ -637,14 +636,10 @@ async function onJobAction(action: JobQueueAction, id: number) {
     <CertsBatchSummaryBoard />
 
     <CertsDomainTable
-      v-model:text="text"
-      :parsed="parsed"
       :directory-mode="directoryMode"
       :acme-enabled="acmeEnabled"
-      :renew-scheduler-enabled="renewSchedulerEnabled"
       :pending="pending"
       :dirty="dirty"
-      :error="error"
       :status-entries="statusEntries"
       :cert-job="certJob"
       :cert-queue="certQueue"
@@ -654,12 +649,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
       :batch-download-pending="batchDownloadPending"
       :batch-upload-pending="batchUploadPending"
       :actions-menu-open="actionsMenuOpen"
-      :dns-recheck-pending="dnsRecheckPending"
       :now-ms="now.getTime()"
-      @save="onSave"
-      @apply="onApply"
-      @toggle-renew-scheduler="onToggleRenewScheduler"
-      @recheck-dns="onRecheckDns"
       @issue="onIssueCert"
       @download="onDownload"
       @upload="onUploadRequest"
@@ -671,6 +661,23 @@ async function onJobAction(action: JobQueueAction, id: number) {
 
     <CertsActivityFeed v-model:log-filter="logFilter" :entries="activityEntries" />
     </div>
+
+    <CertsConfigModal
+      v-model:open="configModalOpen"
+      v-model:text="text"
+      :parsed="parsed"
+      :directory-mode="directoryMode"
+      :acme-enabled="acmeEnabled"
+      :renew-scheduler-enabled="renewSchedulerEnabled"
+      :pending="pending"
+      :dirty="dirty"
+      :error="error"
+      :dns-recheck-pending="dnsRecheckPending"
+      @save="onSave"
+      @apply="onApply"
+      @toggle-renew-scheduler="onToggleRenewScheduler"
+      @recheck-dns="onRecheckDns"
+    />
 
     <UiConfirmDialog
       v-model:open="trashConfirmOpen"
