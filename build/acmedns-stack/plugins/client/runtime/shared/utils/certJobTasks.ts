@@ -4,6 +4,8 @@ import {
   closeAcmeRequestPlan,
   createAcmeRequestPlan,
   finishAcmeRequestPlan,
+  seedAcmeChallengePlan,
+  ACME_REQUEST_STEPS,
 } from './acmeIssueSteps'
 
 export function createCertJobTaskPlan(
@@ -89,9 +91,13 @@ export function trackCertJobTaskRequest(
   const next = tasks.map(task => ({ ...task }))
   const task = next[idx]!
   const base = task.requests?.length ? task.requests : createAcmeRequestPlan()
+  let requests = advanceAcmeRequestPlan(base, stepIndex, stepLabel)
+  if (stepIndex === ACME_REQUEST_STEPS.ACME_ORDER) {
+    requests = seedAcmeChallengePlan(requests, certName)
+  }
   next[idx] = {
     ...task,
-    requests: advanceAcmeRequestPlan(base, stepIndex, stepLabel),
+    requests,
   }
   return next
 }
