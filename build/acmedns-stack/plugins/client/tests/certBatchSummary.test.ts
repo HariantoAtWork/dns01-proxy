@@ -4,6 +4,7 @@ import {
   certBatchSummaryFilename,
   certBatchSummaryHeadline,
   certBatchSummaryStats,
+  certBatchSummaryStatusClass,
   resolveCertBatchSummaryStatus,
 } from '../runtime/shared/utils/certBatchSummary'
 
@@ -40,6 +41,12 @@ describe('certBatchSummary', () => {
         { id: '2', certName: 'b.test', status: 'skipped' },
       ],
     })).toBe('1 ok · 1 skipped')
+  })
+
+  test('maps batch status to UI colour classes', () => {
+    expect(certBatchSummaryStatusClass('completed')).toBe('text-live')
+    expect(certBatchSummaryStatusClass('failed')).toBe('text-danger')
+    expect(certBatchSummaryStatusClass('cancelled')).toBe('text-muted')
   })
 
   test('resolves cancelled and failed batch status', () => {

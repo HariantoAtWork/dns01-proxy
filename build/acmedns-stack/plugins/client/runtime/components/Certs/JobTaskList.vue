@@ -1,26 +1,11 @@
 <script setup lang="ts">
 import type { CertJobTask } from '#shared/types/certs'
-import { certJobTaskStatusLabel } from '#shared/utils/jobProgress'
+import { certJobTaskStatusClass, certJobTaskStatusLabel } from '#shared/utils/jobProgress'
 
 defineProps<{
   tasks: CertJobTask[]
   compact?: boolean
 }>()
-
-function taskStatusClass(status: CertJobTask['status']) {
-  switch (status) {
-    case 'done':
-      return 'text-signal'
-    case 'running':
-      return 'text-live font-semibold'
-    case 'failed':
-      return 'text-danger'
-    case 'skipped':
-      return 'text-muted'
-    default:
-      return 'text-muted'
-  }
-}
 </script>
 
 <template>
@@ -38,7 +23,7 @@ function taskStatusClass(status: CertJobTask['status']) {
       <CertsStepLeaderRow
         :label="task.certName"
         :status="certJobTaskStatusLabel(task.status)"
-        :status-class="taskStatusClass(task.status)"
+        :status-class="certJobTaskStatusClass(task.status)"
       />
       <p
         v-if="task.message"

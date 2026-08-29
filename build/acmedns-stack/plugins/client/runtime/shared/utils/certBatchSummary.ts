@@ -70,7 +70,7 @@ export function certBatchSummaryStatusLabel(status: CertBatchSummaryStatus) {
 export function certBatchSummaryStatusClass(status: CertBatchSummaryStatus) {
   switch (status) {
     case 'completed':
-      return 'text-signal'
+      return 'text-live'
     case 'failed':
       return 'text-danger'
     default:
