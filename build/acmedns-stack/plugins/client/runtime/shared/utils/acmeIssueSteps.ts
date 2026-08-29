@@ -77,11 +77,38 @@ function isChallengeStep(stepIndex: number) {
   return stepIndex >= ACME_REQUEST_STEPS.PUBLISH_TXT
 }
 
+const CHALLENGE_STEP_ORDER = [
+  ACME_REQUEST_STEPS.PUBLISH_TXT,
+  ACME_REQUEST_STEPS.TXT_ONLINE,
+  ACME_REQUEST_STEPS.DNS_SETTLE,
+  ACME_REQUEST_STEPS.VALIDATE_SAVE,
+] as const
+
 export function createAcmeRequestPlan(): AcmeRequestItem[] {
   return [
     ACME_REQUEST_STEPS.DNS_PREFLIGHT,
     ACME_REQUEST_STEPS.ACME_ORDER,
   ].map(step => newAcmeRequestItem(step, acmeRequestStepLabel(step), 'pending'))
+}
+
+/** Pending dns-01 steps for the cert apex so the task list shows the full pipeline early. */
+export function seedAcmeChallengePlan(
+  requests: AcmeRequestItem[],
+  certName: string,
+): AcmeRequestItem[] {
+  const domain = apexName(certName)
+  const next = requests.map(item => ({ ...item }))
+
+  for (const step of CHALLENGE_STEP_ORDER) {
+    const label = `${acmeRequestStepLabel(step)} ${domain}`
+    const exists = next.some(item => item.label === label)
+    if (exists) {
+      continue
+    }
+    next.push(newAcmeRequestItem(step, label, 'pending'))
+  }
+
+  return next
 }
 
 export function advanceAcmeRequestPlan(
@@ -157,13 +184,6 @@ export function currentAcmeRequestLabel(requests: AcmeRequestItem[] | undefined)
 
   return undefined
 }
-
-const CHALLENGE_STEP_ORDER = [
-  ACME_REQUEST_STEPS.PUBLISH_TXT,
-  ACME_REQUEST_STEPS.TXT_ONLINE,
-  ACME_REQUEST_STEPS.DNS_SETTLE,
-  ACME_REQUEST_STEPS.VALIDATE_SAVE,
-] as const
 
 /** Group dns-01 steps by domain — apex first, then each SAN publish → TXT online → LE validate. */
 export function sortAcmeRequestItems(

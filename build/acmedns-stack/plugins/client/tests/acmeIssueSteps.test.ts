@@ -8,6 +8,7 @@ import {
   createAcmeRequestPlan,
   currentAcmeRequestLabel,
   finishAcmeRequestPlan,
+  seedAcmeChallengePlan,
   sortAcmeRequestItems,
 } from '../runtime/shared/utils/acmeIssueSteps'
 import { formatJobProgress, jobProgressParts } from '../runtime/shared/utils/jobProgress'
@@ -32,6 +33,23 @@ describe('acmeIssueSteps', () => {
     expect(plan).toHaveLength(2)
     expect(plan.every(item => item.status === 'pending')).toBe(true)
     expect(new Set(plan.map(item => item.id)).size).toBe(2)
+  })
+
+  test('seeds pending challenge steps for the cert apex after ACME order', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
+    plan = seedAcmeChallengePlan(plan, 'sylo.space')
+
+    expect(plan.map(item => item.label)).toEqual([
+      'DNS preflight',
+      'ACME order',
+      'Publish TXT sylo.space',
+      'TXT online sylo.space',
+      'DNS settle sylo.space',
+      'LE validate sylo.space',
+    ])
+    expect(plan.slice(2).every(item => item.status === 'pending')).toBe(true)
   })
 
   test('advances the plan through running and done states', () => {

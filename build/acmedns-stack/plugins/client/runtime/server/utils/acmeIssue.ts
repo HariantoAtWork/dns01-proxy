@@ -221,6 +221,8 @@ async function runDns01Challenge(options: {
 
   throwIfAborted(options.signal)
 
+  options.reportStep(ACME_REQUEST_STEPS.TXT_ONLINE, `TXT online ${domain}`)
+
   const challengeName = challengeHost(apexName(domain))
   await waitForChallengeTxtOnline({
     challengeName,
@@ -228,8 +230,6 @@ async function runDns01Challenge(options: {
     certName: options.certName,
     signal: options.signal,
   })
-
-  options.reportStep(ACME_REQUEST_STEPS.TXT_ONLINE, `TXT online ${domain}`)
 
   const settleMs = acmeTxtSettleMs()
   if (settleMs > 0) {
