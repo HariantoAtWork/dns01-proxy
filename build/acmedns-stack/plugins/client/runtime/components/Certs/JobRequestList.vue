@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { AcmeRequestItem } from '#shared/types/certs'
 import { sortAcmeRequestItems } from '#shared/utils/acmeIssueSteps'
-import { acmeRequestStatusLabel } from '#shared/utils/jobProgress'
+import { acmeRequestStatusClass, acmeRequestStatusLabel } from '#shared/utils/jobProgress'
 
 const props = defineProps<{
   requests: AcmeRequestItem[]
@@ -16,19 +16,6 @@ const displayRequests = computed(() => {
   }
   return sortAcmeRequestItems(props.requests, props.certName)
 })
-
-function statusClass(status: AcmeRequestItem['status']) {
-  switch (status) {
-    case 'done':
-      return 'text-signal'
-    case 'running':
-      return 'text-live font-semibold'
-    case 'failed':
-      return 'text-danger'
-    default:
-      return 'text-muted'
-  }
-}
 </script>
 
 <template>
@@ -45,7 +32,7 @@ function statusClass(status: AcmeRequestItem['status']) {
       <CertsStepLeaderRow
         :label="item.label"
         :status="acmeRequestStatusLabel(item.status)"
-        :status-class="statusClass(item.status)"
+        :status-class="acmeRequestStatusClass(item.status)"
       />
     </li>
   </ul>

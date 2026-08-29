@@ -63,6 +63,19 @@ export function acmeRequestStatusLabel(status: AcmeRequestItem['status']) {
   }
 }
 
+export function acmeRequestStatusClass(status: AcmeRequestItem['status']) {
+  switch (status) {
+    case 'done':
+      return 'text-live'
+    case 'running':
+      return 'text-live font-semibold'
+    case 'failed':
+      return 'text-danger'
+    default:
+      return 'text-muted'
+  }
+}
+
 export function certJobTaskStatusLabel(status: CertJobTask['status']) {
   switch (status) {
     case 'skipped':
@@ -75,5 +88,20 @@ export function certJobTaskStatusLabel(status: CertJobTask['status']) {
       return 'Failed'
     default:
       return 'Pending'
+  }
+}
+
+export function certJobTaskStatusClass(status: CertJobTask['status']) {
+  switch (status) {
+    case 'done':
+      return 'text-live'
+    case 'running':
+      return 'text-live font-semibold'
+    case 'failed':
+      return 'text-danger'
+    case 'skipped':
+      return 'text-muted'
+    default:
+      return 'text-muted'
   }
 }
