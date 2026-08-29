@@ -22,10 +22,12 @@ const { sharedMode, authZone } = useSharedMode()
 
     <h2 class="mt-10 text-xl font-semibold">Public internet</h2>
     <p class="mt-3 text-muted">
-      The header Internet toggle opens a modal with the public IPv4 and IPv6 addresses the internet sees for this host and this browser.
+      The header Internet toggle opens a modal with the public IPv4 and IPv6 addresses the internet sees for this host and this browser,
+      plus UDP port 53 probes for your auth zone (local container, echo IP, glue A/AAAA, and delegated nameserver addresses).
       Host addresses are this container's outbound path; use those for the acme-dns A/AAAA glue.
       If IPv6 only appears under this browser, Docker is probably IPv4-only.
       If two echo services disagree, you may have more than one WAN; port 53 must land on the address that actually answers.
+      Probes run from inside the container — NAT hairpin can fail even when Let's Encrypt can reach you from outside.
     </p>
 
     <template v-if="sharedMode">
