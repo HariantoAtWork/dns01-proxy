@@ -9,6 +9,7 @@ import { logAcmeStep } from './acmeLogger'
 
 const DEFAULT_POLL_TIMEOUT_MS = 3 * 60 * 1000
 const DEFAULT_POLL_INTERVAL_MS = 5 * 1000
+const DEFAULT_TXT_SETTLE_MS = 5_000
 const MAX_CNAME_HOPS = 10
 
 export type { ChallengeTxtProbeResult } from '#shared/utils/challengeTxtProbe'
@@ -27,6 +28,15 @@ export function challengeTxtPollTimeoutMs() {
 export function challengeTxtPollIntervalMs() {
   const value = Number(process.env.ACME_TXT_POLL_INTERVAL_MS)
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_POLL_INTERVAL_MS
+}
+
+/** Pause after TXT online before telling LE to validate (`ACME_TXT_SETTLE_MS`, default 5s; 0 disables). */
+export function acmeTxtSettleMs() {
+  const value = Number(process.env.ACME_TXT_SETTLE_MS)
+  if (Number.isFinite(value) && value >= 0) {
+    return value
+  }
+  return DEFAULT_TXT_SETTLE_MS
 }
 
 async function probeChallengeTxtAtName(
