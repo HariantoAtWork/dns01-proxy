@@ -127,22 +127,51 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
 
 function createChallengeSerialGate() {
   let gate = Promise.resolve()
-  let releaseActive: (() => void) | undefined
+
+  type Turn = {
+    markCreateFinished: () => void
+    markRemove: () => void
+    abort: () => void
+  }
 
   return {
-    async acquire() {
+    async enter(): Promise<Turn> {
       const previous = gate
+      let releaseGate!: () => void
       gate = previous.then(() => new Promise<void>((resolve) => {
-        releaseActive = resolve
+        releaseGate = resolve
       }))
       await previous
-    },
-    release() {
-      releaseActive?.()
-      releaseActive = undefined
-    },
-    releaseOnError() {
-      this.release()
+
+      let createFinished = false
+      let removeSignalled = false
+      let released = false
+
+      const release = () => {
+        if (released) {
+          return
+        }
+        released = true
+        releaseGate()
+      }
+
+      return {
+        markCreateFinished() {
+          createFinished = true
+          if (removeSignalled) {
+            release()
+          }
+        },
+        markRemove() {
+          removeSignalled = true
+          if (createFinished) {
+            release()
+          }
+        },
+        abort() {
+          release()
+        },
+      }
     },
   }
 }
@@ -192,8 +221,6 @@ async function runDns01Challenge(options: {
 
   throwIfAborted(options.signal)
 
-  options.reportStep(ACME_REQUEST_STEPS.TXT_ONLINE, `TXT online ${domain}`)
-
   const challengeName = challengeHost(apexName(domain))
   await waitForChallengeTxtOnline({
     challengeName,
@@ -201,6 +228,8 @@ async function runDns01Challenge(options: {
     certName: options.certName,
     signal: options.signal,
   })
+
+  options.reportStep(ACME_REQUEST_STEPS.TXT_ONLINE, `TXT online ${domain}`)
 
   const settleMs = acmeTxtSettleMs()
   if (settleMs > 0) {
@@ -265,6 +294,7 @@ export async function issueCertificate(options: {
       reportStep(ACME_REQUEST_STEPS.ACME_ORDER)
 
       const challengeSerial = createChallengeSerialGate()
+      let activeChallengeTurn: Awaited<ReturnType<typeof challengeSerial.enter>> | undefined
 
       const certificate = await abortable(
         client.auto({
@@ -280,7 +310,7 @@ export async function issueCertificate(options: {
             }
 
             const domain = authz.identifier.value
-            await challengeSerial.acquire()
+            activeChallengeTurn = await challengeSerial.enter()
             try {
               logAcmeStep(
                 options.certName,
@@ -298,13 +328,15 @@ export async function issueCertificate(options: {
               })
             }
             catch (error) {
-              challengeSerial.releaseOnError()
+              activeChallengeTurn.abort()
+              activeChallengeTurn = undefined
               throw error
             }
+            activeChallengeTurn.markCreateFinished()
           },
           challengeRemoveFn: async () => {
-            // Release the next authorization only after LE finished this one.
-            challengeSerial.release()
+            activeChallengeTurn?.markRemove()
+            activeChallengeTurn = undefined
           },
         }),
         signal,
