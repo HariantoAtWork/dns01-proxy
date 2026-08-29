@@ -153,11 +153,20 @@ export async function waitForChallengeTxtOnline(options: {
     }
 
     if (probe.status === 'mismatch') {
-      throw new Error(
-        probe.actual
-          ? `${probe.message} (found ${probe.actual})`
-          : probe.message,
-      )
+      const mismatchMessage = probe.actual
+        ? `Expected dns-01 TXT on ${options.challengeName}; still waiting (found ${probe.actual})`
+        : probe.message
+      if (mismatchMessage !== lastMessage || attempts === 1) {
+        logAcmeStep(
+          options.certName,
+          attempts === 1
+            ? mismatchMessage
+            : `Still waiting for dns-01 TXT on ${options.challengeName} — found other value(s), not expected yet`,
+        )
+        lastMessage = mismatchMessage
+      }
+      await sleepMs(intervalMs, options.signal)
+      continue
     }
 
     if (probe.status === 'error') {
@@ -178,6 +187,8 @@ export async function waitForChallengeTxtOnline(options: {
   }
 
   throw new Error(
-    `Timed out after ${Math.round(timeoutMs / 1000)}s waiting for dns-01 TXT on ${options.challengeName} to appear online`,
+    lastMessage.includes('found')
+      ? `Timed out after ${Math.round(timeoutMs / 1000)}s waiting for dns-01 TXT on ${options.challengeName}: ${lastMessage}`
+      : `Timed out after ${Math.round(timeoutMs / 1000)}s waiting for dns-01 TXT on ${options.challengeName} to appear online`,
   )
 }
