@@ -4,6 +4,8 @@ import type { PublicIpAddress, PublicIpOrigin, VisitIpAddress } from '#shared/ty
 import {
   port53StatusLabel,
   port53SummaryLabel,
+  port53SummaryTone,
+  port53ToneTextClass,
   type Port53Probe,
   type Port53ProbeStatus,
 } from '#shared/utils/port53Reachability'
@@ -78,16 +80,7 @@ function visitHint(item: VisitIpAddress) {
 }
 
 function port53SummaryClass(summary: NonNullable<typeof port53.value>['summary']) {
-  switch (summary) {
-    case 'ok':
-      return 'text-live'
-    case 'partial':
-      return 'text-signal'
-    case 'failed':
-      return 'text-danger'
-    default:
-      return 'text-muted'
-  }
+  return port53ToneTextClass(port53SummaryTone(summary))
 }
 
 function port53ProbeClass(status: Port53ProbeStatus) {
