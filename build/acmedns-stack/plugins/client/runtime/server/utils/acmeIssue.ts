@@ -202,22 +202,33 @@ async function runDns01Challenge(options: {
     throw new Error(`No acme-dns subdomain for ${domain}`)
   }
 
+  const publishTarget = account.server_url || options.preferUrl
+
+  logAcmeStep(
+    options.certName,
+    `dns-01 ${domain}: LE challenge token ${options.keyAuthorization}`,
+  )
   logAcmeStep(
     options.certName,
     options.shared
-      ? `Publishing dns-01 TXT for ${domain} via shared acme-dns (${subdomain})`
-      : `Publishing dns-01 TXT for ${domain} via acme-dns (${subdomain})`,
+      ? `dns-01 ${domain}: publishing token to shared acme-dns subdomain ${subdomain} (${publishTarget})`
+      : `dns-01 ${domain}: publishing token to acme-dns subdomain ${subdomain} (${publishTarget})`,
   )
 
   options.reportStep(ACME_REQUEST_STEPS.PUBLISH_TXT, `Publish TXT ${domain}`)
 
   await updateAcmeDnsTxt({
-    serverUrl: account.server_url || options.preferUrl,
+    serverUrl: publishTarget,
     username: account.username,
     password: account.password,
     subdomain,
     txt: options.keyAuthorization,
   })
+
+  logAcmeStep(
+    options.certName,
+    `dns-01 ${domain}: acme-dns accepted TXT ${options.keyAuthorization}`,
+  )
 
   throwIfAborted(options.signal)
 

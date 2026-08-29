@@ -47,7 +47,7 @@ export function evaluateChallengeTxtProbe(
   const txtValues = collectTxtValues(txtOutcomes)
 
   if (txtValues.some(value => value === expected)) {
-    return { status: 'ok', message: 'dns-01 TXT visible online' }
+    return { status: 'ok', message: 'dns-01 TXT visible online', actual: [...new Set(txtValues)].join(', ') }
   }
 
   if (txtValues.length > 0) {
@@ -85,4 +85,36 @@ export function evaluateChallengeTxtProbe(
     status: 'pending',
     message: 'dns-01 TXT not visible on authoritative nameservers yet',
   }
+}
+
+export function formatDns01TxtList(values: string[]) {
+  if (!values.length) {
+    return '(none)'
+  }
+  return [...new Set(values)].join(', ')
+}
+
+/** One-line summary for ACME activity logs. */
+export function formatDns01ProbeLog(options: {
+  challengeName: string
+  leToken: string
+  publishedToken: string
+  hops: Array<{ qname: string, txtValues: string[], cnameTarget?: string }>
+  attempt: number
+  matched: boolean
+}) {
+  const hopParts = options.hops.map((hop) => {
+    let part = `@ ${hop.qname} TXT ${formatDns01TxtList(hop.txtValues)}`
+    if (hop.cnameTarget) {
+      part += `; CNAME → ${hop.cnameTarget}`
+    }
+    return part
+  })
+  const match = options.matched ? 'match' : 'no match'
+  return [
+    `dns-01 probe ${options.challengeName} (attempt ${options.attempt}, ${match})`,
+    `LE token: ${options.leToken}`,
+    `published: ${options.publishedToken}`,
+    `authoritative: ${hopParts.join(' | ') || '(no answers)'}`,
+  ].join(' · ')
 }

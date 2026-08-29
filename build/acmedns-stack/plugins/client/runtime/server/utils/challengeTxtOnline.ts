@@ -1,6 +1,8 @@
 import { normaliseDnsName } from '#shared/utils/dnsMatch'
 import {
+  collectTxtValues,
   evaluateChallengeTxtProbe,
+  formatDns01ProbeLog,
   pickCnameTarget,
   type ChallengeTxtProbeResult,
 } from '#shared/utils/challengeTxtProbe'
@@ -16,9 +18,21 @@ export type { ChallengeTxtProbeResult } from '#shared/utils/challengeTxtProbe'
 export {
   collectTxtValues,
   evaluateChallengeTxtProbe,
+  formatDns01ProbeLog,
+  formatDns01TxtList,
   normaliseTxtValue,
   pickCnameTarget,
 } from '#shared/utils/challengeTxtProbe'
+
+export interface ChallengeTxtProbeHop {
+  qname: string
+  txtValues: string[]
+  cnameTarget?: string
+}
+
+export interface ChallengeTxtProbeDetails extends ChallengeTxtProbeResult {
+  hops: ChallengeTxtProbeHop[]
+}
 
 export function challengeTxtPollTimeoutMs() {
   const value = Number(process.env.ACME_TXT_POLL_TIMEOUT_MS)
@@ -42,56 +56,78 @@ export function acmeTxtSettleMs() {
 async function probeChallengeTxtAtName(
   qname: string,
   expectedTxt: string,
-): Promise<ChallengeTxtProbeResult & { cnameTarget?: string }> {
+): Promise<ChallengeTxtProbeResult & ChallengeTxtProbeHop> {
   const [txtOutcomes, cnameOutcomes] = await Promise.all([
     queryAuthoritative(qname, 'TXT'),
     queryAuthoritative(qname, 'CNAME'),
   ])
 
+  const txtValues = collectTxtValues(txtOutcomes)
+  const cnameTarget = pickCnameTarget(cnameOutcomes) ?? undefined
   const evaluated = evaluateChallengeTxtProbe(txtOutcomes, cnameOutcomes, expectedTxt)
-  if (evaluated.status !== 'pending') {
-    return evaluated
-  }
 
-  const cnameTarget = pickCnameTarget(cnameOutcomes)
-  if (!cnameTarget) {
-    return evaluated
+  return {
+    ...evaluated,
+    qname,
+    txtValues,
+    cnameTarget,
   }
-
-  return { ...evaluated, cnameTarget }
 }
 
 export async function probeChallengeTxtOnline(
   challengeName: string,
   expectedTxt: string,
-): Promise<ChallengeTxtProbeResult> {
+): Promise<ChallengeTxtProbeDetails> {
   let current = normaliseDnsName(challengeName)
   const visited = new Set<string>()
+  const hops: ChallengeTxtProbeHop[] = []
 
   for (let hop = 0; hop < MAX_CNAME_HOPS; hop += 1) {
     if (visited.has(current)) {
       return {
         status: 'error',
         message: `CNAME loop detected while probing ${challengeName}`,
+        hops,
       }
     }
     visited.add(current)
 
     const step = await probeChallengeTxtAtName(current, expectedTxt)
-    if (step.status === 'ok' || step.status === 'mismatch' || step.status === 'error') {
-      return step
+    hops.push({
+      qname: step.qname,
+      txtValues: step.txtValues,
+      cnameTarget: step.cnameTarget,
+    })
+
+    if (step.status === 'ok') {
+      return { status: 'ok', message: step.message, actual: step.actual, hops }
     }
 
-    if (!step.cnameTarget) {
-      return step
+    if (step.status === 'error') {
+      return { status: 'error', message: step.message, hops }
     }
 
-    current = step.cnameTarget
+    if (step.cnameTarget) {
+      current = step.cnameTarget
+      continue
+    }
+
+    if (step.status === 'mismatch') {
+      return {
+        status: 'mismatch',
+        message: step.message,
+        actual: step.actual,
+        hops,
+      }
+    }
+
+    return { status: step.status, message: step.message, hops }
   }
 
   return {
     status: 'error',
     message: `Too many CNAME hops while probing ${challengeName}`,
+    hops,
   }
 }
 
@@ -127,6 +163,27 @@ async function sleepMs(ms: number, signal?: AbortSignal) {
   })
 }
 
+function logDns01Probe(
+  certName: string,
+  challengeName: string,
+  leToken: string,
+  probe: ChallengeTxtProbeDetails,
+  attempt: number,
+) {
+  logAcmeStep(
+    certName,
+    formatDns01ProbeLog({
+      challengeName,
+      leToken,
+      publishedToken: leToken,
+      hops: probe.hops,
+      attempt,
+      matched: probe.status === 'ok',
+    }),
+    probe.status === 'ok' ? 'info' : 'warn',
+  )
+}
+
 export async function waitForChallengeTxtOnline(options: {
   challengeName: string
   expectedTxt: string
@@ -137,14 +194,19 @@ export async function waitForChallengeTxtOnline(options: {
   const intervalMs = challengeTxtPollIntervalMs()
   const started = Date.now()
   let attempts = 0
-  let lastMessage = ''
+  let lastProbeSignature = ''
 
   while (Date.now() - started < timeoutMs) {
     throwIfAborted(options.signal)
     attempts += 1
 
     const probe = await probeChallengeTxtOnline(options.challengeName, options.expectedTxt)
+    const probeSignature = probe.hops
+      .map(hop => `${hop.qname}:${hop.txtValues.join('|')}:${hop.cnameTarget ?? ''}`)
+      .join(';')
+
     if (probe.status === 'ok') {
+      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts)
       logAcmeStep(
         options.certName,
         `dns-01 TXT visible online for ${options.challengeName} (authoritative, attempt ${attempts})`,
@@ -152,43 +214,21 @@ export async function waitForChallengeTxtOnline(options: {
       return
     }
 
-    if (probe.status === 'mismatch') {
-      const mismatchMessage = probe.actual
-        ? `Expected dns-01 TXT on ${options.challengeName}; still waiting (found ${probe.actual})`
-        : probe.message
-      if (mismatchMessage !== lastMessage || attempts === 1) {
-        logAcmeStep(
-          options.certName,
-          attempts === 1
-            ? mismatchMessage
-            : `Still waiting for dns-01 TXT on ${options.challengeName} — found other value(s), not expected yet`,
-        )
-        lastMessage = mismatchMessage
-      }
-      await sleepMs(intervalMs, options.signal)
-      continue
-    }
-
     if (probe.status === 'error') {
+      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts)
       throw new Error(probe.message)
     }
 
-    if (probe.message !== lastMessage || attempts === 1) {
-      logAcmeStep(
-        options.certName,
-        attempts === 1
-          ? `Waiting for dns-01 TXT on ${options.challengeName} — ${probe.message}`
-          : `Still waiting for dns-01 TXT on ${options.challengeName} — ${probe.message}`,
-      )
-      lastMessage = probe.message
+    if (probeSignature !== lastProbeSignature || attempts === 1) {
+      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts)
+      lastProbeSignature = probeSignature
     }
 
     await sleepMs(intervalMs, options.signal)
   }
 
   throw new Error(
-    lastMessage.includes('found')
-      ? `Timed out after ${Math.round(timeoutMs / 1000)}s waiting for dns-01 TXT on ${options.challengeName}: ${lastMessage}`
-      : `Timed out after ${Math.round(timeoutMs / 1000)}s waiting for dns-01 TXT on ${options.challengeName} to appear online`,
+    `Timed out after ${Math.round(timeoutMs / 1000)}s waiting for dns-01 TXT on ${options.challengeName}`
+      + ` (LE token ${options.expectedTxt}; last authoritative answers logged above)`,
   )
 }
