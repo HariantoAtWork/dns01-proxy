@@ -631,33 +631,35 @@ async function onJobAction(action: JobQueueAction, id: number) {
       @delete="onJobAction('delete', $event)"
     />
 
-    <CertsBatchSummaryBoard />
+    <div class="space-y-6">
+      <CertsDomainTable
+        :directory-mode="directoryMode"
+        :acme-enabled="acmeEnabled"
+        :pending="pending"
+        :dirty="dirty"
+        :status-entries="statusEntries"
+        :cert-job="certJob"
+        :cert-queue="certQueue"
+        :issuing-certs="issuingCerts"
+        :download-pending="downloadPending"
+        :upload-pending="uploadPending"
+        :batch-download-pending="batchDownloadPending"
+        :batch-upload-pending="batchUploadPending"
+        :actions-menu-open="actionsMenuOpen"
+        :now-ms="now.getTime()"
+        @issue="onIssueCert"
+        @download="onDownload"
+        @upload="onUploadRequest"
+        @batch-download="onBatchDownload"
+        @batch-upload="onBatchUploadRequest"
+        @trash-request="requestTrash"
+        @update:actions-menu-open="actionsMenuOpen = $event"
+      />
 
-    <CertsDomainTable
-      :directory-mode="directoryMode"
-      :acme-enabled="acmeEnabled"
-      :pending="pending"
-      :dirty="dirty"
-      :status-entries="statusEntries"
-      :cert-job="certJob"
-      :cert-queue="certQueue"
-      :issuing-certs="issuingCerts"
-      :download-pending="downloadPending"
-      :upload-pending="uploadPending"
-      :batch-download-pending="batchDownloadPending"
-      :batch-upload-pending="batchUploadPending"
-      :actions-menu-open="actionsMenuOpen"
-      :now-ms="now.getTime()"
-      @issue="onIssueCert"
-      @download="onDownload"
-      @upload="onUploadRequest"
-      @batch-download="onBatchDownload"
-      @batch-upload="onBatchUploadRequest"
-      @trash-request="requestTrash"
-      @update:actions-menu-open="actionsMenuOpen = $event"
-    />
+      <CertsBatchSummaryBoard />
 
-    <CertsActivityFeed v-model:log-filter="logFilter" :entries="activityEntries" />
+      <CertsActivityFeed v-model:log-filter="logFilter" :entries="activityEntries" />
+    </div>
     </div>
 
     <CertsConfigModal

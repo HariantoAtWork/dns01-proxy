@@ -8,6 +8,7 @@ import {
 } from '#shared/utils/certsUi'
 
 export type ActivityLogFilter = 'all' | 'acme' | 'live' | 'staging'
+export type ActivityLogOrder = 'asc' | 'desc'
 
 const logFilter = defineModel<ActivityLogFilter>('logFilter', { required: true })
 
@@ -15,19 +16,27 @@ const { entries } = defineProps<{
   entries: CertActivityEntry[]
 }>()
 
+const logOrder = ref<ActivityLogOrder>('asc')
+
 const filteredActivity = computed(() => {
-  const list = entries
+  let list = entries
   if (logFilter.value === 'acme') {
-    return list.filter(e => e.source === 'acme')
+    list = list.filter(e => e.source === 'acme')
   }
-  if (logFilter.value === 'live') {
-    return list.filter(e => e.mode === 'production')
+  else if (logFilter.value === 'live') {
+    list = list.filter(e => e.mode === 'production')
   }
-  if (logFilter.value === 'staging') {
-    return list.filter(e => e.mode === 'staging')
+  else if (logFilter.value === 'staging') {
+    list = list.filter(e => e.mode === 'staging')
   }
-  return list
+
+  const sorted = [...list].sort((a, b) => a.id - b.id)
+  return logOrder.value === 'asc' ? sorted : sorted.reverse()
 })
+
+function toggleLogOrder() {
+  logOrder.value = logOrder.value === 'asc' ? 'desc' : 'asc'
+}
 </script>
 
 <template>
@@ -68,6 +77,15 @@ const filteredActivity = computed(() => {
           All
         </button>
       </div>
+      <button
+        type="button"
+        class="rounded-[6px] border border-rule bg-panel px-2.5 py-1 text-xs text-ink transition-colors hover:text-ink"
+        :aria-pressed="true"
+        :title="logOrder === 'asc' ? 'Oldest entries first — click for newest first' : 'Newest entries first — click for oldest first'"
+        @click="toggleLogOrder"
+      >
+        {{ logOrder === 'asc' ? 'Ascend' : 'Descend' }}
+      </button>
     </div>
     <p v-if="!filteredActivity.length" class="text-sm text-muted">
       ACME communication with Let's Encrypt appears here during Apply or renewal — HTTP requests,
