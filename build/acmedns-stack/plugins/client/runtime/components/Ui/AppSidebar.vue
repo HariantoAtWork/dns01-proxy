@@ -3,6 +3,7 @@ import {
   PhHouse as House,
   PhGlobe as Globe,
   PhCertificate as Certificate,
+  PhFloppyDisk as FloppyDisk,
   PhGear as Gear,
   PhQuestion as Question,
   PhPlus as Plus,
@@ -15,19 +16,25 @@ const route = useRoute()
 const { sharedMode } = useSharedMode()
 const { show: showRegister } = useRegisterModal()
 
-const links = computed(() => [
-  { to: '/', label: 'Home', icon: House, exact: true, registerAction: false },
-  {
-    to: '/domains',
-    label: sharedMode.value ? 'DNS setup' : 'Domains',
-    icon: Globe,
-    exact: true,
-    registerAction: !sharedMode.value,
-  },
-  { to: '/certs', label: 'Certificates', icon: Certificate, exact: false, registerAction: false },
-  { to: '/settings', label: 'Settings', icon: Gear, exact: true, registerAction: false },
-  { to: '/help', label: 'Help', icon: Question, exact: false, registerAction: false },
-] as const)
+const links = computed(() => {
+  const items = [
+    { to: '/', label: 'Home', icon: House, exact: true, registerAction: false },
+    {
+      to: '/domains',
+      label: sharedMode.value ? 'DNS setup' : 'Domains',
+      icon: Globe,
+      exact: true,
+      registerAction: !sharedMode.value,
+    },
+    ...(sharedMode.value
+      ? []
+      : [{ to: '/backup', label: 'Backup', icon: FloppyDisk, exact: true, registerAction: false }]),
+    { to: '/certs', label: 'Certificates', icon: Certificate, exact: false, registerAction: false },
+    { to: '/settings', label: 'Settings', icon: Gear, exact: true, registerAction: false },
+    { to: '/help', label: 'Help', icon: Question, exact: false, registerAction: false },
+  ]
+  return items
+})
 
 watch(() => route.fullPath, () => {
   open.value = false
