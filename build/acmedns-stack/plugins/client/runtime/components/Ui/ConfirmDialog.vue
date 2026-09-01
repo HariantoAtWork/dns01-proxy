@@ -54,8 +54,9 @@ function onClose() {
 
 function onConfirm() {
   confirming.value = true
-  open.value = false
+  // Emit before closing so parents that clear state via v-model still have context.
   emit('confirm')
+  open.value = false
 }
 </script>
 
