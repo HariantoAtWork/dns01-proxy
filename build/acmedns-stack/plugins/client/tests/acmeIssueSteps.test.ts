@@ -7,6 +7,7 @@ import {
   advanceAcmeRequestPlan,
   createAcmeRequestPlan,
   currentAcmeRequestLabel,
+  currentAcmeRequestProgress,
   finishAcmeRequestPlan,
   seedAcmeChallengePlan,
   sortAcmeRequestItems,
@@ -138,6 +139,22 @@ describe('acmeIssueSteps', () => {
     expect(currentAcmeRequestLabel(plan)).toBe('Publish TXT example.com')
   })
 
+  test('derives current request progress from the array', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
+    plan = seedAcmeChallengePlan(plan, 'sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_SETTLE, 'DNS settle sylo.space')
+
+    expect(currentAcmeRequestProgress(plan)).toEqual({
+      index: 5,
+      total: 6,
+      label: 'DNS settle',
+    })
+  })
+
   test('labels each step', () => {
     expect(acmeRequestStepLabel(ACME_REQUEST_STEPS.DNS_PREFLIGHT)).toBe('DNS preflight')
     expect(acmeRequestStepLabel(ACME_REQUEST_STEPS.DNS_SETTLE)).toBe('DNS settle')
@@ -152,7 +169,7 @@ describe('formatJobProgress', () => {
 
     expect(formatJobProgress({
       taskIndex: 2,
-      taskTotal: 5,
+      taskTotal: 6,
       tasks: [{
         id: 'task-1',
         certName: 'mdstn.com',
@@ -160,7 +177,7 @@ describe('formatJobProgress', () => {
         requests,
       }],
       currentCert: 'mdstn.com',
-    })).toBe('2/5 · Publish TXT · mdstn.com')
+    })).toBe('2/6 · 3/3 · Publish TXT · mdstn.com')
   })
 
   test('omits request progress when no running task has requests', () => {
