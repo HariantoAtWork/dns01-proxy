@@ -26,7 +26,7 @@ const emit = defineEmits<{
 
 function statusBadge(entry: LabStatusEntry) {
   if (entry.ok === true) {
-    return { label: 'passed', class: 'border-signal/40 text-signal' }
+    return { label: 'passed', class: 'border-live/40 text-live' }
   }
   if (entry.ok === false) {
     return { label: 'failed', class: 'border-danger/40 text-danger' }
