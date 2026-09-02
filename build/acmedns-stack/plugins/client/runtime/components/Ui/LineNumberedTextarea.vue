@@ -25,28 +25,32 @@ const extensions = computed(() => [
 <template>
   <ClientOnly>
     <div
-      class="line-numbered-editor relative overflow-hidden rounded-[6px] border border-rule bg-paper focus-within:border-signal"
+      class="line-numbered-editor flex flex-col overflow-hidden rounded-[6px] border border-rule bg-paper focus-within:border-signal"
       :style="{ minHeight }"
     >
-      <button
-        type="button"
-        class="absolute right-2 top-2 z-10 inline-flex items-center justify-center rounded-[6px] border border-rule bg-panel/95 p-1.5 text-ink shadow-sm backdrop-blur-sm transition-colors hover:bg-paper disabled:opacity-50"
-        :class="wrap && 'border-signal/40 text-signal'"
-        :aria-pressed="wrap"
-        :aria-label="wrap ? 'Disable line wrap' : 'Enable line wrap'"
-        :title="wrap ? 'Disable line wrap' : 'Enable line wrap'"
-        :disabled="disabled"
-        @click="wrap = !wrap"
-      >
-        <TextAlignJustify :size="14" weight="regular" aria-hidden="true" />
-      </button>
-      <Codemirror
-        v-model="model"
-        :extensions="extensions"
-        :disabled="disabled"
-        :indent-with-tab="false"
-        :style="{ height: '100%', minHeight }"
-      />
+      <div class="flex shrink-0 justify-end border-b border-rule bg-panel/80 px-2 py-1">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center rounded-[6px] border border-rule bg-paper p-1.5 text-ink transition-colors hover:bg-panel disabled:opacity-50"
+          :class="wrap && 'border-signal/40 text-signal'"
+          :aria-pressed="wrap"
+          :aria-label="wrap ? 'Disable line wrap' : 'Enable line wrap'"
+          :title="wrap ? 'Disable line wrap' : 'Enable line wrap'"
+          :disabled="disabled"
+          @click="wrap = !wrap"
+        >
+          <TextAlignJustify :size="14" weight="regular" aria-hidden="true" />
+        </button>
+      </div>
+      <div class="min-h-0 flex-1">
+        <Codemirror
+          v-model="model"
+          :extensions="extensions"
+          :disabled="disabled"
+          :indent-with-tab="false"
+          :style="{ height: '100%', minHeight: `calc(${minHeight} - 2.5rem)` }"
+        />
+      </div>
     </div>
     <template #fallback>
       <textarea
@@ -74,9 +78,5 @@ const extensions = computed(() => [
 
 .line-numbered-editor :deep(.cm-scroller) {
   min-height: inherit;
-}
-
-.line-numbered-editor :deep(.cm-content) {
-  padding-right: 2.75rem;
 }
 </style>
