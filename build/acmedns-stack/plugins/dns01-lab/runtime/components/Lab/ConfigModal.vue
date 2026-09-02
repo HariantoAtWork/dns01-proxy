@@ -30,6 +30,7 @@ const emit = defineEmits<{
   save: []
   apply: [force: boolean]
   'recheck-dns': []
+  'copy-from-domains': []
 }>()
 
 function cloudflareNameForCheck(zone: string, lineApex: string) {
@@ -38,7 +39,7 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
 </script>
 
 <template>
-  <UiModal v-model:open="open" title="lab-domain.txt" size="lg">
+  <UiModal v-model:open="open" title="lab-domains.txt" size="lg">
     <template #actions>
       <UiButton variant="ghost" size="sm" :disabled="pending || !dirty" @click="emit('save')">
         Save
@@ -56,7 +57,18 @@ function cloudflareNameForCheck(zone: string, lineApex: string) {
       ACME order and LE validate are faked — only reachability is tested.
     </p>
 
-    <div class="mt-3 block" role="group" aria-label="lab-domain.txt">
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <UiButton
+        variant="ghost"
+        size="sm"
+        :disabled="pending"
+        @click="emit('copy-from-domains')"
+      >
+        Copy from domains.txt
+      </UiButton>
+    </div>
+
+    <div class="mt-2 block" role="group" aria-label="lab-domains.txt">
       <UiLineNumberedTextarea v-model="text" :disabled="pending" />
     </div>
 

@@ -81,7 +81,7 @@ export function getDomainsFilePath(options?: DataRootOptions): string {
 }
 
 export function getLabDomainsFilePath(options?: DataRootOptions): string {
-  return dataPathWithOptions(options ?? {}, 'client', 'lab-domain.txt')
+  return dataPathWithOptions(options ?? {}, 'client', 'lab-domains.txt')
 }
 
 export function getBackupDir(options?: DataRootOptions): string {

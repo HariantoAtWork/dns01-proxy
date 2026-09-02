@@ -43,7 +43,7 @@ export async function executeLabDns01(
   if (!domains.ok) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'lab-domain.txt has validation errors. Fix and save first.',
+      statusMessage: 'lab-domains.txt has validation errors. Fix and save first.',
     })
   }
 

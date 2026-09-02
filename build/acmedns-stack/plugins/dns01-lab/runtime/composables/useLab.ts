@@ -22,6 +22,12 @@ export function useLab() {
     return data
   }
 
+  async function copyFromDomains() {
+    const data = await $fetch<DomainsParseResult>('/api/certs/domains')
+    text.value = data.text
+    return data
+  }
+
   async function saveDomains() {
     pending.value = true
     error.value = ''
@@ -203,6 +209,7 @@ export function useLab() {
     pending,
     refreshing,
     loadDomains,
+    copyFromDomains,
     saveDomains,
     recheckDomainsDns,
     loadStatus,
