@@ -1,3 +1,4 @@
+import type { CertActivitySource } from '#shared/types/certs'
 import { normaliseDnsName } from '#shared/utils/dnsMatch'
 import {
   collectTxtValues,
@@ -7,6 +8,7 @@ import {
   type ChallengeTxtProbeResult,
 } from '#shared/utils/challengeTxtProbe'
 import { queryAuthoritative } from './dnsAuthoritative'
+import { appendCertActivity } from './certActivity'
 import { logAcmeStep } from './acmeLogger'
 
 const DEFAULT_POLL_TIMEOUT_MS = 3 * 60 * 1000
@@ -169,19 +171,27 @@ function logDns01Probe(
   leToken: string,
   probe: ChallengeTxtProbeDetails,
   attempt: number,
+  activitySource: CertActivitySource = 'acme',
 ) {
-  logAcmeStep(
+  const message = formatDns01ProbeLog({
+    challengeName,
+    leToken,
+    publishedToken: leToken,
+    hops: probe.hops,
+    attempt,
+    matched: probe.status === 'ok',
+  })
+  const level = probe.status === 'ok' ? 'info' : 'warn'
+  if (activitySource === 'acme') {
+    logAcmeStep(certName, message, level)
+    return
+  }
+  appendCertActivity({
+    source: activitySource,
+    level,
     certName,
-    formatDns01ProbeLog({
-      challengeName,
-      leToken,
-      publishedToken: leToken,
-      hops: probe.hops,
-      attempt,
-      matched: probe.status === 'ok',
-    }),
-    probe.status === 'ok' ? 'info' : 'warn',
-  )
+    message,
+  })
 }
 
 export async function waitForChallengeTxtOnline(options: {
@@ -189,7 +199,9 @@ export async function waitForChallengeTxtOnline(options: {
   expectedTxt: string
   certName: string
   signal?: AbortSignal
+  activitySource?: CertActivitySource
 }): Promise<void> {
+  const activitySource = options.activitySource ?? 'acme'
   const timeoutMs = challengeTxtPollTimeoutMs()
   const intervalMs = challengeTxtPollIntervalMs()
   const started = Date.now()
@@ -206,21 +218,29 @@ export async function waitForChallengeTxtOnline(options: {
       .join(';')
 
     if (probe.status === 'ok') {
-      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts)
-      logAcmeStep(
-        options.certName,
-        `dns-01 TXT visible online for ${options.challengeName} (authoritative, attempt ${attempts})`,
-      )
+      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts, activitySource)
+      const successMessage = `dns-01 TXT visible online for ${options.challengeName} (authoritative, attempt ${attempts})`
+      if (activitySource === 'acme') {
+        logAcmeStep(options.certName, successMessage)
+      }
+      else {
+        appendCertActivity({
+          source: activitySource,
+          level: 'info',
+          certName: options.certName,
+          message: successMessage,
+        })
+      }
       return
     }
 
     if (probe.status === 'error') {
-      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts)
+      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts, activitySource)
       throw new Error(probe.message)
     }
 
     if (probeSignature !== lastProbeSignature || attempts === 1) {
-      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts)
+      logDns01Probe(options.certName, options.challengeName, options.expectedTxt, probe, attempts, activitySource)
       lastProbeSignature = probeSignature
     }
 

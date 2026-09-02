@@ -26,7 +26,9 @@ export async function dnsUdpQuery(
   const resolve = UDPClient({
     dns: serverAddress,
     timeout: timeoutMs,
-    retryOverTCP: false,
+    // Large multi-TXT answers (shared-mode tiny labels) exceed classic UDP 512B;
+    // without TCP fallback dns2 returns zero parsed answers while rcode stays NOERROR.
+    retryOverTCP: type === 'TXT',
   })
 
   try {
