@@ -157,6 +157,16 @@ watch(directoryMode, async (mode) => {
   await loadStatus(mode)
 })
 
+watch(
+  () => certJob.value.running,
+  (running, wasRunning) => {
+    if (!loaded.value || !wasRunning || running) {
+      return
+    }
+    void loadStatus(directoryMode.value)
+  },
+)
+
 const certPanelId = computed(() =>
   directoryMode.value === 'staging' ? 'cert-panel-staging' : 'cert-panel-live',
 )

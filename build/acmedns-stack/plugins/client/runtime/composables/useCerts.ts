@@ -25,6 +25,8 @@ import { filenameFromDisposition, triggerDownload } from '#client/utils/download
 
 import { useCertQueueState } from '#client/composables/useCertQueueState'
 
+const CERT_DISK_SUCCESS_MESSAGES = new Set(['Issued', 'Renewed', 'Re-issued (SAN change)'])
+
 export function useCerts() {
   const { certJob, certQueue } = useCertQueueState()
   const text = ref('')
@@ -485,6 +487,7 @@ export function useCerts() {
       lastActivityId.value = Math.max(...data.entries.map(e => e.id))
     }
     mergeRateLimitsOntoStatus()
+    await loadStatus()
     lastRefreshedAt.value = new Date().toISOString()
   }
 
@@ -495,6 +498,9 @@ export function useCerts() {
     mergeRateLimitsOntoStatus()
     lastRefreshedAt.value = new Date().toISOString()
     notify?.([data.entry])
+    if (data.entry.certName && CERT_DISK_SUCCESS_MESSAGES.has(data.entry.message)) {
+      void loadStatus()
+    }
   }
 
   function applyLiveQueue(data: CertLiveQueueEvent) {

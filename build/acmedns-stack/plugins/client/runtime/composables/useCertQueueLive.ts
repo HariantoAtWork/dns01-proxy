@@ -31,6 +31,7 @@ type CertLiveStreamApi = ReturnType<typeof useCertLiveStream>
 // Client-only singleton — must not live in useState (functions are not serialisable for SSR).
 let streamApi: CertLiveStreamApi | undefined
 const pageHooks = shallowRef<CertLivePageHooks | null>(null)
+let directoryModeStop: (() => void) | undefined
 
 export function useCertQueueLive() {
   const { certJob, certQueue } = useCertQueueState()
@@ -105,13 +106,21 @@ export function useCertQueueLive() {
 
   function registerPageHooks(hooks: CertLivePageHooks) {
     pageHooks.value = hooks
+    directoryModeStop?.()
+    directoryModeStop = undefined
     if (hooks.directoryMode) {
-      directoryMode.value = hooks.directoryMode.value
+      directoryModeStop = watch(
+        hooks.directoryMode,
+        mode => { directoryMode.value = mode },
+        { immediate: true },
+      )
     }
   }
 
   function clearPageHooks() {
     pageHooks.value = null
+    directoryModeStop?.()
+    directoryModeStop = undefined
   }
 
   function start() {

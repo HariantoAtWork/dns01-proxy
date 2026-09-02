@@ -184,11 +184,39 @@ export function useLab() {
     return job
   }
 
+  function shouldRefreshLabStatusFromActivity(entry: CertActivityEntry) {
+    if (entry.source !== 'lab' || !entry.certName) {
+      return false
+    }
+    if (entry.level === 'error') {
+      return true
+    }
+    return entry.message.startsWith('Lab passed')
+  }
+
+  async function applyLiveSnapshot(data: {
+    entries: CertActivityEntry[]
+    job: typeof certJob.value
+    queue: typeof certQueue.value
+  }) {
+    activityEntries.value = data.entries
+    certJob.value = data.job
+    certQueue.value = data.queue
+    if (data.entries.length) {
+      lastActivityId.value = Math.max(...data.entries.map(e => e.id))
+    }
+    await loadStatus()
+    lastRefreshedAt.value = new Date().toISOString()
+  }
+
   function applyLiveActivity(data: { entry: CertActivityEntry }, notify?: (entries: CertActivityEntry[]) => void) {
     activityEntries.value = mergeLiveActivity(activityEntries.value, data.entry)
     lastActivityId.value = Math.max(lastActivityId.value, data.entry.id)
     lastRefreshedAt.value = new Date().toISOString()
     notify?.([data.entry])
+    if (shouldRefreshLabStatusFromActivity(data.entry)) {
+      void loadStatus()
+    }
   }
 
   function applyLiveQueue(data: { job: typeof certJob.value, queue: typeof certQueue.value }) {
@@ -222,5 +250,6 @@ export function useLab() {
     deleteJob,
     applyLiveActivity,
     applyLiveQueue,
+    applyLiveSnapshot,
   }
 }
