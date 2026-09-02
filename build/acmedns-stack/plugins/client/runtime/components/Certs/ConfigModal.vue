@@ -102,10 +102,9 @@ const treeBadgeClass = computed(() =>
       </span>.
     </p>
 
-    <label class="mt-3 block">
-      <span class="sr-only">domains.txt</span>
+    <div class="mt-3 block" role="group" aria-label="domains.txt">
       <UiLineNumberedTextarea v-model="text" :disabled="pending" />
-    </label>
+    </div>
 
     <UiDisclosure v-if="parsed?.lines?.length" title="Parsed lines" :open="true" class="mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
