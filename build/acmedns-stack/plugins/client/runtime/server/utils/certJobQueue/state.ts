@@ -198,13 +198,17 @@ export function finishRunningJobTask(
   emitQueue()
 }
 
-export function trackRunningJobRequest(stepIndex: number, stepLabel?: string) {
+export function trackRunningJobRequest(
+  stepIndex: number,
+  stepLabel?: string,
+  seedAltNames?: string[],
+) {
   if (!running?.currentCert || !running.tasks?.length) {
     return
   }
   const lab = running.source === 'lab' ? getLabPlugin()?.jobTasks : undefined
   running.tasks = lab
-    ? lab.trackRequest(running.tasks, running.currentCert, stepIndex, stepLabel)
+    ? lab.trackRequest(running.tasks, running.currentCert, stepIndex, stepLabel, seedAltNames)
     : trackCertJobTaskRequest(running.tasks, running.currentCert, stepIndex, stepLabel)
   emitQueue()
 }

@@ -122,7 +122,11 @@ export async function executeLabDns01(
         certName: line.certName,
         altNames: line.expanded,
         signal: certIssueSignal(options.abortSignal),
-        onRequestStep: ({ index, label }) => trackRunningJobRequest(index, label),
+        onRequestStep: ({ index, label }) => trackRunningJobRequest(
+          index,
+          label,
+          index === LAB_REQUEST_STEPS.ACME_ORDER ? line.expanded : undefined,
+        ),
       })
       completeRunningJobRequests()
 

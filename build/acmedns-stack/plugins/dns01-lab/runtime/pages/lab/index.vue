@@ -54,7 +54,7 @@ const dirty = ref(false)
 const loaded = ref(false)
 const configModalOpen = ref(false)
 const logFilter = ref<'all' | 'lab'>('all')
-const activityFeedFilter = ref<'all' | 'acme' | 'live' | 'staging'>('all')
+const activityLogFilter = ref<'all' | 'acme' | 'live' | 'staging'>('all')
 const dnsRecheckPending = ref(false)
 const issuingCerts = ref<string[]>([])
 
@@ -324,8 +324,6 @@ async function onJobAction(action: JobQueueAction, id: number) {
         @run="onRunCert"
       />
 
-      <CertsBatchSummaryBoard />
-
       <div class="space-y-3">
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs text-muted">Activity:</span>
@@ -348,7 +346,11 @@ async function onJobAction(action: JobQueueAction, id: number) {
             </button>
           </div>
         </div>
-        <CertsActivityFeed v-model:log-filter="activityFeedFilter" :entries="filteredActivity" />
+        <CertsActivityFeed
+          v-model:log-filter="activityLogFilter"
+          :entries="filteredActivity"
+          :show-mode-filters="false"
+        />
       </div>
     </div>
 

@@ -28,6 +28,7 @@ export interface LabJobTaskHooks {
     certName: string,
     stepIndex: number,
     stepLabel?: string,
+    seedAltNames?: string[],
   ) => CertJobTask[]
   completeRequests: (tasks: CertJobTask[], certName: string) => CertJobTask[]
 }

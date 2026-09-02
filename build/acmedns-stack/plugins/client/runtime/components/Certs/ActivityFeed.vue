@@ -12,22 +12,25 @@ export type ActivityLogOrder = 'asc' | 'desc'
 
 const logFilter = defineModel<ActivityLogFilter>('logFilter', { required: true })
 
-const { entries } = defineProps<{
+const { entries, showModeFilters = true } = defineProps<{
   entries: CertActivityEntry[]
+  showModeFilters?: boolean
 }>()
 
 const logOrder = ref<ActivityLogOrder>('asc')
 
 const filteredActivity = computed(() => {
   let list = entries
-  if (logFilter.value === 'acme') {
-    list = list.filter(e => e.source === 'acme')
-  }
-  else if (logFilter.value === 'live') {
-    list = list.filter(e => e.mode === 'production')
-  }
-  else if (logFilter.value === 'staging') {
-    list = list.filter(e => e.mode === 'staging')
+  if (showModeFilters) {
+    if (logFilter.value === 'acme') {
+      list = list.filter(e => e.source === 'acme')
+    }
+    else if (logFilter.value === 'live') {
+      list = list.filter(e => e.mode === 'production')
+    }
+    else if (logFilter.value === 'staging') {
+      list = list.filter(e => e.mode === 'staging')
+    }
   }
 
   const sorted = [...list].sort((a, b) => a.id - b.id)
@@ -42,8 +45,11 @@ function toggleLogOrder() {
 <template>
   <UiDisclosure title="Let's Encrypt log" :open="true">
     <div class="mb-3 flex flex-wrap items-center gap-2">
-      <span class="text-xs text-muted">Show:</span>
-      <div class="inline-flex flex-wrap rounded-[6px] border border-rule p-0.5">
+      <span v-if="showModeFilters" class="text-xs text-muted">Show:</span>
+      <div
+        v-if="showModeFilters"
+        class="inline-flex flex-wrap rounded-[6px] border border-rule p-0.5"
+      >
         <button
           type="button"
           class="rounded-[4px] px-2.5 py-1 text-xs transition-colors"

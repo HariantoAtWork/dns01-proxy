@@ -88,17 +88,20 @@ export function createLabRequestPlan(): AcmeRequestItem[] {
 export function seedLabChallengePlan(
   requests: AcmeRequestItem[],
   certName: string,
+  altNames?: string[],
 ): AcmeRequestItem[] {
-  const domain = apexName(certName)
+  const domains = altNames?.length ? canonicalSans(altNames) : [apexName(certName)]
   const next = requests.map(item => ({ ...item }))
 
-  for (const step of CHALLENGE_STEP_ORDER) {
-    const label = `${labRequestStepLabel(step)} ${domain}`
-    const exists = next.some(item => item.label === label)
-    if (exists) {
-      continue
+  for (const domain of domains) {
+    for (const step of CHALLENGE_STEP_ORDER) {
+      const label = `${labRequestStepLabel(step)} ${domain}`
+      const exists = next.some(item => item.label === label)
+      if (exists) {
+        continue
+      }
+      next.push(newLabRequestItem(step, label, 'pending'))
     }
-    next.push(newLabRequestItem(step, label, 'pending'))
   }
 
   return next
