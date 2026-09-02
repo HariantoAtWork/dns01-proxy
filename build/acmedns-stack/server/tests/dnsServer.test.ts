@@ -10,6 +10,8 @@ import {
   registerAccount,
   updateTXT,
 } from '../utils/db'
+import { registerTxtStore, resetTxtStore } from '../utils/txtStoreRegistry'
+import { InMemoryTxtStore } from '../../plugins/txt-ttl/runtime/server/store/inMemoryTxtStore'
 
 const { Packet, UDPClient } = dns2
 
@@ -89,6 +91,8 @@ let txtSubdomain = ''
 
 beforeEach(async () => {
   closeAcmeDb()
+  resetTxtStore()
+  registerTxtStore(new InMemoryTxtStore({ ttlSeconds: 86_400 }))
   tempDir = mkdtempSync(join(tmpdir(), 'acmedns-dns-test-'))
   TEST_CONFIG.database.connection = join(tempDir, 'acme-dns.db')
   await initAcmeDb(TEST_CONFIG)
@@ -111,6 +115,7 @@ afterEach(async () => {
   await dnsServer?.close()
   dnsServer = null
   closeAcmeDb()
+  resetTxtStore()
   if (tempDir) {
     rmSync(tempDir, { recursive: true, force: true })
     tempDir = ''

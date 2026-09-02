@@ -4,9 +4,10 @@ import type { AcmeDnsConfig, AcmeTxtAccount, AcmeTxtPost } from './types'
 import { generatePassword, sanitizeString, validCidrEntries, validKey } from './validation'
 import { openSqlite, type SqliteDatabase } from './sqlite'
 import { SHARED_MODE_USERNAME } from '../../plugins/client/runtime/shared/utils/tinyModeDns'
+import { ensureTxtStoreReady, requireTxtStore } from './txtStoreRegistry'
+import { TXT_RECORD_SLOTS } from '../../plugins/txt-ttl/runtime/shared/txtTtlConstants'
 
-/** Let's Encrypt names-per-certificate cap; matches vendored Go server. */
-export const TXT_RECORD_SLOTS = 100
+export { TXT_RECORD_SLOTS }
 
 const DB_VERSION = 1
 
@@ -66,7 +67,7 @@ export async function initAcmeDb(config: AcmeDnsConfig): Promise<void> {
       db.exec(`INSERT INTO acmedns (Name, Value) VALUES ('db_version', '${DB_VERSION}')`)
     }
 
-    ensureTXTSlots()
+    ensureTxtStoreReady()
     console.info(`[acmedns] connected to sqlite at ${connection}`)
   })()
 
@@ -85,27 +86,11 @@ export function closeAcmeDb(): void {
   }
 }
 
-function insertTXTSlots(database: SqliteDatabase, subdomain: string): void {
-  const insert = database.prepare('INSERT INTO txt (Subdomain, LastUpdate) VALUES (?, 0)')
-  for (let i = 0; i < TXT_RECORD_SLOTS; i++) {
-    insert.run(subdomain)
-  }
-}
-
 export function ensureTXTSlotsForSubdomain(subdomain: string): void {
-  const database = requireDb()
-  const key = sanitizeString(subdomain)
-  if (!key) {
+  if (!sanitizeString(subdomain)) {
     return
   }
-  const count = (database.prepare('SELECT COUNT(*) AS c FROM txt WHERE Subdomain = ?').get(key) as { c: number }).c
-  if (count >= TXT_RECORD_SLOTS) {
-    return
-  }
-  const insert = database.prepare('INSERT INTO txt (Subdomain, LastUpdate) VALUES (?, 0)')
-  for (let i = count; i < TXT_RECORD_SLOTS; i++) {
-    insert.run(key)
-  }
+  ensureTxtStoreReady()
 }
 
 function readAcmeMeta(name: string): string {
@@ -176,31 +161,7 @@ export function upsertSharedAccount(
 }
 
 function ensureTXTSlots(): void {
-  const database = requireDb()
-  const rows = database.prepare('SELECT Subdomain FROM records').all() as Array<{ Subdomain: string }>
-  const countStmt = database.prepare('SELECT COUNT(*) AS c FROM txt WHERE Subdomain = ?')
-  const insert = database.prepare('INSERT INTO txt (Subdomain, LastUpdate) VALUES (?, 0)')
-
-  let padded = 0
-  let accounts = 0
-  for (const row of rows) {
-    const subdomain = row.Subdomain
-    if (!subdomain) {
-      continue
-    }
-    const count = (countStmt.get(subdomain) as { c: number }).c
-    if (count >= TXT_RECORD_SLOTS) {
-      continue
-    }
-    accounts++
-    for (let i = count; i < TXT_RECORD_SLOTS; i++) {
-      insert.run(subdomain)
-      padded++
-    }
-  }
-  if (padded > 0) {
-    console.info(`[acmedns] padded ${padded} TXT slots across ${accounts} accounts`)
-  }
+  ensureTxtStoreReady()
 }
 
 export function registerAccount(allowfromInput: string[] = []): AcmeTxtAccount & { plaintextPassword: string } {
@@ -217,7 +178,7 @@ export function registerAccount(allowfromInput: string[] = []): AcmeTxtAccount &
       INSERT INTO records (Username, Password, Subdomain, AllowFrom)
       VALUES (?, ?, ?, ?)
     `).run(username, passwordHash, subdomain, allowJson)
-    insertTXTSlots(database, subdomain)
+    ensureTXTSlotsForSubdomain(subdomain)
   })
   tx()
 
@@ -268,24 +229,35 @@ export function getByUsername(username: string): AcmeTxtAccount | null {
 }
 
 export function getTXTForDomain(domain: string): string[] {
-  const database = requireDb()
   const subdomain = sanitizeString(domain)
-  const rows = database.prepare(`
-    SELECT Value FROM txt WHERE Subdomain = ? LIMIT ${TXT_RECORD_SLOTS}
-  `).all(subdomain) as Array<{ Value: string }>
-  return rows.map(row => row.Value ?? '')
+  if (!subdomain) {
+    return []
+  }
+  return requireTxtStore().getValues(subdomain)
 }
 
 export function updateTXT(post: AcmeTxtPost): boolean {
-  const database = requireDb()
   const subdomain = sanitizeString(post.subdomain)
+  if (!subdomain) {
+    return false
+  }
   ensureTXTSlotsForSubdomain(subdomain)
-  const now = Math.floor(Date.now() / 1000)
-  const result = database.prepare(`
-    UPDATE txt SET Value = ?, LastUpdate = ?
-    WHERE rowid = (
-      SELECT rowid FROM txt WHERE Subdomain = ? ORDER BY LastUpdate LIMIT 1
-    )
-  `).run(post.txt, now, subdomain)
-  return result.changes > 0
+  requireTxtStore().update(subdomain, post.txt)
+  return true
+}
+
+export function clearTxtByValue(subdomain: string, txt: string): number {
+  const key = sanitizeString(subdomain)
+  if (!key) {
+    return 0
+  }
+  return requireTxtStore().clearByValue(key, txt)
+}
+
+export function clearAllTxtForSubdomain(subdomain: string): number {
+  const key = sanitizeString(subdomain)
+  if (!key) {
+    return 0
+  }
+  return requireTxtStore().clearAll(key)
 }

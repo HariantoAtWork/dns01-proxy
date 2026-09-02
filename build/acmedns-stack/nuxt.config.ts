@@ -30,6 +30,7 @@ export default defineNuxtConfig({
   },
   modules: [
     '@nuxt/fonts',
+    './plugins/txt-ttl',
     './plugins/client',
     './plugins/dns01-lab',
   ],

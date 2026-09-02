@@ -16,6 +16,8 @@ import {
   updateTXT,
   upsertSharedAccount,
 } from '../utils/db'
+import { registerTxtStore, resetTxtStore } from '../utils/txtStoreRegistry'
+import { InMemoryTxtStore } from '../../plugins/txt-ttl/runtime/server/store/inMemoryTxtStore'
 import { validTXT } from '../utils/validation'
 
 const BASE_CONFIG: AcmeDnsConfig = {
@@ -59,6 +61,8 @@ let tempDir = ''
 
 beforeEach(async () => {
   closeAcmeDb()
+  resetTxtStore()
+  registerTxtStore(new InMemoryTxtStore({ ttlSeconds: 86_400 }))
   tempDir = mkdtempSync(join(tmpdir(), 'acmedns-db-test-'))
   await initAcmeDb({
     ...BASE_CONFIG,
@@ -71,6 +75,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   closeAcmeDb()
+  resetTxtStore()
   if (tempDir) {
     rmSync(tempDir, { recursive: true, force: true })
     tempDir = ''
@@ -88,7 +93,7 @@ describe('db', () => {
     const loaded = getByUsername(account.username)
     expect(loaded?.subdomain).toBe(account.subdomain)
     expect(compareSync(account.plaintextPassword, loaded!.password)).toBe(true)
-    expect(getTXTForDomain(account.subdomain)).toHaveLength(TXT_RECORD_SLOTS)
+    expect(getTXTForDomain(account.subdomain)).toEqual([])
   })
 
   test('updateTXT stores challenge value in oldest slot', () => {
@@ -106,7 +111,6 @@ describe('db', () => {
   test('updateTXT pads missing TXT slots for legacy subdomain', () => {
     const subdomain = 'legacy-subdomain-key'
     ensureTXTSlotsForSubdomain(subdomain)
-    expect(getTXTForDomain(subdomain)).toHaveLength(TXT_RECORD_SLOTS)
 
     const txt = validChallengeTxt()
     expect(updateTXT({ subdomain, txt })).toBe(true)

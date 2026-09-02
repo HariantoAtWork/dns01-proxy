@@ -1,4 +1,5 @@
 import { closeAcmeDb, initAcmeDb } from '../utils/db'
+import { ensureTxtStoreReady } from '../utils/txtStoreRegistry'
 import { loadAcmeConfig } from '../utils/config'
 import { createDnsServer } from '../dns/server'
 import { ensureSharedModeGlueRecords } from '../utils/glueRecords'
@@ -8,6 +9,7 @@ export default defineNitroPlugin(async (nitroApp) => {
   try {
     const config = await loadAcmeConfig()
     await initAcmeDb(config)
+    ensureTxtStoreReady()
 
     if (isSharedMode(config)) {
       await ensureSharedModeGlueRecords(config)
