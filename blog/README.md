@@ -6,3 +6,4 @@ Posts about the acmedns-stack project.
 | --- | --- |
 | 2026-08-22 | [From three containers to two](./from-three-services-to-two.md) |
 | 2026-08-23 | [From two containers to one](./from-two-services-to-one.md) |
+| 2026-09-02 | [After the merge: a DNS-01 lab, a UDP trap, and TXT that actually expires](./dns01-lab-and-txt-probe.md) |
