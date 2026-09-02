@@ -13,9 +13,9 @@ describe('labIssueSteps', () => {
     expect(labRequestStepLabel(LAB_REQUEST_STEPS.PUBLISH_TXT)).toBe('Publish TXT')
   })
 
-  test('seeds challenge steps after fake ACME order', () => {
+  test('seeds challenge steps for each SAN after fake ACME order', () => {
     let plan = createLabRequestPlan()
-    plan = seedLabChallengePlan(plan, 'mdstn.com')
+    plan = seedLabChallengePlan(plan, 'mdstn.com', ['mdstn.com', 'www.mdstn.com'])
     expect(plan.map(item => item.label)).toEqual([
       'DNS preflight',
       'FAKE ACME order',
@@ -23,6 +23,10 @@ describe('labIssueSteps', () => {
       'TXT online mdstn.com',
       'DNS settle mdstn.com',
       'FAKE LE validate mdstn.com',
+      'Publish TXT www.mdstn.com',
+      'TXT online www.mdstn.com',
+      'DNS settle www.mdstn.com',
+      'FAKE LE validate www.mdstn.com',
     ])
   })
 })

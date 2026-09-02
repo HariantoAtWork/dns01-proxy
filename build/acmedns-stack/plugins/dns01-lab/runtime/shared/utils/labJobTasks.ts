@@ -5,6 +5,7 @@ import {
   createLabRequestPlan,
   finishLabRequestPlan,
   seedLabChallengePlan,
+  sortLabRequestItems,
   LAB_REQUEST_STEPS,
 } from './labIssueSteps'
 
@@ -82,6 +83,7 @@ export function trackLabJobTaskRequest(
   certName: string,
   stepIndex: number,
   stepLabel?: string,
+  seedAltNames?: string[],
 ): CertJobTask[] {
   const idx = findTaskIndex(tasks, certName)
   if (idx < 0) {
@@ -91,10 +93,12 @@ export function trackLabJobTaskRequest(
   const next = tasks.map(task => ({ ...task }))
   const task = next[idx]!
   const base = task.requests?.length ? task.requests : createLabRequestPlan()
-  let requests = advanceLabRequestPlan(base, stepIndex, stepLabel)
+  let requests = base
   if (stepIndex === LAB_REQUEST_STEPS.ACME_ORDER) {
-    requests = seedLabChallengePlan(requests, certName)
+    requests = seedLabChallengePlan(requests, certName, seedAltNames)
   }
+  requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
+  requests = sortLabRequestItems(requests, certName)
   next[idx] = {
     ...task,
     requests,

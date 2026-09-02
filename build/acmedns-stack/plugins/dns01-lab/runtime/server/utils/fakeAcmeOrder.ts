@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import acme from 'acme-client'
+import { canonicalSans } from '../../../../client/runtime/shared/utils/domains'
 
 export interface FakeAcmeChallenge {
   domain: string
@@ -16,19 +17,18 @@ function dns01TxtValue(token: string, accountKey: string): string {
 }
 
 export async function fakeAcmeOrder(altNames: string[]): Promise<{
-  accountKey: string
   challenges: FakeAcmeChallenge[]
 }> {
   const accountKey = (await acme.crypto.createPrivateKey()).toString()
   const challenges: FakeAcmeChallenge[] = []
 
-  for (const domain of altNames) {
+  for (const domain of canonicalSans(altNames)) {
     const token = randomBytes(32).toString('base64url')
     const keyAuthorization = dns01TxtValue(token, accountKey)
     challenges.push({ domain, token, keyAuthorization })
   }
 
-  return { accountKey, challenges }
+  return { challenges }
 }
 
 export function formatFakeAcmeOrderDetail(challenges: FakeAcmeChallenge[]): string {
