@@ -80,6 +80,10 @@ export function getDomainsFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'domains.txt')
 }
 
+export function getLabDomainsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'lab-domain.txt')
+}
+
 export function getBackupDir(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'backup')
 }

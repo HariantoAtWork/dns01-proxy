@@ -43,6 +43,22 @@ export async function startCertJob(options: {
   return toPublic(job)
 }
 
+/** Queue a DNS-01 lab run (shared queue with cert Apply). */
+export async function startLabJob(options: {
+  certNames?: string[]
+  force?: boolean
+}): Promise<CertJobQueueItem> {
+  const job = await createQueuedJob({
+    source: 'lab',
+    mode: 'production',
+    certNames: options.certNames,
+    force: options.force,
+    resolve: noopResolve,
+    reject: noopReject,
+  })
+  return toPublic(job)
+}
+
 /** Wait until the job finishes (renew timer). */
 export function enqueueCertJob(options: {
   mode: LetsEncryptDirectoryMode

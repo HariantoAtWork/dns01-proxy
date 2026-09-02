@@ -123,7 +123,7 @@ export interface LastSavedItem {
   notAfter?: string
 }
 
-export type CertActivitySource = 'renew' | 'apply' | 'system' | 'acme'
+export type CertActivitySource = 'renew' | 'apply' | 'lab' | 'system' | 'acme'
 
 export type CertActivityLevel = 'info' | 'warn' | 'error'
 
@@ -171,7 +171,7 @@ export type CertJobQueueStatus = 'queued' | 'running' | 'completed' | 'failed' |
 
 export interface CertJobQueueItem {
   id: number
-  source: 'renew' | 'apply'
+  source: 'renew' | 'apply' | 'lab'
   mode: LetsEncryptDirectoryMode
   status: CertJobQueueStatus
   createdAt: string
@@ -205,7 +205,7 @@ export interface CertBatchSummary {
   filename?: string
   executedAt: string
   jobId: number
-  source: 'apply' | 'renew'
+  source: 'apply' | 'renew' | 'lab'
   mode: LetsEncryptDirectoryMode
   force?: boolean
   status: CertBatchSummaryStatus

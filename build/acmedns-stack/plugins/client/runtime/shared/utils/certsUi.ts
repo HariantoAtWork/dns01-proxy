@@ -40,6 +40,9 @@ export function dnsCheckNeedsCopy(status: DomainsDnsCheck['status']) {
 }
 
 export function jobLabel(id: number, source: string, mode: string) {
+  if (source === 'lab') {
+    return `#${id} lab`
+  }
   const tree = mode === 'staging' ? 'staging' : 'live'
   return `#${id} ${tree}/${source}`
 }

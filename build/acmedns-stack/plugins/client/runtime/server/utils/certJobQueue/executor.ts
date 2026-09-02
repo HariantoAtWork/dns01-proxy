@@ -35,6 +35,7 @@ import {
   running,
 } from './state'
 import { dnsPreflightForLine, rateLimitSkipMessage } from './preflight'
+import { getLabPlugin, requireLabPlugin } from './labRegistry'
 import { ACME_REQUEST_STEPS } from '../../../shared/utils/acmeIssueSteps'
 import { createCertJobTaskPlan } from '../../../shared/utils/certJobTasks'
 
@@ -417,22 +418,43 @@ export async function pumpQueue() {
   emitQueue()
 
   try {
-    const { results, cancelled: wasCancelled } = await executeApplyCertificates({
-      mode: job.mode,
-      source: job.source,
-      certNames: job.certNames,
-      force: job.force,
-      renewOnly: job.renewOnly,
-      jobId: job.id,
-      priorResults: job.results?.length ? job.results : undefined,
-      abortSignal: job.abortController.signal,
-      onProgress: ({ certName, taskIndex, taskTotal }) => {
-        job.currentCert = certName
-        job.taskIndex = taskIndex
-        job.taskTotal = taskTotal
-      },
-      shouldCancel: () => Boolean(job.cancelRequested),
-    })
+    let results: CertApplyResult[]
+    let wasCancelled: boolean
+
+    if (job.source === 'lab') {
+      const lab = requireLabPlugin()
+      ;({ results, cancelled: wasCancelled } = await lab.executor({
+        certNames: job.certNames,
+        force: job.force,
+        jobId: job.id,
+        priorResults: job.results?.length ? job.results : undefined,
+        abortSignal: job.abortController.signal,
+        onProgress: ({ certName, taskIndex, taskTotal }) => {
+          job.currentCert = certName
+          job.taskIndex = taskIndex
+          job.taskTotal = taskTotal
+        },
+        shouldCancel: () => Boolean(job.cancelRequested),
+      }))
+    }
+    else {
+      ;({ results, cancelled: wasCancelled } = await executeApplyCertificates({
+        mode: job.mode,
+        source: job.source,
+        certNames: job.certNames,
+        force: job.force,
+        renewOnly: job.renewOnly,
+        jobId: job.id,
+        priorResults: job.results?.length ? job.results : undefined,
+        abortSignal: job.abortController.signal,
+        onProgress: ({ certName, taskIndex, taskTotal }) => {
+          job.currentCert = certName
+          job.taskIndex = taskIndex
+          job.taskTotal = taskTotal
+        },
+        shouldCancel: () => Boolean(job.cancelRequested),
+      }))
+    }
 
     job.results = results
 
@@ -483,7 +505,7 @@ export async function createQueuedJob(options: {
   resolve: (results: CertApplyResult[]) => void
   reject: (error: unknown) => void
 }): Promise<InternalJob> {
-  if (!isAcmeEnabledForMode(options.mode)) {
+  if (options.source !== 'lab' && !isAcmeEnabledForMode(options.mode)) {
     throw createError({
       statusCode: 503,
       statusMessage: 'Production ACME is disabled (CERTS_ACME_DISABLED=true). Staging Apply still works.',
@@ -493,19 +515,36 @@ export async function createQueuedJob(options: {
   let taskTotal: number | undefined
   let tasks: InternalJob['tasks']
   try {
-    const domains = await readDomainsFile()
-    if (domains.ok) {
-      const wanted = options.certNames?.length
-        ? domains.lines.filter(l => options.certNames!.includes(l.certName))
-        : domains.lines
-      taskTotal = wanted.length
-      if (taskTotal) {
-        tasks = createCertJobTaskPlan(wanted.map(line => line.certName))
+    if (options.source === 'lab') {
+      const lab = getLabPlugin()
+      if (lab) {
+        const domains = await lab.readDomains()
+        if (domains.ok) {
+          const wanted = options.certNames?.length
+            ? domains.lines.filter(l => options.certNames!.includes(l.certName))
+            : domains.lines
+          taskTotal = wanted.length
+          if (taskTotal) {
+            tasks = lab.jobTasks.createPlan(wanted.map(line => line.certName))
+          }
+        }
+      }
+    }
+    else {
+      const domains = await readDomainsFile()
+      if (domains.ok) {
+        const wanted = options.certNames?.length
+          ? domains.lines.filter(l => options.certNames!.includes(l.certName))
+          : domains.lines
+        taskTotal = wanted.length
+        if (taskTotal) {
+          tasks = createCertJobTaskPlan(wanted.map(line => line.certName))
+        }
       }
     }
   }
   catch {
-    // queue anyway; executeApplyCertificates will validate
+    // queue anyway; executor will validate
   }
 
   const job: InternalJob = {

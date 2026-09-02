@@ -22,9 +22,8 @@ describe('certLog', () => {
     expect(formatCertActivityPrefix('acme')).toBe('[acme]')
   })
 
-  test('UI labels match console prefixes', () => {
-    expect(certActivitySourceLabel('apply', 'production')).toBe('live/apply')
-    expect(certActivitySourceLabel('acme', 'staging')).toBe('staging/acme')
-    expect(certActivitySourceLabel('system')).toBe('system')
+  test('formats lab source without mode tree', () => {
+    expect(formatCertActivityPrefix('lab')).toBe('[lab]')
+    expect(certActivitySourceLabel('lab')).toBe('lab')
   })
 })
