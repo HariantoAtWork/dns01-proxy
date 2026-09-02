@@ -4,6 +4,16 @@ export function normaliseDnsName(value: string) {
   return value.trim().replace(/\.$/, '').toLowerCase()
 }
 
+/** True when `name` is `zone` or a subdomain of it. */
+export function isNameUnderZone(name: string, zone: string) {
+  const host = normaliseDnsName(name)
+  const apex = normaliseDnsName(zone)
+  if (!host || !apex) {
+    return false
+  }
+  return host === apex || host.endsWith(`.${apex}`)
+}
+
 export function matchDnsRecord(
   records: DnsRecordGroup[] | undefined,
   name: string,
@@ -37,15 +47,33 @@ export interface DnsResolverOutcome {
   records: DnsRecordGroup[]
 }
 
-function isAuthoritativeOutcome(outcome: DnsResolverOutcome) {
-  return outcome.server.startsWith('auth:')
+export interface CnameMatchOptions {
+  /** Tiny mode: accept any CNAME target under this auth zone (not only the exact expected label). */
+  acceptUnderZone?: string
 }
 
-function splitResolverOutcomes(outcomes: DnsResolverOutcome[]) {
-  return {
-    authoritative: outcomes.filter(isAuthoritativeOutcome),
-    public: outcomes.filter(outcome => !isAuthoritativeOutcome(outcome)),
+function cnameTargetsUnderZone(outcomes: DnsResolverOutcome[], name: string, zone: string) {
+  const wantedName = normaliseDnsName(name)
+  const matches: string[] = []
+
+  for (const outcome of outcomes) {
+    if (outcome.lookup !== 'ok') {
+      continue
+    }
+    for (const group of outcome.records) {
+      if (normaliseDnsName(group.name) !== wantedName) {
+        continue
+      }
+      for (const entry of group.data) {
+        const target = String(entry)
+        if (isNameUnderZone(target, zone)) {
+          matches.push(target)
+        }
+      }
+    }
   }
+
+  return [...new Set(matches.map(normaliseDnsName))]
 }
 
 type ResolverSource = 'Authoritative' | 'Public'
@@ -56,6 +84,7 @@ function evaluateCnameGroup(
   expected: string,
   source: ResolverSource,
   resolverCount = outcomes.length,
+  options?: CnameMatchOptions,
 ): DnsCnameMatchResult | null {
   if (!outcomes.length) {
     return null
@@ -79,6 +108,28 @@ function evaluateCnameGroup(
           ? `Public CNAME matches (${pick.server})`
           : `Public CNAME matches (${matching.length}/${resolverCount} resolvers)`,
       matchedResolver: pick.server,
+    }
+  }
+
+  if (options?.acceptUnderZone) {
+    const zoneTargets = cnameTargetsUnderZone(outcomes, name, options.acceptUnderZone)
+    if (zoneTargets.length > 0) {
+      const matching = outcomes.filter(
+        outcome => outcome.lookup === 'ok'
+          && outcome.records.some(group =>
+            group.data.some(entry => isNameUnderZone(String(entry), options.acceptUnderZone!)),
+          ),
+      )
+      const pick = matching[0] ?? outcomes.find(outcome => outcome.lookup === 'ok')!
+      const label = pick.server.replace(/^auth:/, '')
+      return {
+        status: 'ok',
+        actual: zoneTargets.join(', '),
+        message: source === 'Authoritative'
+          ? `Authoritative CNAME points to auth zone ${options.acceptUnderZone} (${label})`
+          : `CNAME points to auth zone ${options.acceptUnderZone}`,
+        matchedResolver: pick.server,
+      }
     }
   }
 
@@ -116,6 +167,7 @@ export function evaluateAuthoritativeCnameOutcomes(
   outcomes: DnsResolverOutcome[],
   name: string,
   expected: string,
+  options?: CnameMatchOptions,
 ): DnsCnameMatchResult {
   if (!outcomes.length) {
     return {
@@ -124,9 +176,20 @@ export function evaluateAuthoritativeCnameOutcomes(
     }
   }
 
-  return evaluateCnameGroup(outcomes, name, expected, 'Authoritative', outcomes.length) ?? {
+  return evaluateCnameGroup(outcomes, name, expected, 'Authoritative', outcomes.length, options) ?? {
     status: 'error',
     message: 'All authoritative nameserver queries failed or timed out',
+  }
+}
+
+function isAuthoritativeOutcome(outcome: DnsResolverOutcome) {
+  return outcome.server.startsWith('auth:')
+}
+
+function splitResolverOutcomes(outcomes: DnsResolverOutcome[]) {
+  return {
+    authoritative: outcomes.filter(isAuthoritativeOutcome),
+    public: outcomes.filter(outcome => !isAuthoritativeOutcome(outcome)),
   }
 }
 

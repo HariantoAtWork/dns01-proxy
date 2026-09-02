@@ -20,12 +20,16 @@ export async function checkDomainsDns(
 
   const noAccount = expected.filter(check => check.status === 'no_account')
   const toQuery = expected.filter(check => check.status !== 'no_account')
-  const query = options?.mode === 'preflight'
-    ? dnsQueryCnameAuthoritativeMatch
-    : dnsQueryCnameAnyMatch
+  const tinyPreflight = options?.mode === 'preflight' && shared
 
   const queried = await Promise.all(toQuery.map(async (check) => {
-    const result = await query(check.name, check.expected)
+    const result = tinyPreflight
+      ? await dnsQueryCnameAuthoritativeMatch(check.name, check.expected, {
+          acceptUnderZone: shared.authZone,
+        })
+      : options?.mode === 'preflight'
+        ? await dnsQueryCnameAuthoritativeMatch(check.name, check.expected)
+        : await dnsQueryCnameAnyMatch(check.name, check.expected)
     return {
       ...check,
       actual: result.actual,

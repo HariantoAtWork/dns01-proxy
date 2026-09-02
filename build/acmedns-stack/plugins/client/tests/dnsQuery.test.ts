@@ -72,4 +72,24 @@ describe('evaluateAuthoritativeCnameOutcomes', () => {
     expect(result.status).toBe('ok')
     expect(result.message).toContain('Authoritative')
   })
+
+  test('accepts any CNAME under auth zone in Tiny mode preflight', () => {
+    const authZone = 'auth.uti.email'
+    const alternate = '4181bcdd-8cbb-4477-805d-4c2c6ca0caa3.auth.uti.email'
+    const result = evaluateAuthoritativeCnameOutcomes([
+      { server: 'auth:ns1.example.com', lookup: 'ok', records: [{ name, data: [alternate] }] },
+    ], name, '_sylo-space_.auth.uti.email', { acceptUnderZone: authZone })
+
+    expect(result.status).toBe('ok')
+    expect(result.actual).toContain(alternate)
+    expect(result.message).toContain('auth zone')
+  })
+
+  test('still rejects CNAME outside auth zone in Tiny mode preflight', () => {
+    const result = evaluateAuthoritativeCnameOutcomes([
+      { server: 'auth:ns1.example.com', lookup: 'ok', records: [{ name, data: ['uuid.auth.acme-dns.io'] }] },
+    ], name, '_sylo-space_.auth.uti.email', { acceptUnderZone: 'auth.uti.email' })
+
+    expect(result.status).toBe('mismatch')
+  })
 })

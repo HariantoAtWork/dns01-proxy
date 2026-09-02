@@ -2,6 +2,7 @@ import type { DnsLookupKind, DnsRecordGroup } from '#shared/types/clientstorage'
 import {
   evaluateAuthoritativeCnameOutcomes,
   evaluateCnameResolverOutcomes,
+  type CnameMatchOptions,
   type DnsCnameMatchResult,
   type DnsResolverOutcome,
 } from '#shared/utils/dnsMatch'
@@ -27,7 +28,7 @@ export interface DnsQueryOutcome {
   lookup: DnsLookupKind
 }
 
-export type { DnsCnameMatchResult, DnsResolverOutcome }
+export type { CnameMatchOptions, DnsCnameMatchResult, DnsResolverOutcome }
 
 async function dnsQueryViaServer(name: string, type: string, serverAddress: string): Promise<DnsQueryOutcome> {
   const recordType = type.toUpperCase()
@@ -67,10 +68,11 @@ export async function dnsQueryCnameMatch(
   name: string,
   expected: string,
   mode: DnsCnameCheckMode = 'any',
+  options?: CnameMatchOptions,
 ): Promise<DnsCnameMatchResult> {
   if (mode === 'authoritative') {
     const authoritative = await queryAuthoritative(name, 'CNAME')
-    return evaluateAuthoritativeCnameOutcomes(authoritative, name, expected)
+    return evaluateAuthoritativeCnameOutcomes(authoritative, name, expected, options)
   }
 
   const publicOutcomes = await queryAllResolvers(name, 'CNAME')
@@ -95,8 +97,12 @@ export async function dnsQueryCnameAnyMatch(name: string, expected: string): Pro
 }
 
 /** Apply preflight — authoritative NS only (same path Let's Encrypt uses for dns-01). */
-export async function dnsQueryCnameAuthoritativeMatch(name: string, expected: string): Promise<DnsCnameMatchResult> {
-  return dnsQueryCnameMatch(name, expected, 'authoritative')
+export async function dnsQueryCnameAuthoritativeMatch(
+  name: string,
+  expected: string,
+  options?: CnameMatchOptions,
+): Promise<DnsCnameMatchResult> {
+  return dnsQueryCnameMatch(name, expected, 'authoritative', options)
 }
 
 export async function dnsQuery(name: string, type = 'CNAME'): Promise<DnsQueryOutcome> {
