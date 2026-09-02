@@ -3,6 +3,7 @@ import {
   PhHouse as House,
   PhGlobe as Globe,
   PhCertificate as Certificate,
+  PhFlask as Flask,
   PhFloppyDisk as FloppyDisk,
   PhGear as Gear,
   PhQuestion as Question,
@@ -30,6 +31,7 @@ const links = computed(() => {
       ? []
       : [{ to: '/backup', label: 'Backup', icon: FloppyDisk, exact: true, registerAction: false }]),
     { to: '/certs', label: 'Certificates', icon: Certificate, exact: false, registerAction: false },
+    { to: '/lab', label: 'DNS-01 Lab', icon: Flask, exact: false, registerAction: false },
     { to: '/settings', label: 'Settings', icon: Gear, exact: true, registerAction: false },
     { to: '/help', label: 'Help', icon: Question, exact: false, registerAction: false },
   ]

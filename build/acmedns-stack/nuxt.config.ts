@@ -31,6 +31,7 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/fonts',
     './plugins/client',
+    './plugins/dns01-lab',
   ],
   nitro: {
     preset: 'bun',

@@ -12,6 +12,9 @@ export function formatCertActivityPrefix(
   source: CertActivitySource,
   mode?: LetsEncryptDirectoryMode,
 ): string {
+  if (source === 'lab') {
+    return '[lab]'
+  }
   if (mode) {
     return `[${certLogTree(mode)}/${source}]`
   }
@@ -23,6 +26,9 @@ export function certActivitySourceLabel(
   source: CertActivitySource,
   mode?: LetsEncryptDirectoryMode,
 ): string {
+  if (source === 'lab') {
+    return 'lab'
+  }
   if (mode) {
     return `${certLogTree(mode)}/${source}`
   }

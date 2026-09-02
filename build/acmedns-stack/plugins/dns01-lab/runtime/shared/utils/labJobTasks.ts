@@ -1,0 +1,117 @@
+import type { AcmeRequestItem, CertJobTask } from '../../../../client/runtime/shared/types/certs'
+import {
+  advanceLabRequestPlan,
+  closeLabRequestPlan,
+  createLabRequestPlan,
+  finishLabRequestPlan,
+  seedLabChallengePlan,
+  LAB_REQUEST_STEPS,
+} from './labIssueSteps'
+
+export function createLabJobTaskPlan(
+  certNames: string[],
+  completed = new Set<string>(),
+): CertJobTask[] {
+  return certNames.map(certName => ({
+    id: crypto.randomUUID(),
+    certName,
+    status: completed.has(certName) ? 'done' : 'pending',
+  }))
+}
+
+function findTaskIndex(tasks: CertJobTask[], certName: string) {
+  return tasks.findIndex(task => task.certName === certName)
+}
+
+export function startLabJobTask(tasks: CertJobTask[], certName: string): CertJobTask[] {
+  const next = tasks.map(task => ({ ...task, requests: task.requests ? [...task.requests] : undefined }))
+
+  const runningIdx = next.findIndex(task => task.status === 'running')
+  if (runningIdx >= 0) {
+    next[runningIdx] = { ...next[runningIdx]!, status: 'done' }
+  }
+
+  const idx = findTaskIndex(next, certName)
+  if (idx < 0) {
+    next.push({
+      id: crypto.randomUUID(),
+      certName,
+      status: 'running',
+      requests: createLabRequestPlan(),
+    })
+    return next
+  }
+
+  next[idx] = {
+    ...next[idx]!,
+    status: 'running',
+    requests: createLabRequestPlan(),
+  }
+  return next
+}
+
+export function finishLabJobTask(
+  tasks: CertJobTask[],
+  certName: string,
+  status: CertJobTask['status'],
+  message?: string,
+): CertJobTask[] {
+  const idx = findTaskIndex(tasks, certName)
+  if (idx < 0) {
+    return tasks
+  }
+
+  const next = tasks.map(task => ({
+    ...task,
+    requests: task.requests
+      ? (status === 'done' ? closeLabRequestPlan(task.requests) : finishLabRequestPlan(task.requests))
+      : undefined,
+  }))
+
+  next[idx] = {
+    ...next[idx]!,
+    status,
+    message,
+    requests: next[idx]!.requests,
+  }
+  return next
+}
+
+export function trackLabJobTaskRequest(
+  tasks: CertJobTask[],
+  certName: string,
+  stepIndex: number,
+  stepLabel?: string,
+): CertJobTask[] {
+  const idx = findTaskIndex(tasks, certName)
+  if (idx < 0) {
+    return tasks
+  }
+
+  const next = tasks.map(task => ({ ...task }))
+  const task = next[idx]!
+  const base = task.requests?.length ? task.requests : createLabRequestPlan()
+  let requests = advanceLabRequestPlan(base, stepIndex, stepLabel)
+  if (stepIndex === LAB_REQUEST_STEPS.ACME_ORDER) {
+    requests = seedLabChallengePlan(requests, certName)
+  }
+  next[idx] = {
+    ...task,
+    requests,
+  }
+  return next
+}
+
+export function completeLabJobTaskRequests(tasks: CertJobTask[], certName: string): CertJobTask[] {
+  const idx = findTaskIndex(tasks, certName)
+  if (idx < 0 || !tasks[idx]?.requests?.length) {
+    return tasks
+  }
+
+  const next = tasks.map(task => ({ ...task }))
+  next[idx] = {
+    ...next[idx]!,
+    requests: closeLabRequestPlan(next[idx]!.requests!),
+  }
+  return next
+}

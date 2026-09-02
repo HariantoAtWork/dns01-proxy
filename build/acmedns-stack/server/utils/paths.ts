@@ -9,6 +9,7 @@ import {
   getCertSettingsPath as getCoreCertSettingsPath,
   getAppSettingsPath as getCoreAppSettingsPath,
   getDomainsFilePath as getCoreDomainsFilePath,
+  getLabDomainsFilePath as getCoreLabDomainsFilePath,
   getBackupDir as getCoreBackupDir,
   type DataRootOptions,
 } from '../../core/paths'
@@ -60,6 +61,10 @@ export function getAppSettingsPath(): string {
 
 export function getDomainsFilePath(): string {
   return getCoreDomainsFilePath(runtimeOptions())
+}
+
+export function getLabDomainsFilePath(): string {
+  return getCoreLabDomainsFilePath(runtimeOptions())
 }
 
 export function getBackupDir(): string {

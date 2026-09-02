@@ -26,7 +26,7 @@ const hasQueue = computed(() =>
   <UiPanel v-if="!bare && hasQueue">
     <h2 class="text-sm font-semibold text-ink">Job queue</h2>
     <p class="mt-1 text-xs text-muted">
-      Each Apply or renewal is a batch session with its mode fixed at queue time.
+      Each Apply, renewal, or DNS-01 lab run is a batch session. Only one job runs at a time because all share live acme-dns TXT.
       Cancelled jobs can be resumed where they left off, or re-run from the first certificate.
     </p>
     <ul class="mt-3 space-y-2 font-mono text-xs">

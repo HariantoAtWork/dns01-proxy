@@ -13,9 +13,10 @@ import {
   startCertJobTask,
   trackCertJobTaskRequest,
 } from '../../../shared/utils/certJobTasks'
+import { getLabPlugin } from './labRegistry'
 import { publishCertLive } from '../certLiveBus'
 
-export type JobSource = 'renew' | 'apply'
+export type JobSource = 'renew' | 'apply' | 'lab'
 
 export interface InternalJob {
   id: number
@@ -154,7 +155,10 @@ export function initRunningJobTasks(certNames: string[], completed = new Set<str
   if (!running) {
     return
   }
-  running.tasks = createCertJobTaskPlan(certNames, completed)
+  const lab = running.source === 'lab' ? getLabPlugin()?.jobTasks : undefined
+  running.tasks = lab
+    ? lab.createPlan(certNames, completed)
+    : createCertJobTaskPlan(certNames, completed)
   emitQueue()
 }
 
@@ -172,7 +176,10 @@ export function beginRunningJobTask(certName: string) {
   if (!running) {
     return
   }
-  running.tasks = startCertJobTask(running.tasks ?? [], certName)
+  const lab = running.source === 'lab' ? getLabPlugin()?.jobTasks : undefined
+  running.tasks = lab
+    ? lab.startTask(running.tasks ?? [], certName)
+    : startCertJobTask(running.tasks ?? [], certName)
   emitQueue()
 }
 
@@ -184,7 +191,10 @@ export function finishRunningJobTask(
   if (!running?.tasks?.length) {
     return
   }
-  running.tasks = finishCertJobTask(running.tasks, certName, status, message)
+  const lab = running.source === 'lab' ? getLabPlugin()?.jobTasks : undefined
+  running.tasks = lab
+    ? lab.finishTask(running.tasks, certName, status, message)
+    : finishCertJobTask(running.tasks, certName, status, message)
   emitQueue()
 }
 
@@ -192,12 +202,10 @@ export function trackRunningJobRequest(stepIndex: number, stepLabel?: string) {
   if (!running?.currentCert || !running.tasks?.length) {
     return
   }
-  running.tasks = trackCertJobTaskRequest(
-    running.tasks,
-    running.currentCert,
-    stepIndex,
-    stepLabel,
-  )
+  const lab = running.source === 'lab' ? getLabPlugin()?.jobTasks : undefined
+  running.tasks = lab
+    ? lab.trackRequest(running.tasks, running.currentCert, stepIndex, stepLabel)
+    : trackCertJobTaskRequest(running.tasks, running.currentCert, stepIndex, stepLabel)
   emitQueue()
 }
 
@@ -205,7 +213,10 @@ export function completeRunningJobRequests() {
   if (!running?.currentCert || !running.tasks?.length) {
     return
   }
-  running.tasks = completeCertJobTaskRequests(running.tasks, running.currentCert)
+  const lab = running.source === 'lab' ? getLabPlugin()?.jobTasks : undefined
+  running.tasks = lab
+    ? lab.completeRequests(running.tasks, running.currentCert)
+    : completeCertJobTaskRequests(running.tasks, running.currentCert)
   emitQueue()
 }
 
