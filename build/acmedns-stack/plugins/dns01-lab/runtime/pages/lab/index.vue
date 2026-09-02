@@ -41,6 +41,7 @@ const {
   deleteJob,
   applyLiveActivity,
   applyLiveQueue,
+  applyLiveSnapshot,
 } = useLab()
 
 const {
@@ -100,12 +101,23 @@ const filteredActivity = computed(() => {
   return activityEntries.value
 })
 
+watch(
+  () => certJob.value.running,
+  (running, wasRunning) => {
+    if (!loaded.value || !wasRunning || running || certJob.value.source !== 'lab') {
+      return
+    }
+    void loadStatus()
+  },
+)
+
 onMounted(async () => {
   registerPageHooks({
     pollBlocked: pending,
     onPoll: async () => {
       await refresh({ notify: notifyNewActivity })
     },
+    onSnapshot: data => applyLiveSnapshot(data),
     onActivity: (data, notify) => applyLiveActivity(data, notify ? notifyNewActivity : undefined),
     onQueue: data => applyLiveQueue(data),
   })
