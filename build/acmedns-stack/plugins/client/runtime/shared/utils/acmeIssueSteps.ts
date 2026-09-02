@@ -185,6 +185,45 @@ export function currentAcmeRequestLabel(requests: AcmeRequestItem[] | undefined)
   return undefined
 }
 
+export interface AcmeRequestProgress {
+  index: number
+  total: number
+  label: string
+}
+
+/** 1-based position in the running cert's ACME request plan plus the short step label. */
+export function currentAcmeRequestProgress(
+  requests: AcmeRequestItem[] | undefined,
+): AcmeRequestProgress | undefined {
+  if (!requests?.length) {
+    return undefined
+  }
+
+  const total = requests.length
+  const runningIdx = requests.findIndex(item => item.status === 'running')
+  if (runningIdx >= 0) {
+    const running = requests[runningIdx]!
+    return {
+      index: runningIdx + 1,
+      total,
+      label: acmeRequestStepLabel(running.step),
+    }
+  }
+
+  const done = requests.filter(item => item.status === 'done')
+  if (done.length > 0) {
+    const lastDone = done[done.length - 1]!
+    const lastIdx = requests.findIndex(item => item.id === lastDone.id)
+    return {
+      index: lastIdx + 1,
+      total,
+      label: acmeRequestStepLabel(lastDone.step),
+    }
+  }
+
+  return undefined
+}
+
 /** Group dns-01 steps by domain — apex first, then each SAN publish → TXT online → LE validate. */
 export function sortAcmeRequestItems(
   requests: AcmeRequestItem[],
