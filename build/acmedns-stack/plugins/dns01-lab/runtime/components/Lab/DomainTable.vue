@@ -43,6 +43,16 @@ function isRunDisabled(entry: LabStatusEntry) {
     || !entry.inLabDomainsFile
     || certInFlightOrQueued(entry.certName, issuingCerts, certJob, certQueue)
 }
+
+function runButtonLabel(entry: LabStatusEntry) {
+  if (issuingCerts.includes(entry.certName)) {
+    return 'Queuing…'
+  }
+  if (certInFlightOrQueued(entry.certName, issuingCerts, certJob, certQueue)) {
+    return 'Queued'
+  }
+  return 'Run'
+}
 </script>
 
 <template>
@@ -54,13 +64,20 @@ function isRunDisabled(entry: LabStatusEntry) {
       </p>
     </div>
     <div v-if="!statusEntries.length" class="mt-3 text-sm text-muted">
-      Add lines to <span class="font-mono text-ink">lab-domain.txt</span> and save.
+      Add lines to <span class="font-mono text-ink">lab-domains.txt</span> and save.
     </div>
     <ul v-else class="mt-3 divide-y divide-rule">
       <li
+        class="flex items-center justify-between gap-4 py-2 text-xs text-muted"
+        aria-hidden="true"
+      >
+        <span>Domain</span>
+        <span class="shrink-0">Run</span>
+      </li>
+      <li
         v-for="entry in statusEntries"
         :key="entry.certName"
-        class="flex flex-wrap items-center justify-between gap-2 py-3"
+        class="flex items-start justify-between gap-4 py-3"
       >
         <div class="min-w-0">
           <p class="font-mono text-sm text-ink">
@@ -83,16 +100,19 @@ function isRunDisabled(entry: LabStatusEntry) {
             {{ entry.message }}
           </p>
         </div>
-        <UiButton
-          v-if="entry.inLabDomainsFile"
-          size="sm"
-          variant="ghost"
-          :disabled="isRunDisabled(entry)"
-          @click="emit('run', entry.certName, false)"
-        >
-          <Lightning :size="14" weight="regular" aria-hidden="true" />
-          Run
-        </UiButton>
+        <div class="flex shrink-0 items-center pt-0.5">
+          <UiButton
+            v-if="entry.inLabDomainsFile"
+            size="sm"
+            variant="ghost"
+            class="min-w-[5.5rem] justify-center"
+            :disabled="isRunDisabled(entry)"
+            @click="emit('run', entry.certName, false)"
+          >
+            <Lightning :size="14" weight="regular" aria-hidden="true" />
+            {{ runButtonLabel(entry) }}
+          </UiButton>
+        </div>
       </li>
     </ul>
   </UiPanel>

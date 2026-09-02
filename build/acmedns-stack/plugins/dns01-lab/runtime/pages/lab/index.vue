@@ -28,6 +28,7 @@ const {
   pending,
   refreshing,
   loadDomains,
+  copyFromDomains,
   saveDomains,
   recheckDomainsDns,
   loadStatus,
@@ -146,7 +147,7 @@ async function onSave() {
     const result = await saveDomains()
     if (result.ok) {
       dirty.value = false
-      toasts.ok('lab-domain.txt saved')
+      toasts.ok('lab-domains.txt saved')
       notifyDnsCheckResult(result.dnsChecks)
       await loadStatus()
     }
@@ -170,6 +171,17 @@ async function onRecheckDns() {
   }
   finally {
     dnsRecheckPending.value = false
+  }
+}
+
+async function onCopyFromDomains() {
+  try {
+    await copyFromDomains()
+    dirty.value = true
+    toasts.info('Copied from domains.txt — Save to validate', 'Lab')
+  }
+  catch (caught) {
+    toasts.error(caught instanceof Error ? caught.message : 'Copy from domains.txt failed')
   }
 }
 
@@ -274,7 +286,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
           DNS-01 Lab
         </h1>
         <p class="mt-1 text-sm text-muted">
-          Edit <span class="font-mono text-ink">lab-domain.txt</span>, save to validate, then Run lab.
+          Edit <span class="font-mono text-ink">lab-domains.txt</span>, save to validate, then Run lab.
           Real TXT publish and authoritative TXT online checks; FAKE ACME order and FAKE LE validate only.
           Shares the certificate job queue so lab and Apply never publish TXT at the same time.
         </p>
@@ -310,19 +322,42 @@ async function onJobAction(action: JobQueueAction, id: number) {
     </div>
 
     <div
-      class="sticky top-12 z-[15] -mx-1 flex items-stretch gap-2 bg-paper/95 px-1 py-1 backdrop-blur-md md:top-16 md:-mx-6 md:px-6"
+      class="sticky top-12 z-[15] -mx-1 flex items-center gap-2 bg-paper/95 px-1 py-1 backdrop-blur-md md:top-16 md:-mx-6 md:px-6"
     >
       <button
         type="button"
         class="inline-flex shrink-0 items-center justify-center rounded-full p-1.5 transition-colors"
         :class="configModalOpen ? 'text-ink' : 'text-muted hover:text-ink'"
-        aria-label="Edit lab-domain.txt"
-        title="lab-domain.txt and DNS checks"
+        aria-label="Edit lab-domains.txt"
+        title="lab-domains.txt and DNS checks"
         :disabled="pending"
         @click="configModalOpen = true"
       >
         <Gear :size="18" weight="regular" aria-hidden="true" />
       </button>
+      <div
+        class="ml-auto inline-flex shrink-0 rounded-[6px] border border-rule p-0.5"
+        role="group"
+        aria-label="Run lab"
+      >
+        <button
+          type="button"
+          class="rounded-[4px] px-2.5 py-1 text-xs transition-colors hover:brightness-105 disabled:opacity-50"
+          :class="pending || dirty ? 'bg-panel text-muted' : 'bg-signal text-signal-ink'"
+          :disabled="pending || dirty"
+          @click="onApply(false)"
+        >
+          Run lab
+        </button>
+        <button
+          type="button"
+          class="rounded-[4px] border-l border-rule px-2.5 py-1 text-xs text-ink transition-colors hover:bg-panel disabled:opacity-50"
+          :disabled="pending || dirty"
+          @click="onApply(true)"
+        >
+          Force run
+        </button>
+      </div>
     </div>
 
     <CertsJobPanel
@@ -394,6 +429,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
       @save="onSave"
       @apply="onApply"
       @recheck-dns="onRecheckDns"
+      @copy-from-domains="onCopyFromDomains"
     />
   </div>
 </template>

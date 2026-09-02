@@ -1,4 +1,4 @@
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { promises as fs } from 'node:fs'
 import {
   expandLine,
@@ -14,15 +14,41 @@ import { checkDomainsDns } from '../../../../client/runtime/server/utils/domains
 import { getLabDomainsFilePath } from '../../../../../server/utils/paths'
 
 const COMMENT_LINE = /^\s*[#;]/
+const LEGACY_LAB_DOMAINS_FILENAME = 'lab-domain.txt'
+
+async function migrateLegacyLabDomainsFile(filePath: string) {
+  try {
+    await fs.access(filePath)
+    return
+  }
+  catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code !== 'ENOENT') {
+      throw error
+    }
+  }
+
+  const legacyPath = join(dirname(filePath), LEGACY_LAB_DOMAINS_FILENAME)
+  try {
+    await fs.rename(legacyPath, filePath)
+  }
+  catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code !== 'ENOENT') {
+      throw error
+    }
+  }
+}
 
 export async function ensureLabDomainsFileExists() {
   const filePath = getLabDomainsFilePath()
+  await migrateLegacyLabDomainsFile(filePath)
   try {
     const stat = await fs.stat(filePath)
     if (stat.isDirectory()) {
       throw createError({
         statusCode: 500,
-        statusMessage: `${filePath} is a directory. Remove it and use a file named lab-domain.txt.`,
+        statusMessage: `${filePath} is a directory. Remove it and use a file named lab-domains.txt.`,
       })
     }
   }

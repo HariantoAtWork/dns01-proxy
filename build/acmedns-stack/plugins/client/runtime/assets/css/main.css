@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
-/* Plugin UI lives outside app/; without this, Tailwind emits no utilities. */
-@source "../../**/*.{vue,js,ts}";
+/* Plugin UI lives outside app/; scan all plugin runtimes plus app/. */
+@source "../../../../**/*.{vue,js,ts}";
+@source "../../../../../app/**/*.{vue,js,ts}";
 
 :root {
   --paper: #dfe8e2;
