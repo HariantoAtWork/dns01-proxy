@@ -6,9 +6,11 @@ import { getSharedModeContext } from '../../../../../server/utils/sharedModeBoot
 import { readStorage } from './storage'
 import {
   abortableDelay,
+  clearDns01ChallengeTxt,
   createChallengeSerialGate,
   runDns01Challenge,
   throwIfAborted,
+  type Dns01PublishTarget,
 } from './dns01Challenge'
 import { resolveAcmeDnsBase } from './acmedns'
 import { accountsDir, getLetsEncryptEmail } from './certSettings'
@@ -136,6 +138,7 @@ export async function issueCertificate(options: {
 
       const challengeSerial = createChallengeSerialGate()
       let activeChallengeTurn: Awaited<ReturnType<typeof challengeSerial.enter>> | undefined
+      let activePublish: Dns01PublishTarget | undefined
 
       const certificate = await abortable(
         client.auto({
@@ -157,7 +160,7 @@ export async function issueCertificate(options: {
                 options.certName,
                 `Starting dns-01 authorization for ${domain} (serial queue)`,
               )
-              await runDns01Challenge({
+              activePublish = await runDns01Challenge({
                 authzIdentifier: domain,
                 keyAuthorization,
                 certName: options.certName,
@@ -171,11 +174,16 @@ export async function issueCertificate(options: {
             catch (error) {
               activeChallengeTurn.abort()
               activeChallengeTurn = undefined
+              activePublish = undefined
               throw error
             }
             activeChallengeTurn.markCreateFinished()
           },
           challengeRemoveFn: async () => {
+            if (activePublish) {
+              await clearDns01ChallengeTxt(activePublish)
+              activePublish = undefined
+            }
             activeChallengeTurn?.markRemove()
             activeChallengeTurn = undefined
           },

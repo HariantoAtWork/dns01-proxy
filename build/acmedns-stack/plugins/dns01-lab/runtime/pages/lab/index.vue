@@ -56,6 +56,7 @@ const configModalOpen = ref(false)
 const logFilter = ref<'all' | 'lab'>('all')
 const activityLogFilter = ref<'all' | 'acme' | 'live' | 'staging'>('all')
 const dnsRecheckPending = ref(false)
+const txtPurgePending = ref(false)
 const issuingCerts = ref<string[]>([])
 
 function notifyDnsCheckResult(dnsChecks: DomainsDnsCheck[] | undefined) {
@@ -169,6 +170,26 @@ async function onRecheckDns() {
   }
   finally {
     dnsRecheckPending.value = false
+  }
+}
+
+async function onPurgeTxtSlots() {
+  if (!window.confirm('Clear all in-memory acme-dns TXT slots for this server? Active challenges may need a re-run.')) {
+    return
+  }
+  txtPurgePending.value = true
+  try {
+    const result = await $fetch<{ subdomain: string, cleared: number }>('/api/acmedns/txt/purge', {
+      method: 'POST',
+      body: {},
+    })
+    toasts.ok(`Cleared ${result.cleared} TXT slot(s) on ${result.subdomain}`, 'TXT purge')
+  }
+  catch (caught) {
+    toasts.error(caught instanceof Error ? caught.message : 'TXT purge failed')
+  }
+  finally {
+    txtPurgePending.value = false
   }
 }
 
@@ -345,6 +366,14 @@ async function onJobAction(action: JobQueueAction, id: number) {
               Lab
             </button>
           </div>
+          <button
+            type="button"
+            class="rounded-[6px] border border-rule bg-panel px-2.5 py-1 text-xs text-ink transition-colors hover:text-ink disabled:opacity-50"
+            :disabled="txtPurgePending || pending"
+            @click="onPurgeTxtSlots"
+          >
+            {{ txtPurgePending ? 'Purging…' : 'Purge local TXT slots' }}
+          </button>
         </div>
         <CertsActivityFeed
           v-model:log-filter="activityLogFilter"

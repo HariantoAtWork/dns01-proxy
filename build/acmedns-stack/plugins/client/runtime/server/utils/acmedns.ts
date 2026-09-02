@@ -10,6 +10,7 @@ import {
   type AcmeDnsRoutingContext,
 } from '#shared/utils/acmeDnsRouting'
 import { isSharedMode, sharedModeUsername } from '../../../../../server/utils/sharedModeBootstrap'
+import { zoneApexTxtSubdomain } from '#shared/utils/tinyModeDns'
 import { resolveAcmednsUrl } from './appSettings'
 import { isInternalAcmeDnsHost } from './localAcmeHosts'
 
@@ -197,6 +198,98 @@ export async function updateAcmeDnsTxt(options: {
       statusCode: 502,
       statusMessage: message,
     })
+  }
+}
+
+export function isLocalInProcessAcmeDns(): boolean {
+  const base = resolveAcmeDnsBase()
+  const ctx = routingContext()
+  return isSharedMode() || isLocalAcmeDnsBase(base, ctx)
+}
+
+function authorizeInProcessTxtMutation(
+  base: string,
+  username: string,
+  password: string,
+  subdomain: string,
+): void {
+  if (!useInProcessUpdate(base, username) && !isSharedMode()) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'TXT mutation only works with local in-process acme-dns',
+    })
+  }
+
+  const user = getByUsername(isSharedMode() ? sharedModeUsername() : username)
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'acme-dns update failed: account_not_found',
+      data: { error: 'account_not_found' },
+    })
+  }
+  if (!compareSync(password, user.password)) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'acme-dns update failed: forbidden',
+      data: { error: 'forbidden' },
+    })
+  }
+  if (!isSharedMode() && user.subdomain !== subdomain) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'acme-dns update failed: subdomain_mismatch',
+      data: { error: 'subdomain_mismatch' },
+    })
+  }
+}
+
+export async function clearAcmeDnsTxt(options: {
+  serverUrl: string
+  username: string
+  password: string
+  subdomain: string
+  txt: string
+}): Promise<number> {
+  const base = resolveAcmeDnsBase(options.serverUrl)
+  if (!useInProcessUpdate(base, options.username) && !isSharedMode()) {
+    return 0
+  }
+
+  authorizeInProcessTxtMutation(
+    base,
+    options.username,
+    options.password,
+    options.subdomain,
+  )
+
+  return clearTxtByValue(options.subdomain, options.txt)
+}
+
+export async function purgeAcmeDnsTxtSlots(options?: {
+  subdomain?: string
+}): Promise<{ subdomain: string, cleared: number }> {
+  if (!isLocalInProcessAcmeDns()) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'TXT purge only works with local in-process acme-dns',
+    })
+  }
+
+  let subdomain = options?.subdomain?.trim()
+  if (!subdomain) {
+    if (!isSharedMode()) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Body must include subdomain when not in shared mode',
+      })
+    }
+    subdomain = zoneApexTxtSubdomain(getAcmeConfig().general.domain)
+  }
+
+  return {
+    subdomain,
+    cleared: clearAllTxtForSubdomain(subdomain),
   }
 }
 

@@ -3,6 +3,7 @@ import { canonicalSans } from '#shared/utils/domains'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { readStorage } from '../../../../client/runtime/server/utils/storage'
 import {
+  clearDns01ChallengeTxt,
   createChallengeSerialGate,
   resolveAcmeDnsBase,
   runDns01Challenge,
@@ -44,8 +45,9 @@ export async function runLabDns01(options: {
   for (const challenge of challenges) {
     throwIfAborted(options.signal, 'Lab DNS-01 aborted')
     const turn = await challengeSerial.enter()
+    let publishTarget: Awaited<ReturnType<typeof runDns01Challenge>> | undefined
     try {
-      await runDns01Challenge({
+      publishTarget = await runDns01Challenge({
         authzIdentifier: challenge.domain,
         keyAuthorization: challenge.keyAuthorization,
         certName: options.certName,
@@ -66,6 +68,9 @@ export async function runLabDns01(options: {
       throw error
     }
     finally {
+      if (publishTarget) {
+        await clearDns01ChallengeTxt(publishTarget, 'lab')
+      }
       turn.markRemove()
     }
   }

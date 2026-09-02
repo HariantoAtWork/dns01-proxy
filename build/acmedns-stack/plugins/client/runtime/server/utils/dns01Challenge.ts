@@ -4,7 +4,8 @@ import { challengeHost } from '#shared/utils/challengeDns'
 import { tinyApexLabel } from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { ACME_REQUEST_STEPS } from '#shared/utils/acmeIssueSteps'
-import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
+import { isDns01ClearTxtEnabled } from '../../../../../plugins/txt-ttl/runtime/shared/txtTtlConstants'
+import { resolveAcmeDnsBase, clearAcmeDnsTxt, updateAcmeDnsTxt } from './acmedns'
 import { appendCertActivity } from './certActivity'
 import { acmeTxtSettleMs, waitForChallengeTxtOnline } from './challengeTxtOnline'
 import { logAcmeStep } from './acmeLogger'
@@ -109,6 +110,75 @@ function logDns01Step(
   logAcmeStep(certName, message)
 }
 
+export interface Dns01PublishTarget {
+  serverUrl: string
+  username: string
+  password: string
+  subdomain: string
+  txt: string
+  certName: string
+  domain: string
+}
+
+export function resolveDns01PublishTarget(options: {
+  authzIdentifier: string
+  keyAuthorization: string
+  certName: string
+  preferUrl: string
+  shared: ReturnType<typeof getSharedModeContext>
+  storage: Awaited<ReturnType<typeof readStorage>>
+}): Dns01PublishTarget {
+  const domain = options.authzIdentifier
+  const { key: storageKey, account } = options.shared
+    ? { key: domain, account: options.shared.account }
+    : findAccount(options.storage, domain)
+  if (!account || (!options.shared && !storageKey)) {
+    throw new Error(`No acme-dns account for ${domain}`)
+  }
+
+  const subdomain = options.shared
+    ? tinyApexLabel(options.certName)
+    : account.subdomain
+  if (!subdomain) {
+    throw new Error(`No acme-dns subdomain for ${domain}`)
+  }
+
+  return {
+    serverUrl: account.server_url || options.preferUrl,
+    username: account.username,
+    password: account.password,
+    subdomain,
+    txt: options.keyAuthorization,
+    certName: options.certName,
+    domain,
+  }
+}
+
+export async function clearDns01ChallengeTxt(
+  target: Dns01PublishTarget,
+  activitySource: CertActivitySource = 'acme',
+) {
+  if (!isDns01ClearTxtEnabled()) {
+    return
+  }
+
+  const cleared = await clearAcmeDnsTxt({
+    serverUrl: target.serverUrl,
+    username: target.username,
+    password: target.password,
+    subdomain: target.subdomain,
+    txt: target.txt,
+  })
+
+  if (cleared > 0) {
+    logDns01Step(
+      target.certName,
+      `dns-01 ${target.domain}: cleared TXT from acme-dns (${cleared} slot)`,
+      activitySource,
+    )
+  }
+}
+
 export async function runDns01Challenge(options: {
   authzIdentifier: string
   keyAuthorization: string
@@ -125,44 +195,30 @@ export async function runDns01Challenge(options: {
   const activitySource = options.activitySource ?? 'acme'
   throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
 
-  const domain = options.authzIdentifier
-  const { key: storageKey, account } = options.shared
-    ? { key: domain, account: options.shared.account }
-    : findAccount(options.storage, domain)
-  if (!account || (!options.shared && !storageKey)) {
-    throw new Error(`No acme-dns account for ${domain}`)
-  }
-
-  const subdomain = options.shared
-    ? tinyApexLabel(options.certName)
-    : account.subdomain
-  if (!subdomain) {
-    throw new Error(`No acme-dns subdomain for ${domain}`)
-  }
-
-  const publishTarget = account.server_url || options.preferUrl
+  const publish = resolveDns01PublishTarget(options)
+  const domain = publish.domain
 
   logDns01Step(
     options.certName,
     options.shared
-      ? `dns-01 ${domain}: publishing TXT to shared acme-dns subdomain ${subdomain} (${publishTarget})`
-      : `dns-01 ${domain}: publishing TXT to acme-dns subdomain ${subdomain} (${publishTarget})`,
+      ? `dns-01 ${domain}: publishing TXT to shared acme-dns subdomain ${publish.subdomain} (${publish.serverUrl})`
+      : `dns-01 ${domain}: publishing TXT to acme-dns subdomain ${publish.subdomain} (${publish.serverUrl})`,
     activitySource,
   )
 
   options.reportStep(ACME_REQUEST_STEPS.PUBLISH_TXT, `Publish TXT ${domain}`)
 
   await updateAcmeDnsTxt({
-    serverUrl: publishTarget,
-    username: account.username,
-    password: account.password,
-    subdomain,
-    txt: options.keyAuthorization,
+    serverUrl: publish.serverUrl,
+    username: publish.username,
+    password: publish.password,
+    subdomain: publish.subdomain,
+    txt: publish.txt,
   })
 
   logDns01Step(
     options.certName,
-    `dns-01 ${domain}: acme-dns accepted TXT ${options.keyAuthorization}`,
+    `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt}`,
     activitySource,
   )
 
@@ -173,7 +229,7 @@ export async function runDns01Challenge(options: {
   const challengeName = challengeHost(apexName(domain))
   await waitForChallengeTxtOnline({
     challengeName,
-    expectedTxt: options.keyAuthorization,
+    expectedTxt: publish.txt,
     certName: options.certName,
     signal: options.signal,
     activitySource,
@@ -198,6 +254,8 @@ export async function runDns01Challenge(options: {
   logDns01Step(options.certName, readyLog, activitySource)
 
   options.reportStep(ACME_REQUEST_STEPS.VALIDATE_SAVE, validateLabel)
+
+  return publish
 }
 
 export { resolveAcmeDnsBase }
