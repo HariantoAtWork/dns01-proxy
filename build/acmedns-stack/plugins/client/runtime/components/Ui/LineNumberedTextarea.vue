@@ -1,0 +1,82 @@
+<script setup lang="ts">
+import { Codemirror } from 'vue-codemirror'
+import { EditorView, lineNumbers } from '@codemirror/view'
+import { PhTextAlignJustify as TextAlignJustify } from '@phosphor-icons/vue'
+import { acmednsCodeMirrorTheme } from '#client/utils/codemirrorTheme'
+
+const model = defineModel<string>({ required: true })
+
+const { disabled = false, minHeight = '220px' } = defineProps<{
+  disabled?: boolean
+  minHeight?: string
+}>()
+
+const wrap = ref(true)
+
+const extensions = computed(() => [
+  lineNumbers(),
+  acmednsCodeMirrorTheme,
+  EditorView.editable.of(!disabled),
+  EditorView.contentAttributes.of({ spellcheck: 'false' }),
+  ...(wrap.value ? [EditorView.lineWrapping] : []),
+])
+</script>
+
+<template>
+  <ClientOnly>
+    <div
+      class="line-numbered-editor relative overflow-hidden rounded-[6px] border border-rule bg-paper focus-within:border-signal"
+      :style="{ minHeight }"
+    >
+      <button
+        type="button"
+        class="absolute right-2 top-2 z-10 inline-flex items-center justify-center rounded-[6px] border border-rule bg-panel/95 p-1.5 text-ink shadow-sm backdrop-blur-sm transition-colors hover:bg-paper disabled:opacity-50"
+        :class="wrap && 'border-signal/40 text-signal'"
+        :aria-pressed="wrap"
+        :aria-label="wrap ? 'Disable line wrap' : 'Enable line wrap'"
+        :title="wrap ? 'Disable line wrap' : 'Enable line wrap'"
+        :disabled="disabled"
+        @click="wrap = !wrap"
+      >
+        <TextAlignJustify :size="14" weight="regular" aria-hidden="true" />
+      </button>
+      <Codemirror
+        v-model="model"
+        :extensions="extensions"
+        :disabled="disabled"
+        :indent-with-tab="false"
+        :style="{ height: '100%', minHeight }"
+      />
+    </div>
+    <template #fallback>
+      <textarea
+        :value="model"
+        class="min-h-[220px] w-full resize-y rounded-[6px] border border-rule bg-paper p-3 font-mono text-sm text-ink outline-none"
+        :style="{ minHeight }"
+        spellcheck="false"
+        readonly
+        aria-hidden="true"
+      />
+    </template>
+  </ClientOnly>
+</template>
+
+<style scoped>
+.line-numbered-editor {
+  resize: vertical;
+  min-height: 220px;
+}
+
+.line-numbered-editor :deep(.cm-editor) {
+  height: 100%;
+  min-height: inherit;
+}
+
+.line-numbered-editor :deep(.cm-scroller) {
+  min-height: inherit;
+}
+
+.line-numbered-editor :deep(.cm-content) {
+  padding-right: 2.75rem;
+}
+</style>
