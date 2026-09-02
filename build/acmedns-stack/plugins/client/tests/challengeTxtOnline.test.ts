@@ -44,6 +44,16 @@ describe('challengeTxtOnline', () => {
     expect(result.message).toContain('uuid.auth.example.test')
   })
 
+  test('follows CNAME when stale TXT is present at the challenge hop', () => {
+    const result = evaluateChallengeTxtProbe(
+      [{ server: 'auth:ns1.example.com', lookup: 'ok', records: [{ name: '_acme-challenge.example.com', data: ['stale-token'] }] }],
+      [{ server: 'auth:ns1.example.com', lookup: 'ok', records: [{ name: '_acme-challenge.example.com', data: ['uuid.auth.example.test'] }] }],
+      expected,
+    )
+    expect(result.status).toBe('pending')
+    expect(result.message).toContain('uuid.auth.example.test')
+  })
+
   test('collectTxtValues flattens multiple TXT strings', () => {
     const values = collectTxtValues([
       { server: 'auth:ns1.example.com', lookup: 'ok', records: [{ name: 'x', data: ['part-a', 'part-b'] }] },

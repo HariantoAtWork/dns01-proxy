@@ -5,6 +5,7 @@ import { tinyApexLabel } from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { readStorage } from '../../../../client/runtime/server/utils/storage'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt } from '../../../../client/runtime/server/utils/acmedns'
+import { appendCertActivity } from '../../../../client/runtime/server/utils/certActivity'
 import { acmeTxtSettleMs, waitForChallengeTxtOnline } from '../../../../client/runtime/server/utils/challengeTxtOnline'
 import {
   LAB_REQUEST_STEPS,
@@ -128,6 +129,15 @@ async function runRealDns01Challenge(options: {
 
   const publishTarget = account.server_url || options.preferUrl
 
+  appendCertActivity({
+    source: 'lab',
+    level: 'info',
+    certName: options.certName,
+    message: options.shared
+      ? `dns-01 ${domain}: publishing token to shared acme-dns subdomain ${subdomain} (${publishTarget})`
+      : `dns-01 ${domain}: publishing token to acme-dns subdomain ${subdomain} (${publishTarget})`,
+  })
+
   options.reportStep(LAB_REQUEST_STEPS.PUBLISH_TXT, `Publish TXT ${domain}`)
 
   await updateAcmeDnsTxt({
@@ -136,6 +146,13 @@ async function runRealDns01Challenge(options: {
     password: account.password,
     subdomain,
     txt: options.keyAuthorization,
+  })
+
+  appendCertActivity({
+    source: 'lab',
+    level: 'info',
+    certName: options.certName,
+    message: `dns-01 ${domain}: acme-dns accepted TXT ${options.keyAuthorization}`,
   })
 
   throwIfAborted(options.signal)
@@ -148,6 +165,7 @@ async function runRealDns01Challenge(options: {
     expectedTxt: options.keyAuthorization,
     certName: options.certName,
     signal: options.signal,
+    activitySource: 'lab',
   })
 
   const settleMs = acmeTxtSettleMs()

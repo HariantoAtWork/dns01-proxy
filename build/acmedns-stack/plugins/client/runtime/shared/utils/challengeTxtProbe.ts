@@ -50,19 +50,21 @@ export function evaluateChallengeTxtProbe(
     return { status: 'ok', message: 'dns-01 TXT visible online', actual: [...new Set(txtValues)].join(', ') }
   }
 
+  const cnameTarget = pickCnameTarget(cnameOutcomes)
+  if (cnameTarget) {
+    return {
+      status: 'pending',
+      message: txtValues.length > 0
+        ? `Stale TXT at hop; following CNAME to ${cnameTarget}`
+        : `CNAME present; following to ${cnameTarget}`,
+    }
+  }
+
   if (txtValues.length > 0) {
     return {
       status: 'mismatch',
       actual: [...new Set(txtValues)].join(', '),
       message: `Expected dns-01 TXT ${expected}`,
-    }
-  }
-
-  const cnameTarget = pickCnameTarget(cnameOutcomes)
-  if (cnameTarget) {
-    return {
-      status: 'pending',
-      message: `CNAME present; following to ${cnameTarget}`,
     }
   }
 
