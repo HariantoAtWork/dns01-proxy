@@ -149,9 +149,9 @@ function isCertInFlightOrQueued(certName: string) {
       <li
         v-for="entry in statusEntries"
         :key="entry.certName"
-        class="flex flex-wrap items-center justify-between gap-2 py-3"
+        class="flex items-start justify-between gap-4 py-3"
       >
-        <div class="min-w-0">
+        <div class="min-w-0 flex-1">
           <p class="font-mono text-sm text-ink">
             {{ entry.certName }}
             <span
@@ -179,9 +179,8 @@ function isCertInFlightOrQueued(certName: string) {
             <span class="text-muted"> (until {{ formatTime(entry.rateLimitedUntil) }})</span>
           </p>
         </div>
-        <div class="flex shrink-0 flex-wrap items-center gap-2">
+        <div class="ml-auto flex shrink-0 items-center gap-2">
           <UiButton
-            v-if="canIssueCert(entry)"
             size="sm"
             title="Queue Let's Encrypt issue / renew for this apex only"
             :disabled="isIssueDisabled(entry)"
@@ -191,7 +190,6 @@ function isCertInFlightOrQueued(certName: string) {
             {{ issuingCerts.includes(entry.certName) ? 'Queuing…' : (isCertInFlightOrQueued(entry.certName) ? 'Queued' : 'Issue') }}
           </UiButton>
           <UiMenu
-            v-if="showActionsMenu(entry)"
             :open="actionsMenuOpen === entry.certName"
             align="right"
             @update:open="setActionsMenuOpen(entry.certName, $event)"
@@ -206,7 +204,7 @@ function isCertInFlightOrQueued(certName: string) {
                 :aria-controls="panelId"
                 :aria-label="`Actions for ${entry.certName}`"
                 title="Actions"
-                :disabled="pending || certJob.running"
+                :disabled="pending || certJob.running || !showActionsMenu(entry)"
                 @click="toggle()"
               >
                 <Actions :size="16" weight="regular" aria-hidden="true" />
