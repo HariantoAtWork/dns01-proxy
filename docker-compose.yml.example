@@ -4,12 +4,12 @@ services:
     container_name: acmedns-stack
     restart: unless-stopped
     ports:
-      - "53:53"
-      - "53:53/udp"
-      - "80:80"       # edge HTTP — Bun reverse proxy
+      - "53:53"       # DNS TCP — ACME DNS-01 / authoritative
+      - "53:53/udp"   # DNS UDP — same
+      - "80:80"       # edge HTTP — Bun reverse proxy (public apps)
       - "443:443"     # edge HTTPS — Bun reverse proxy (SNI)
-      - "1080:1080"   # control HTTP — UI + acme-dns API
-      - "1443:1443"   # control HTTPS
+      - "1080:1080"   # control HTTP — operator UI + /register /update /health /api
+      - "1443:1443"   # control HTTPS — same when tls=cert
     volumes:
       - ./data/acmedns-stack:/var/lib/acmedns-stack  # server/, client/, backup/ (or host /var/lib/acmedns-stack:…)
       - ./data/letsencrypt:/etc/letsencrypt  # live/, staging/, trash/, accounts/
