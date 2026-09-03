@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ProxyHost, ProxyHostInput, ProxyLocation } from '#proxy-shared/types/proxyHost'
-import { emptyProxyHost, normalizeDomainNames } from '#proxy-shared/utils/proxyHost'
+import { emptyProxyHost, normalizeDomainNames, validateDomainName } from '#proxy-shared/utils/proxyHost'
 import { PhPlus as Plus, PhTrash as Trash } from '@phosphor-icons/vue'
 
 const { certNames = [], saving = false } = defineProps<{
@@ -83,6 +83,14 @@ function onSave() {
     tab.value = 'details'
     return
   }
+  for (const name of payload.domainNames) {
+    const domainError = validateDomainName(name)
+    if (domainError) {
+      formError.value = domainError
+      tab.value = 'details'
+      return
+    }
+  }
   if (!payload.forwardHost.trim()) {
     formError.value = 'Forward hostname / IP is required'
     tab.value = 'details'
@@ -128,7 +136,7 @@ watch(open, (value) => {
         v-show="tab === 'details'"
         class="flex flex-col gap-4"
       >
-        <UiField label="Domain Names" hint="one per line">
+        <UiField label="Domain Names" hint="one per line; wildcards like *.example.com match one label">
           <template #default="{ id }">
             <textarea
               :id

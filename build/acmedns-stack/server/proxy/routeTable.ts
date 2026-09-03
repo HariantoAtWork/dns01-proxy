@@ -1,7 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ProxyHost, ProxyHostsFile, ProxyLocation } from '../../plugins/proxy/runtime/shared/types/proxyHost'
-import { normalizeProxyHostsFile } from '../../plugins/proxy/runtime/shared/utils/proxyHost'
+import {
+  isWildcardDomainName,
+  normalizeDomainName,
+  normalizeProxyHostsFile,
+  wildcardParentSuffix,
+} from '../../plugins/proxy/runtime/shared/utils/proxyHost'
 import { getLetsencryptDir, getProxyHostsFilePath } from '../../core/paths'
 import { isReservedHostname } from './reserved'
 
@@ -11,7 +16,13 @@ export interface RouteMatch {
   location: ProxyLocation | null
 }
 
+/** Exact hostname → host (e.g. `app.example.com`). */
 let hostsByDomain = new Map<string, ProxyHost>()
+/**
+ * Wildcard parent suffix → host (e.g. `example.com` for `*.example.com`).
+ * One-label DNS wildcards only; exact map always wins at match time.
+ */
+let hostsByWildcardSuffix = new Map<string, ProxyHost>()
 let enabledHosts: ProxyHost[] = []
 
 function hostnameFromHeader(hostHeader: string | null): string {
@@ -49,7 +60,8 @@ export function loadProxyHostsFromDisk(): ProxyHost[] {
 
 export function reloadRouteTable(hosts?: ProxyHost[]): void {
   const list = hosts ?? loadProxyHostsFromDisk()
-  const next = new Map<string, ProxyHost>()
+  const nextExact = new Map<string, ProxyHost>()
+  const nextWild = new Map<string, ProxyHost>()
   const enabled: ProxyHost[] = []
   for (const host of list) {
     if (!host.enabled) {
@@ -57,14 +69,22 @@ export function reloadRouteTable(hosts?: ProxyHost[]): void {
     }
     enabled.push(host)
     for (const name of host.domainNames) {
-      const key = name.replace(/\.$/, '').toLowerCase()
+      const key = normalizeDomainName(name)
       if (!key || isReservedHostname(key)) {
         continue
       }
-      next.set(key, host)
+      if (isWildcardDomainName(key)) {
+        const suffix = wildcardParentSuffix(key)
+        if (suffix) {
+          nextWild.set(suffix, host)
+        }
+        continue
+      }
+      nextExact.set(key, host)
     }
   }
-  hostsByDomain = next
+  hostsByDomain = nextExact
+  hostsByWildcardSuffix = nextWild
   enabledHosts = enabled
 }
 
@@ -72,16 +92,29 @@ export function listEnabledProxyHosts(): ProxyHost[] {
   return enabledHosts
 }
 
-export function matchProxyRoute(hostHeader: string | null, pathname: string): RouteMatch | null {
-  const hostname = hostnameFromHeader(hostHeader)
-  if (!hostname || isReservedHostname(hostname)) {
+/** Resolve an enabled ProxyHost for a request hostname (exact, then one-label wildcard). */
+export function resolveProxyHostForHostname(hostname: string): ProxyHost | null {
+  const host = normalizeDomainName(hostname)
+  if (!host || isReservedHostname(host)) {
     return null
   }
-  const host = hostsByDomain.get(hostname)
-  if (!host) {
+  const exact = hostsByDomain.get(host)
+  if (exact) {
+    return exact
+  }
+  const dot = host.indexOf('.')
+  if (dot <= 0) {
     return null
   }
+  const label = host.slice(0, dot)
+  const suffix = host.slice(dot + 1)
+  if (!label || label.includes('.') || !suffix) {
+    return null
+  }
+  return hostsByWildcardSuffix.get(suffix) ?? null
+}
 
+function matchLocation(host: ProxyHost, pathname: string): ProxyLocation | null {
   let best: ProxyLocation | null = null
   let bestLen = -1
   for (const location of host.locations) {
@@ -94,8 +127,16 @@ export function matchProxyRoute(hostHeader: string | null, pathname: string): Ro
       bestLen = path.length
     }
   }
+  return best
+}
 
-  return { host, location: best }
+export function matchProxyRoute(hostHeader: string | null, pathname: string): RouteMatch | null {
+  const hostname = hostnameFromHeader(hostHeader)
+  const host = resolveProxyHostForHostname(hostname)
+  if (!host) {
+    return null
+  }
+  return { host, location: matchLocation(host, pathname) }
 }
 
 export function resolveCertPemPaths(certificateName: string): { certPath: string, keyPath: string } | null {
