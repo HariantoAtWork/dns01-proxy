@@ -209,7 +209,6 @@ async function save() {
     const apiBody: AppSettingsPutBody['api'] = {
       ip: api.ip,
       port: api.port,
-      disable_registration: api.disable_registration,
       shared_mode: api.shared_mode,
       tls: api.tls,
       tls_cert_fullchain: api.tls_cert_fullchain,
@@ -218,6 +217,17 @@ async function save() {
       use_header: api.use_header,
       header_name: api.header_name,
     }
+    if (!api.shared_mode) {
+      apiBody.disable_registration = api.disable_registration
+    }
+    const generalBody = api.shared_mode
+      ? {
+          listen: general.listen,
+          protocol: general.protocol,
+          nsadmin: general.nsadmin,
+          debug: general.debug,
+        }
+      : { ...general }
     const body: AppSettingsPutBody = {
       operator: {
         acmednsUrl: operator.acmednsUrl,
@@ -228,7 +238,7 @@ async function save() {
         certsRenewDisabled: operator.certsRenewDisabled,
         tz: operator.tz,
       },
-      general: { ...general },
+      general: generalBody,
       database: { ...database },
       api: apiBody,
       logconfig: { ...logconfig },
@@ -453,6 +463,9 @@ onMounted(() => {
     <UiPanel>
       <h2 class="text-base font-semibold tracking-tight">Auth DNS — config.cfg [general]</h2>
       <p class="mt-1 font-mono text-xs text-muted">{{ paths.configCfg }}</p>
+      <p v-if="api.shared_mode" class="mt-2 text-sm text-muted">
+        Auth zone, nsname, and glue records are managed by Tiny mode above — not edited here.
+      </p>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
         <UiField label="listen">
           <UiInput v-model="general.listen" mono :disabled="pending" />
@@ -461,16 +474,16 @@ onMounted(() => {
           <UiInput v-model="general.protocol" mono :disabled="pending" />
         </UiField>
         <UiField
+          v-if="!api.shared_mode"
           label="domain"
-          :hint="api.shared_mode ? 'Locked in Tiny mode — auth zone for shared CNAMEs' : undefined"
         >
-          <UiInput v-model="general.domain" mono :disabled="pending || api.shared_mode" />
+          <UiInput v-model="general.domain" mono :disabled="pending" />
         </UiField>
         <UiField
+          v-if="!api.shared_mode"
           label="nsname"
-          :hint="api.shared_mode ? 'Locked in Tiny mode — kept in sync with domain' : undefined"
         >
-          <UiInput v-model="general.nsname" mono :disabled="pending || api.shared_mode" />
+          <UiInput v-model="general.nsname" mono :disabled="pending" />
         </UiField>
         <UiField label="nsadmin">
           <UiInput v-model="general.nsadmin" mono :disabled="pending" />
@@ -480,7 +493,12 @@ onMounted(() => {
           debug
         </label>
       </div>
-      <UiField class="mt-4" label="records" hint="One DNS record line per row">
+      <UiField
+        v-if="!api.shared_mode"
+        class="mt-4"
+        label="records"
+        hint="One DNS record line per row"
+      >
         <textarea
           v-model="general.records"
           class="min-h-[120px] w-full resize-y rounded-[6px] border border-rule bg-paper p-3 font-mono text-sm text-ink outline-none focus:border-signal"
@@ -492,6 +510,9 @@ onMounted(() => {
 
     <UiPanel>
       <h2 class="text-base font-semibold tracking-tight">API — [api]</h2>
+      <p v-if="api.shared_mode" class="mt-1 text-sm text-muted">
+        Registration stays disabled while Tiny mode is on.
+      </p>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
         <UiField label="ip">
           <UiInput v-model="api.ip" mono :disabled="pending" />
@@ -519,7 +540,10 @@ onMounted(() => {
         >
           <UiInput v-model="api.tls_cert_privkey" mono :disabled="pending || api.tls !== 'cert'" />
         </UiField>
-        <label class="flex items-center gap-2 text-sm text-ink">
+        <label
+          v-if="!api.shared_mode"
+          class="flex items-center gap-2 text-sm text-ink"
+        >
           <input v-model="api.disable_registration" type="checkbox" class="accent-[var(--signal)]" :disabled="pending">
           disable_registration
         </label>
