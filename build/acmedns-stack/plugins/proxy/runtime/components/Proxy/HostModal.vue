@@ -45,7 +45,8 @@ function load(host?: ProxyHost | null) {
   tab.value = 'details'
   formError.value = null
   if (host) {
-    draft.value = structuredClone(host)
+    // Hosts from the list are Vue proxies — structuredClone throws on them.
+    draft.value = structuredClone(toRaw(host))
     domainsText.value = host.domainNames.join('\n')
   }
   else {
@@ -73,6 +74,7 @@ function onSave() {
   formError.value = null
   const payload: ProxyHostInput = {
     ...draft.value,
+    ...(draft.value.id ? { id: draft.value.id } : {}),
     domainNames: normalizeDomainNames(domainsText.value),
     forwardPort: Number(draft.value.forwardPort) || 80,
   }

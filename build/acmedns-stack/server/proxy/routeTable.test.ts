@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach } from 'bun:test'
 import type { ProxyHost } from '../../plugins/proxy/runtime/shared/types/proxyHost'
 import { normalizeProxyHost } from '../../plugins/proxy/runtime/shared/utils/proxyHost'
 import { matchProxyRoute, reloadRouteTable } from '../proxy/routeTable'
-import { buildForwardHeaders, describeTarget } from '../proxy/forward'
+import { buildForwardHeaders, describeTarget, forceSslRedirect } from '../proxy/forward'
 import { isControlBinding, isEdgeBinding, type ListenBinding } from '../utils/listen'
 
 function host(partial: Partial<ProxyHost> & { domainNames: string[], forwardHost: string }): ProxyHost {
@@ -87,7 +87,7 @@ describe('proxy routeTable', () => {
 })
 
 describe('proxy forward headers', () => {
-  test('sets X-Forwarded-Proto from binding unless trustForwardedProto', () => {
+  test('sets X-Forwarded-Proto from binding unless inbound https or sslForced', () => {
     const match = {
       host: host({
         domainNames: ['app.example.com'],
@@ -115,9 +115,28 @@ describe('proxy forward headers', () => {
     expect(headers.get('X-Forwarded-Proto')).toBe('https')
     expect(headers.get('Upgrade')).toBe('websocket')
 
-    match.host.trustForwardedProto = true
-    const trusted = buildForwardHeaders(req, match, binding)
-    expect(trusted.get('X-Forwarded-Proto')).toBe('http')
+    const httpBinding: ListenBinding = { ...binding, port: 80, tls: null }
+    const cdnReq = new Request('http://app.example.com/', {
+      headers: { host: 'app.example.com', 'x-forwarded-proto': 'https' },
+    })
+    expect(buildForwardHeaders(cdnReq, match, httpBinding).get('X-Forwarded-Proto')).toBe('https')
+  })
+
+  test('Force SSL skips redirect when X-Forwarded-Proto is already https', () => {
+    const proxyHost = host({
+      domainNames: ['app.example.com'],
+      forwardHost: '10.0.0.1',
+      sslForced: true,
+      certificateName: 'app.example.com',
+    })
+    const url = new URL('http://app.example.com/dash')
+    const plain = new Request('http://app.example.com/dash', { headers: { host: 'app.example.com' } })
+    expect(forceSslRedirect(plain, url, proxyHost)?.status).toBe(301)
+
+    const viaCdn = new Request('http://app.example.com/dash', {
+      headers: { host: 'app.example.com', 'x-forwarded-proto': 'https' },
+    })
+    expect(forceSslRedirect(viaCdn, url, proxyHost)).toBeNull()
   })
 })
 

@@ -53,7 +53,7 @@ export async function tryHandleProxy(
   }
 
   if (!binding.tls) {
-    const redirect = forceSslRedirect(reqUrl, match.host)
+    const redirect = forceSslRedirect(req, reqUrl, match.host)
     if (redirect) {
       return redirect
     }

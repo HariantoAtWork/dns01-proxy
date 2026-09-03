@@ -24,6 +24,7 @@ const {
 } = useProxyHosts()
 
 const modalOpen = ref(false)
+const editingId = ref<string | null>(null)
 const saving = ref(false)
 const deleteOpen = ref(false)
 const deleteTarget = ref<ProxyHost | null>(null)
@@ -43,6 +44,7 @@ async function refresh() {
 }
 
 function openCreate() {
+  editingId.value = null
   modalOpen.value = true
   nextTick(() => {
     modalRef.value?.load(null)
@@ -50,6 +52,7 @@ function openCreate() {
 }
 
 function openEdit(host: ProxyHost) {
+  editingId.value = host.id
   modalOpen.value = true
   nextTick(() => {
     modalRef.value?.load(host)
@@ -59,9 +62,14 @@ function openEdit(host: ProxyHost) {
 async function onSave(input: ProxyHostInput) {
   saving.value = true
   try {
-    await saveHost(input)
+    const payload: ProxyHostInput = {
+      ...input,
+      ...(editingId.value ? { id: editingId.value } : {}),
+    }
+    await saveHost(payload)
     modalOpen.value = false
-    toasts.ok(input.id ? 'Proxy host updated' : 'Proxy host created', 'Proxy')
+    editingId.value = null
+    toasts.ok(payload.id ? 'Proxy host updated' : 'Proxy host created', 'Proxy')
   }
   catch (err) {
     const message = err instanceof Error ? err.message : 'Save failed'
