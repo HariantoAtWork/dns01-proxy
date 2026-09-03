@@ -9,7 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "test": "bun test core plugins/client/tests server/tests plugins/client/runtime/server/utils/certJobQueue plugins/dns01-lab/tests"
+    "test": "bun test core plugins/client/tests server/tests plugins/client/runtime/server/utils/certJobQueue plugins/dns01-lab/tests plugins/proxy/tests"
   },
   "dependencies": {
     "@codemirror/language": "^6.12.4",

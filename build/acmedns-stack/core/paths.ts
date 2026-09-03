@@ -84,6 +84,10 @@ export function getLabDomainsFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'lab-domains.txt')
 }
 
+export function getProxyHostsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-hosts.json')
+}
+
 export function getBackupDir(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'backup')
 }

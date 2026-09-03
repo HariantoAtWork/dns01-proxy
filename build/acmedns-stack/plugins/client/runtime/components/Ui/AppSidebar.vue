@@ -9,6 +9,7 @@ import {
   PhQuestion as Question,
   PhPlus as Plus,
   PhX as Close,
+  PhSwap as Swap,
 } from '@phosphor-icons/vue'
 
 const open = defineModel<boolean>('open', { default: false })
@@ -31,6 +32,7 @@ const links = computed(() => {
       ? []
       : [{ to: '/backup', label: 'Backup', icon: FloppyDisk, exact: true, registerAction: false }]),
     { to: '/certs', label: 'Certificates', icon: Certificate, exact: false, registerAction: false },
+    { to: '/proxy', label: 'Proxy', icon: Swap, exact: false, registerAction: false },
     { to: '/lab', label: 'DNS-01 Lab', icon: Flask, exact: false, registerAction: false },
     { to: '/settings', label: 'Settings', icon: Gear, exact: true, registerAction: false },
     { to: '/help', label: 'Help', icon: Question, exact: false, registerAction: false },
