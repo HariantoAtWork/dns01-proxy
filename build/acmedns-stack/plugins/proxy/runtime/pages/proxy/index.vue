@@ -12,10 +12,12 @@ const toasts = useToasts()
 const {
   hosts,
   certNames,
+  healthById,
   pending,
   error,
   loadHosts,
   loadCertNames,
+  loadAllHealth,
   saveHost,
   removeHost,
   exportNginx,
@@ -33,6 +35,7 @@ const modalRef = useTemplateRef<{ load: (host?: ProxyHost | null) => void }>('mo
 async function refresh() {
   try {
     await Promise.all([loadHosts(), loadCertNames()])
+    await loadAllHealth()
   }
   catch {
     toasts.error(error.value || 'Failed to load proxy hosts', 'Proxy')
@@ -137,7 +140,9 @@ onMounted(() => {
           </h1>
         </div>
         <p class="text-sm text-muted">
-          Config UI only — store forward rules and export nginx snippets. Edge proxy stays external.
+          Bun reverse proxy on <span class="font-mono">:80/:443</span>.
+          Operator UI and acme-dns API stay on
+          <span class="font-mono">:1080/:1443</span>.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -178,7 +183,7 @@ onMounted(() => {
         No proxy hosts yet
       </h2>
       <p class="mt-2 max-w-[65ch] text-muted">
-        Add a domain → forward target. SSL certificates come from the Certificates page.
+        Add a domain → forward target. Live on edge ports 80/443. Certificates come from the Certificates page.
       </p>
       <UiButton
         class="mt-6"
@@ -191,6 +196,7 @@ onMounted(() => {
     <ProxyHostTable
       v-else
       :hosts
+      :health-by-id="healthById"
       @edit="openEdit"
       @remove="askDelete"
       @export="onExport"
@@ -214,16 +220,19 @@ onMounted(() => {
       <p class="text-sm text-muted">
         Remove
         <span class="font-mono text-ink">{{ deleteTarget?.domainNames.join(', ') }}</span>
-        from the config store. This does not change any live reverse proxy.
+        from the live Bun reverse proxy.
       </p>
     </UiConfirmDialog>
 
     <UiModal
       v-model:open="exportOpen"
-      :title="`Nginx export — ${exportTitle}`"
+      :title="`Nginx export (reference) — ${exportTitle}`"
       size="lg"
     >
       <div class="flex flex-col gap-3">
+        <p class="text-xs text-muted">
+          Reference only — traffic is handled by Bun, not nginx.
+        </p>
         <pre class="overflow-x-auto rounded-[var(--radius-panel)] border border-rule bg-paper p-3 font-mono text-xs text-ink whitespace-pre-wrap">{{ exportSnippet }}</pre>
         <div class="flex justify-end gap-2">
           <UiButton

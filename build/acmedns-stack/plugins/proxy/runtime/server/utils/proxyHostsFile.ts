@@ -7,6 +7,8 @@ import {
   validateProxyHost,
 } from '../../shared/utils/proxyHost'
 import { getProxyHostsFilePath } from '../../../../../server/utils/paths'
+import { findReservedDomainOverlap } from '../../../../../server/proxy/reserved'
+import { reloadRouteTable } from '../../../../../server/proxy/routeTable'
 
 const EMPTY_FILE: ProxyHostsFile = { version: 1, hosts: [] }
 
@@ -48,6 +50,7 @@ async function writeProxyHostsFile(file: ProxyHostsFile): Promise<ProxyHostsFile
   const filePath = await ensureProxyHostsFile()
   const normalized = normalizeProxyHostsFile(file)
   await fs.writeFile(filePath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf-8')
+  reloadRouteTable(normalized.hosts)
   return normalized
 }
 
@@ -67,6 +70,14 @@ export async function upsertProxyHost(input: ProxyHostInput): Promise<ProxyHost>
   const error = validateProxyHost(host)
   if (error) {
     throw createError({ statusCode: 400, statusMessage: error })
+  }
+
+  const reserved = findReservedDomainOverlap(host.domainNames)
+  if (reserved.length) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `Domain(s) reserved for auth zone / control plane: ${reserved.join(', ')}`,
+    })
   }
 
   const index = file.hosts.findIndex(item => item.id === host.id)

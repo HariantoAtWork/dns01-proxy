@@ -19,6 +19,6 @@ ENV ACMEDNS_DATA_ROOT=/var/lib/acmedns-stack
 ENV ACMEDNS_LETSENCRYPT_DIR=/etc/letsencrypt
 COPY --from=build /app/.output .output
 COPY --from=build /app/seed ./seed
-EXPOSE 53 80 443
+EXPOSE 53 80 443 1080 1443
 EXPOSE 53/udp
 CMD ["/bin/sh", "-c", "set -e; root=\"${ACMEDNS_DATA_ROOT:?ACMEDNS_DATA_ROOT is required}\"; le=\"${ACMEDNS_LETSENCRYPT_DIR:?ACMEDNS_LETSENCRYPT_DIR is required}\"; mkdir -p \"$root/server\" \"$root/client\" \"$root/backup\" \"$le\"; exec bun .output/server/index.mjs"]

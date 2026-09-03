@@ -1,8 +1,16 @@
 import type { ProxyHost, ProxyHostInput } from '#proxy-shared/types/proxyHost'
 
+export type ProxyHostHealth = {
+  online: boolean
+  latencyMs?: number
+  status?: number
+  target?: string
+}
+
 export function useProxyHosts() {
   const hosts = ref<ProxyHost[]>([])
   const certNames = ref<string[]>([])
+  const healthById = ref<Record<string, ProxyHostHealth>>({})
   const pending = ref(false)
   const error = ref<string | null>(null)
 
@@ -32,6 +40,23 @@ export function useProxyHosts() {
     }
   }
 
+  async function loadHealth(id: string) {
+    try {
+      const data = await $fetch<ProxyHostHealth>(`/api/proxy/hosts/${id}/health`)
+      healthById.value = { ...healthById.value, [id]: data }
+      return data
+    }
+    catch {
+      const fallback: ProxyHostHealth = { online: false }
+      healthById.value = { ...healthById.value, [id]: fallback }
+      return fallback
+    }
+  }
+
+  async function loadAllHealth() {
+    await Promise.all(hosts.value.map(host => loadHealth(host.id)))
+  }
+
   async function saveHost(input: ProxyHostInput) {
     if (input.id) {
       const data = await $fetch<{ host: ProxyHost }>(`/api/proxy/hosts/${input.id}`, {
@@ -45,6 +70,7 @@ export function useProxyHosts() {
       else {
         hosts.value.push(data.host)
       }
+      void loadHealth(data.host.id)
       return data.host
     }
     const data = await $fetch<{ host: ProxyHost }>('/api/proxy/hosts', {
@@ -52,12 +78,16 @@ export function useProxyHosts() {
       body: input,
     })
     hosts.value.push(data.host)
+    void loadHealth(data.host.id)
     return data.host
   }
 
   async function removeHost(id: string) {
     await $fetch(`/api/proxy/hosts/${id}`, { method: 'DELETE' })
     hosts.value = hosts.value.filter(host => host.id !== id)
+    const next = { ...healthById.value }
+    delete next[id]
+    healthById.value = next
   }
 
   async function exportNginx(id: string) {
@@ -67,10 +97,13 @@ export function useProxyHosts() {
   return {
     hosts,
     certNames,
+    healthById,
     pending,
     error,
     loadHosts,
     loadCertNames,
+    loadHealth,
+    loadAllHealth,
     saveHost,
     removeHost,
     exportNginx,
