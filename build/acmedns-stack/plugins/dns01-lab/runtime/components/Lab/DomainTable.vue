@@ -60,7 +60,7 @@ function runButtonLabel(entry: LabStatusEntry) {
     <div>
       <h2 class="text-sm font-semibold text-ink">Lab status</h2>
       <p class="mt-1 text-xs text-muted">
-        Run queues a DNS-01 lab job in the shared certificate queue. Real TXT publish and TXT online checks; fake ACME order and LE validate.
+        Run queues a DNS-01 lab job in the shared certificate queue. Force run skips DNS preflight. Real TXT publish and authoritative TXT online checks; fake ACME order and LE validate.
       </p>
     </div>
     <div v-if="!statusEntries.length" class="mt-3 text-sm text-muted">
@@ -72,7 +72,7 @@ function runButtonLabel(entry: LabStatusEntry) {
         aria-hidden="true"
       >
         <span>Domain</span>
-        <span class="shrink-0">Run</span>
+        <span class="shrink-0">Run · Force run</span>
       </li>
       <li
         v-for="entry in statusEntries"
@@ -100,18 +100,32 @@ function runButtonLabel(entry: LabStatusEntry) {
             {{ entry.message }}
           </p>
         </div>
-        <div class="flex shrink-0 items-center pt-0.5">
-          <UiButton
-            v-if="entry.inLabDomainsFile"
-            size="sm"
-            variant="ghost"
-            class="min-w-[5.5rem] justify-center"
+        <div
+          v-if="entry.inLabDomainsFile"
+          class="inline-flex shrink-0 rounded-[6px] border border-rule p-0.5"
+          role="group"
+          :aria-label="`Run lab for ${entry.certName}`"
+        >
+          <button
+            type="button"
+            class="rounded-[4px] px-2.5 py-1 text-xs transition-colors hover:brightness-105 disabled:opacity-50"
+            :class="isRunDisabled(entry) ? 'bg-panel text-muted' : 'bg-signal text-signal-ink'"
             :disabled="isRunDisabled(entry)"
             @click="emit('run', entry.certName, false)"
           >
-            <Lightning :size="14" weight="regular" aria-hidden="true" />
-            {{ runButtonLabel(entry) }}
-          </UiButton>
+            <span class="inline-flex items-center gap-1">
+              <Lightning :size="14" weight="regular" aria-hidden="true" />
+              {{ runButtonLabel(entry) }}
+            </span>
+          </button>
+          <button
+            type="button"
+            class="rounded-[4px] border-l border-rule px-2.5 py-1 text-xs text-ink transition-colors hover:bg-panel disabled:opacity-50"
+            :disabled="isRunDisabled(entry)"
+            @click="emit('run', entry.certName, true)"
+          >
+            Force run
+          </button>
         </div>
       </li>
     </ul>
