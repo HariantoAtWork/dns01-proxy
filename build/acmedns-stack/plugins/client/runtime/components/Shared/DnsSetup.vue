@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { PhCopy as Copy } from '@phosphor-icons/vue'
 import type { ParsedDomainsLine } from '#shared/types/certs'
+import { apexCnameExample, zoneCnameLine } from '#client/utils/domain'
 import { tinyApexFulldomain } from '#shared/utils/tinyModeDns'
 
 const { authZone } = useSharedMode()
+const { copyText } = useClipboardCopy()
 
 const { data: domainsFile, status } = useFetch<{ lines?: ParsedDomainsLine[] }>('/api/certs/domains', {
   key: 'shared-mode-dns-domains',
@@ -10,23 +13,33 @@ const { data: domainsFile, status } = useFetch<{ lines?: ParsedDomainsLine[] }>(
 
 const lines = computed(() => domainsFile.value?.lines ?? [])
 
-const apexes = computed(() => {
+const rows = computed(() => {
   const seen = new Set<string>()
-  const out: string[] = []
+  const out: Array<{
+    apex: string
+    name: string
+    cloudflareName: string
+    target: string
+    zoneLine: string
+  }> = []
   for (const line of lines.value) {
     const apex = line.certName
     if (!apex || seen.has(apex)) {
       continue
     }
     seen.add(apex)
-    out.push(apex)
+    const fulldomain = authZone.value ? tinyApexFulldomain(apex, authZone.value) : ''
+    const record = apexCnameExample(apex, fulldomain)
+    out.push({
+      apex,
+      name: record.name,
+      cloudflareName: record.cloudflareName,
+      target: record.target,
+      zoneLine: zoneCnameLine(apex, fulldomain),
+    })
   }
   return out
 })
-
-function fulldomainFor(apex: string) {
-  return authZone.value ? tinyApexFulldomain(apex, authZone.value) : ''
-}
 </script>
 
 <template>
@@ -34,35 +47,17 @@ function fulldomainFor(apex: string) {
     <header>
       <h1 class="text-2xl font-semibold tracking-tight">DNS setup</h1>
       <p class="mt-1 max-w-[60ch] text-sm text-muted">
-        Tiny mode — no registration. Add certificate lines on
-        <NuxtLink to="/certs" class="text-ink underline-offset-2 hover:underline">Certificates</NuxtLink>,
-        then publish one CNAME per apex at your DNS provider (Cloudflare: DNS only).
-        Each apex uses a deterministic label under
-        <span class="font-mono text-ink">{{ authZone || 'auth zone' }}</span>
-        (e.g. <span class="font-mono text-ink">_mdstn-com_</span>).
+        One CNAME per apex (DNS only). Add lines on
+        <NuxtLink to="/certs" class="text-ink underline-offset-2 hover:underline">Certificates</NuxtLink>.
       </p>
     </header>
 
     <SharedTinySummary />
 
-    <UiPanel accent>
-      <h2 class="text-base font-semibold tracking-tight">Auth zone</h2>
-      <p class="mt-1 text-sm text-muted">
-        Glue and NS live at
-        <UiCopyable v-if="authZone" inline :value="authZone" label="Auth zone" />.
-        Apex challenges CNAME to
-        <span class="font-mono text-ink">_&lt;apex-with-dashes&gt;_.{{ authZone || 'auth.zone' }}</span>.
-        Any <span class="font-mono text-ink">&lt;uuid|_label_&gt;.{{ authZone || 'auth.zone' }}</span> TXT label is accepted.
-      </p>
-      <p class="mt-2 font-mono text-sm text-ink">
-        _acme-challenge.mdstn.com. IN CNAME _mdstn-com_.{{ authZone || 'auth.zone' }}.
-      </p>
-    </UiPanel>
-
     <div v-if="status === 'pending'" class="h-40 animate-pulse bg-panel" style="border-radius: var(--radius-panel)" />
 
     <UiEmptyState
-      v-else-if="!apexes.length"
+      v-else-if="!rows.length"
       title="No certificate lines yet"
       action-label="Open Certificates"
       to="/certs"
@@ -70,15 +65,55 @@ function fulldomainFor(apex: string) {
       Add a line such as <span class="font-mono text-ink">mdstn.com *.mdstn.com</span> to domains.txt, then return here for copy-paste CNAME rows.
     </UiEmptyState>
 
-    <div v-else class="flex flex-col gap-6">
-      <CnameRecipe
-        v-for="apex in apexes"
-        :key="apex"
-        :domain="apex"
-        :fulldomain="fulldomainFor(apex)"
-        shared-target
-        compact
-      />
+    <div
+      v-else
+      class="w-fit max-w-full overflow-x-auto border border-rule"
+      style="border-radius: var(--radius-panel)"
+    >
+      <table class="w-auto border-collapse text-left text-sm">
+        <thead>
+          <tr class="border-b border-rule bg-paper/60 text-xs uppercase tracking-wide text-muted">
+            <th class="whitespace-nowrap px-3 py-2 font-medium">Apex</th>
+            <th class="whitespace-nowrap px-3 py-2 font-medium">Name</th>
+            <th class="whitespace-nowrap px-3 py-2 font-medium">Content</th>
+            <th class="whitespace-nowrap px-3 py-2 font-medium">
+              <span class="sr-only">Copy</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="row in rows"
+            :key="row.apex"
+            class="border-b border-rule last:border-b-0"
+          >
+            <td class="whitespace-nowrap px-3 py-2 align-top font-mono">
+              <UiCopyable inline :value="row.apex" label="Apex" />
+            </td>
+            <td class="min-w-0 px-3 py-2 align-top font-mono">
+              <UiCopyable :value="row.name" label="Name" />
+              <p class="mt-0.5 font-sans text-xs text-muted">
+                Cloudflare:
+                <UiCopyable inline :value="row.cloudflareName" label="Cloudflare Name" />
+              </p>
+            </td>
+            <td class="min-w-0 px-3 py-2 align-top font-mono">
+              <UiCopyable :value="row.target" label="Content" />
+              <p class="mt-0.5 font-sans text-xs text-muted">DNS only</p>
+            </td>
+            <td class="whitespace-nowrap px-3 py-2 align-top">
+              <UiButton
+                variant="ghost"
+                size="sm"
+                @click="copyText(row.zoneLine, 'Apex zone line', $event)"
+              >
+                <Copy :size="14" weight="regular" aria-hidden="true" />
+                Copy
+              </UiButton>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
