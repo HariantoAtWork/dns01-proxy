@@ -24,6 +24,8 @@ export function loadDefaultTlsEntry(): BunTlsEntry | null {
 /**
  * Build Bun `tls` option for edge HTTPS: one entry per proxy domain with a
  * readable certificateName PEM, plus the default auth cert.
+ * Wildcard domains (`*.example.com`) are registered as SNI names as-is; the
+ * certificate SANs should include that wildcard.
  */
 export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
   const entries: BunTlsEntry[] = []

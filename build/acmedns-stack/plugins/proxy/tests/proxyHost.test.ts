@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import { buildNginxSnippet } from '../runtime/shared/utils/nginxSnippet'
-import { normalizeProxyHost, validateProxyHost } from '../runtime/shared/utils/proxyHost'
+import {
+  domainPatternMatchesHostname,
+  normalizeProxyHost,
+  validateDomainName,
+  validateProxyHost,
+} from '../runtime/shared/utils/proxyHost'
 
 describe('proxyHost normalize', () => {
   test('fills defaults and sorts domains', () => {
@@ -20,6 +25,24 @@ describe('proxyHost normalize', () => {
   test('rejects empty domains', () => {
     const host = normalizeProxyHost({ forwardHost: 'x' })
     expect(validateProxyHost(host)).toMatch(/domain/i)
+  })
+
+  test('accepts DNS-style wildcards and rejects bad patterns', () => {
+    expect(validateDomainName('*.example.com')).toBeNull()
+    expect(validateDomainName('*')).not.toBeNull()
+    expect(validateDomainName('foo.*.com')).not.toBeNull()
+    expect(validateDomainName('*.com')).not.toBeNull()
+
+    const host = normalizeProxyHost({
+      domainNames: ['*.Apps.Example.com'],
+      forwardHost: '10.0.0.1',
+    })
+    expect(host.domainNames).toEqual(['*.apps.example.com'])
+    expect(validateProxyHost(host)).toBeNull()
+
+    expect(domainPatternMatchesHostname('*.example.com', 'foo.example.com')).toBe(true)
+    expect(domainPatternMatchesHostname('*.example.com', 'example.com')).toBe(false)
+    expect(domainPatternMatchesHostname('*.example.com', 'a.b.example.com')).toBe(false)
   })
 })
 

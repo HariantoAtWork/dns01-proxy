@@ -84,6 +84,29 @@ describe('proxy routeTable', () => {
     const match = matchProxyRoute('app.example.com', '/apiv2')
     expect(match?.location).toBeNull()
   })
+
+  test('matches one-label wildcards; exact names take precedence', () => {
+    reloadRouteTable([
+      host({
+        id: 'wild',
+        domainNames: ['*.example.com'],
+        forwardHost: '10.0.0.9',
+        forwardPort: 9000,
+      }),
+      host({
+        id: 'exact',
+        domainNames: ['app.example.com'],
+        forwardHost: '10.0.0.1',
+        forwardPort: 3000,
+      }),
+    ])
+
+    expect(matchProxyRoute('foo.example.com', '/')?.host.forwardHost).toBe('10.0.0.9')
+    expect(matchProxyRoute('app.example.com', '/')?.host.forwardHost).toBe('10.0.0.1')
+    expect(matchProxyRoute('example.com', '/')).toBeNull()
+    expect(matchProxyRoute('a.b.example.com', '/')).toBeNull()
+    expect(matchProxyRoute('FOO.EXAMPLE.COM:443', '/')?.host.id).toBe('wild')
+  })
 })
 
 describe('proxy forward headers', () => {
