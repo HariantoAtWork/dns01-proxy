@@ -7,8 +7,14 @@ import {
   PhCode as Code,
 } from '@phosphor-icons/vue'
 
-const { hosts } = defineProps<{
+type HostHealth = {
+  online: boolean
+  latencyMs?: number
+}
+
+const { hosts, healthById = {} } = defineProps<{
   hosts: ProxyHost[]
+  healthById?: Record<string, HostHealth>
 }>()
 
 const emit = defineEmits<{
@@ -16,6 +22,28 @@ const emit = defineEmits<{
   remove: [host: ProxyHost]
   export: [host: ProxyHost]
 }>()
+
+function statusLabel(host: ProxyHost): string {
+  if (!host.enabled) {
+    return 'Off'
+  }
+  const health = healthById[host.id]
+  if (!health) {
+    return '…'
+  }
+  return health.online ? 'Online' : 'Offline'
+}
+
+function statusClass(host: ProxyHost): string {
+  if (!host.enabled) {
+    return 'text-muted'
+  }
+  const health = healthById[host.id]
+  if (!health) {
+    return 'text-muted'
+  }
+  return health.online ? 'text-signal' : 'text-danger'
+}
 </script>
 
 <template>
@@ -27,6 +55,7 @@ const emit = defineEmits<{
           <th class="px-3 py-2 font-medium">Forward</th>
           <th class="px-3 py-2 font-medium">SSL</th>
           <th class="px-3 py-2 font-medium">Flags</th>
+          <th class="px-3 py-2 font-medium">Status</th>
           <th class="px-3 py-2 font-medium text-right">Actions</th>
         </tr>
       </thead>
@@ -71,12 +100,23 @@ const emit = defineEmits<{
               >Force SSL</span>
             </div>
           </td>
+          <td
+            class="px-3 py-2 text-xs font-medium"
+            :class="statusClass(host)"
+          >
+            {{ statusLabel(host) }}
+            <span
+              v-if="healthById[host.id]?.online && healthById[host.id]?.latencyMs != null"
+              class="ml-1 font-normal text-muted"
+            >{{ healthById[host.id]?.latencyMs }}ms</span>
+          </td>
           <td class="px-3 py-2">
             <div class="flex justify-end gap-1">
               <UiButton
                 variant="icon"
                 size="sm"
-                aria-label="Export nginx"
+                aria-label="Export nginx snippet"
+                title="Export nginx snippet (reference)"
                 @click="emit('export', host)"
               >
                 <Code :size="14" weight="regular" aria-hidden="true" />

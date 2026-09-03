@@ -66,10 +66,12 @@ For a slim setup — no Register UI; CNAME `_acme-challenge.<apex>` → `_encode
 | --- | --- | --- |
 | `53/tcp` | `53` | DNS. Let's Encrypt hits this. |
 | `53/udp` | `53` | Same. |
-| `80/tcp` | `8080` | UI + register/update API (always). |
-| `443/tcp` | `8443` | Same API over HTTPS when `api.tls = "cert"`. |
+| `80/tcp` | `80` | **Edge** — Bun reverse proxy (public apps). |
+| `443/tcp` | `443` | **Edge** HTTPS — Bun proxy with SNI when PEMs exist. |
+| `1080/tcp` | `1080` | **Control** — operator UI + `/register` `/update` `/health` `/api/*`. |
+| `1443/tcp` | `1443` | **Control** HTTPS when `api.tls = "cert"` (default auth PEMs). |
 
-DNS has to be public; keep the UI behind your LAN / tunnel.
+Point public app hostnames at **80/443**. Point Synology / cloudflared / Certbot for the **auth** zone at **1080** (or 1443). Do not share edge ports with the dashboard — that avoids `/health` and `/api` colliding with proxied apps.
 
 This house’s router DMZ is the Synology, so public `:53` never reaches a Mac. **Test real Let's Encrypt issuance on the NAS**, not on a laptop. See [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md). Working NAS runbook: [`.wiki/Working-Synology-setup.md`](.wiki/Working-Synology-setup.md).
 
@@ -143,7 +145,7 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 
 ## Networks
 
-Single `acmedns-stack` service. HTTP on `:80` is always on; set `api.tls = "cert"` in `config.cfg` to also serve HTTPS on `:443` (host `8443`).
+Single `acmedns-stack` service. Edge HTTP on `:80` and control on `:1080` are always on; edge/control HTTPS bind when TLS PEMs are available. Production compose publishes `80:80`, `443:443`, `1080:1080`, `1443:1443`.
 
 `cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel.
 

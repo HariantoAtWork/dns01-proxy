@@ -6,8 +6,10 @@ services:
     ports:
       - "53:53"
       - "53:53/udp"
-      - "8080:80"
-      - "8443:443"
+      - "80:80"       # edge HTTP — Bun reverse proxy
+      - "443:443"     # edge HTTPS — Bun reverse proxy (SNI)
+      - "1080:1080"   # control HTTP — UI + acme-dns API
+      - "1443:1443"   # control HTTPS
     volumes:
       - ./data/acmedns-stack:/var/lib/acmedns-stack  # server/, client/, backup/ (or host /var/lib/acmedns-stack:…)
       - ./data/letsencrypt:/etc/letsencrypt  # live/, staging/, trash/, accounts/

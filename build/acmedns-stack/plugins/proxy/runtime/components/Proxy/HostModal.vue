@@ -182,6 +182,14 @@ watch(open, (value) => {
 
         <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
           <label class="flex items-center justify-between gap-3 text-sm">
+            <span>Enabled</span>
+            <input
+              v-model="draft.enabled"
+              type="checkbox"
+              class="size-4"
+            >
+          </label>
+          <label class="flex items-center justify-between gap-3 text-sm">
             <span>Cache Assets</span>
             <input
               v-model="draft.cachingEnabled"
