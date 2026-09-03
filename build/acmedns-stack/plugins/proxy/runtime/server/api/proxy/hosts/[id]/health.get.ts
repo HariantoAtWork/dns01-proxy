@@ -1,6 +1,4 @@
 import { getProxyHost } from '../../../../utils/proxyHostsFile'
-import { resolveForwardTarget } from '../../../../../../../server/proxy/forward'
-import type { RouteMatch } from '../../../../../../../server/proxy/routeTable'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -12,9 +10,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Proxy host not found' })
   }
 
-  const match: RouteMatch = { host, location: null }
-  const target = resolveForwardTarget(match)
-  const url = `${target.scheme}://${target.host}:${target.port}/`
+  const url = `${host.forwardScheme}://${host.forwardHost}:${host.forwardPort}/`
   const started = Date.now()
   try {
     const res = await fetch(url, {

@@ -1,4 +1,4 @@
-import { reloadRouteTable } from '../../../../server/proxy/routeTable'
+import { reloadRouteTable } from '../../../../../server/proxy/routeTable'
 
 export default defineNitroPlugin(() => {
   reloadRouteTable()
