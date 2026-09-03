@@ -68,14 +68,22 @@ export function buildForwardHeaders(
     headers.set('X-Forwarded-For', prior ? `${prior}, ${ip}` : ip)
   }
 
-  const incomingProto = req.headers.get('x-forwarded-proto')
-  const scheme = binding.tls ? 'https' : 'http'
-  if (match.host.trustForwardedProto && incomingProto) {
-    headers.set('X-Forwarded-Proto', incomingProto.split(',')[0]!.trim())
+  // Client-facing scheme: TLS binding, Force SSL intent, or trusted CDN header.
+  // Prefer inbound X-Forwarded-Proto=https so Cloudflare Flexible / Synology
+  // TLS termination does not look like plain HTTP to the upstream (redirect loops).
+  const incomingProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase()
+  const bindingScheme = binding.tls ? 'https' : 'http'
+  let forwardedProto = bindingScheme
+  if (match.host.sslForced) {
+    forwardedProto = 'https'
   }
-  else {
-    headers.set('X-Forwarded-Proto', scheme)
+  else if (incomingProto === 'https') {
+    forwardedProto = 'https'
   }
+  else if (match.host.trustForwardedProto && incomingProto) {
+    forwardedProto = incomingProto
+  }
+  headers.set('X-Forwarded-Proto', forwardedProto)
 
   if (match.host.allowWebsocketUpgrade) {
     const upgrade = req.headers.get('upgrade')
@@ -126,8 +134,17 @@ export async function forwardHttpRequest(
   }
 }
 
-export function forceSslRedirect(reqUrl: URL, host: ProxyHost): Response | null {
+/**
+ * HTTP → HTTPS redirect when Force SSL is on.
+ * Skip when a front proxy already terminated TLS (X-Forwarded-Proto: https),
+ * otherwise Cloudflare Flexible / Synology RP loops: https→origin:80→301→https…
+ */
+export function forceSslRedirect(req: Request, reqUrl: URL, host: ProxyHost): Response | null {
   if (!host.sslForced || !host.certificateName) {
+    return null
+  }
+  const incomingProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase()
+  if (incomingProto === 'https') {
     return null
   }
   const location = `https://${reqUrl.host}${reqUrl.pathname}${reqUrl.search}`
