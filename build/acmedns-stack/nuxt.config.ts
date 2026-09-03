@@ -33,6 +33,7 @@ export default defineNuxtConfig({
     './plugins/txt-ttl',
     './plugins/client',
     './plugins/dns01-lab',
+    './plugins/proxy',
   ],
   nitro: {
     preset: 'bun',
