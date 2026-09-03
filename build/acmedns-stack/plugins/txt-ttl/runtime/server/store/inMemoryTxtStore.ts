@@ -36,7 +36,7 @@ export class InMemoryTxtStore {
     return slots
   }
 
-  private purgeExpired(slots: TxtSlot[], now: number) {
+  private purgeExpiredSlots(slots: TxtSlot[], now: number) {
     for (const slot of slots) {
       if (slot.value && slot.expiresAt <= now) {
         slot.value = ''
@@ -71,7 +71,7 @@ export class InMemoryTxtStore {
   update(subdomain: string, txt: string): void {
     const now = this.now()
     const slots = this.slotsFor(subdomain)
-    this.purgeExpired(slots, now)
+    this.purgeExpiredSlots(slots, now)
     const index = this.pickSlotIndex(slots, now)
     slots[index] = { value: txt, expiresAt: now + this.ttlMs }
   }
