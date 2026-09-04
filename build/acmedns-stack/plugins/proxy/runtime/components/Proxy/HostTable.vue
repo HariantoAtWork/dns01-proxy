@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ProxyHost } from '#proxy-shared/types/proxyHost'
-import { forwardTarget } from '#proxy-shared/utils/proxyHost'
+import { forwardTarget, isWildcardDomainName } from '#proxy-shared/utils/proxyHost'
 import {
   PhPencilSimple as Pencil,
   PhTrash as Trash,
@@ -44,6 +44,22 @@ function statusClass(host: ProxyHost): string {
   }
   return health.online ? 'text-signal' : 'text-danger'
 }
+
+/** Public URL for an exact domain; wildcards stay plain text. */
+function domainHref(host: ProxyHost, name: string): string | null {
+  if (isWildcardDomainName(name)) {
+    return null
+  }
+  const scheme = host.certificateName ? 'https' : 'http'
+  return `${scheme}://${name}`
+}
+
+function domainEntries(host: ProxyHost) {
+  return host.domainNames.map(name => ({
+    name,
+    href: domainHref(host, name),
+  }))
+}
 </script>
 
 <template>
@@ -67,11 +83,22 @@ function statusClass(host: ProxyHost): string {
         >
           <td class="px-3 py-2 font-medium text-ink">
             <div class="flex flex-col gap-0.5">
-              <span
-                v-for="name in host.domainNames"
-                :key="name"
-                class="font-mono text-sm"
-              >{{ name }}</span>
+              <template
+                v-for="entry in domainEntries(host)"
+                :key="entry.name"
+              >
+                <a
+                  v-if="entry.href"
+                  :href="entry.href"
+                  class="font-mono text-sm text-signal underline-offset-2 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >{{ entry.name }}</a>
+                <span
+                  v-else
+                  class="font-mono text-sm"
+                >{{ entry.name }}</span>
+              </template>
               <span
                 v-if="!host.enabled"
                 class="text-xs text-muted"
