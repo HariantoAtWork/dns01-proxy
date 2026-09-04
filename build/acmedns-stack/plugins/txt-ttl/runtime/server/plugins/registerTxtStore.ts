@@ -1,7 +1,8 @@
 import { ensureTxtStoreReady, requireTxtStore } from '../../../../../server/utils/txtStoreRegistry'
 import { resolveTxtTtlSeconds } from '../../shared/txtTtlConstants'
 
-const PURGE_INTERVAL_MS = 3_600_000
+/** Sweep often enough that a short TTL does not leave stale slots in memory for long. */
+const PURGE_INTERVAL_MS = 60_000
 
 export default defineNitroPlugin(() => {
   ensureTxtStoreReady()
@@ -15,5 +16,5 @@ export default defineNitroPlugin(() => {
 
   interval.unref?.()
 
-  console.info(`[txt-ttl] plugin loaded (TTL ${resolveTxtTtlSeconds()}s, hourly purge)`)
+  console.info(`[txt-ttl] plugin loaded (TTL ${resolveTxtTtlSeconds()}s, purge every ${PURGE_INTERVAL_MS / 1000}s)`)
 })

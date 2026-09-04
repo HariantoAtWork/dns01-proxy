@@ -4,8 +4,7 @@ import { challengeHost } from '#shared/utils/challengeDns'
 import { tinyApexLabel } from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { ACME_REQUEST_STEPS } from '#shared/utils/acmeIssueSteps'
-import { isDns01ClearTxtEnabled } from '../../../../../plugins/txt-ttl/runtime/shared/txtTtlConstants'
-import { resolveAcmeDnsBase, clearAcmeDnsTxt, updateAcmeDnsTxt } from './acmedns'
+import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
 import { appendCertActivity } from './certActivity'
 import { acmeTxtSettleMs, waitForChallengeTxtOnline } from './challengeTxtOnline'
 import { logAcmeStep } from './acmeLogger'
@@ -151,31 +150,6 @@ export function resolveDns01PublishTarget(options: {
     txt: options.keyAuthorization,
     certName: options.certName,
     domain,
-  }
-}
-
-export async function clearDns01ChallengeTxt(
-  target: Dns01PublishTarget,
-  activitySource: CertActivitySource = 'acme',
-) {
-  if (!isDns01ClearTxtEnabled()) {
-    return
-  }
-
-  const cleared = await clearAcmeDnsTxt({
-    serverUrl: target.serverUrl,
-    username: target.username,
-    password: target.password,
-    subdomain: target.subdomain,
-    txt: target.txt,
-  })
-
-  if (cleared > 0) {
-    logDns01Step(
-      target.certName,
-      `dns-01 ${target.domain}: cleared TXT from acme-dns (${cleared} slot)`,
-      activitySource,
-    )
   }
 }
 
