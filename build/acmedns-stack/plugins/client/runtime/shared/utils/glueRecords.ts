@@ -20,17 +20,27 @@ function normalizeAddresses(input: AuthZoneGlueAddresses | string): AuthZoneGlue
   }
 }
 
-/** Auth-zone glue: apex A (+ optional AAAA) + NS. */
+/** Normalise SOA RNAME (hostmaster@zone → hostmaster.zone). */
+export function normalizeSoaRname(nsadmin: string, fallbackZone: string) {
+  const raw = nsadmin.trim() || `hostmaster@${fallbackZone}`
+  return normalizeZoneFqdn(raw.replace('@', '.'))
+}
+
+/** Auth-zone glue: apex A (+ optional AAAA) + NS + SOA (SOA is also synthesised at query time). */
 export function authZoneGlueRecords(
   domain: string,
   addresses: AuthZoneGlueAddresses | string,
   nsname?: string,
+  nsadmin?: string,
 ) {
   const fqdn = normalizeZoneFqdn(domain)
   const ns = normalizeZoneFqdn(nsname || domain)
+  const rname = normalizeSoaRname(nsadmin || '', fqdn)
   const resolved = normalizeAddresses(addresses)
   const lines: string[] = []
 
+  // Serial/timers match dns/server.ts soaRecord(); live answers still use a date-based serial.
+  lines.push(`${fqdn}. SOA ${ns}. ${rname}. 1 28800 7200 604800 86400`)
   if (resolved.ipv4) {
     lines.push(`${fqdn}. A ${resolved.ipv4}`)
   }
@@ -59,13 +69,16 @@ export function glueRecordsMatchDomain(
   domain: string,
   nsname?: string,
   addresses: AuthZoneGlueAddresses = {},
+  nsadmin?: string,
 ) {
   const fqdn = normalizeZoneFqdn(domain)
   const ns = normalizeZoneFqdn(nsname || domain)
+  const rname = normalizeSoaRname(nsadmin || '', fqdn)
   const want = normalizeAddresses(addresses)
   let hasA = !want.ipv4
   let hasAaaa = !want.ipv6
   let hasNs = false
+  let hasSoa = false
 
   for (const raw of records) {
     const parsed = parseRecordLine(raw)
@@ -81,9 +94,17 @@ export function glueRecordsMatchDomain(
     if (parsed.type === 'NS' && parsed.name === ns && parsed.value === ns) {
       hasNs = true
     }
+    if (parsed.type === 'SOA' && parsed.name === fqdn) {
+      const soaParts = parsed.value.split(/\s+/)
+      const primary = normalizeZoneFqdn(soaParts[0] || '')
+      const admin = normalizeZoneFqdn(soaParts[1] || '')
+      if (primary === ns && admin === rname) {
+        hasSoa = true
+      }
+    }
   }
 
-  return hasA && hasAaaa && hasNs
+  return hasA && hasAaaa && hasNs && hasSoa
 }
 
 export function recordsUsePlaceholderIp(records: string[]) {
@@ -100,15 +121,21 @@ export function recordsEqual(left: string[], right: string[]) {
   return left.every((line, index) => line.trim() === right[index]!.trim())
 }
 
-export function formatGlueRecordLog(domain: string, addresses: AuthZoneGlueAddresses | string) {
+export function formatGlueRecordLog(
+  domain: string,
+  addresses: AuthZoneGlueAddresses | string,
+  nsadmin?: string,
+) {
   const fqdn = normalizeZoneFqdn(domain)
+  const rname = normalizeSoaRname(nsadmin || '', fqdn)
   const resolved = normalizeAddresses(addresses)
-  const parts = [`${fqdn}. NS ${fqdn}.`]
+  const parts = [`${fqdn}. SOA ${fqdn}. ${rname}.`]
   if (resolved.ipv4) {
-    parts.unshift(`${fqdn}. A ${resolved.ipv4}.`)
+    parts.push(`${fqdn}. A ${resolved.ipv4}.`)
   }
   if (resolved.ipv6) {
-    parts.splice(resolved.ipv4 ? 1 : 0, 0, `${fqdn}. AAAA ${resolved.ipv6}.`)
+    parts.push(`${fqdn}. AAAA ${resolved.ipv6}.`)
   }
+  parts.push(`${fqdn}. NS ${fqdn}.`)
   return parts.join(' ; ')
 }

@@ -159,7 +159,7 @@ const zoneText = computed(() => zoneRecords.value.map(row => row.line).join('\n'
               <Copy :size="14" weight="regular" aria-hidden="true" />
               Copy all
             </UiButton>
-            <span class="text-xs text-muted">Stored in config.cfg and served by DNS</span>
+            <span class="text-xs text-muted">Stored in config.cfg — A/NS/AAAA served from records; SOA synthesised for the zone apex</span>
           </div>
         </template>
         <p v-else-if="domain" class="text-muted">Need a public IP to set glue for {{ domain }}.</p>

@@ -49,7 +49,13 @@ function shouldRefreshGlueRecords(
   if (recordsUsePlaceholderIp(records)) {
     return true
   }
-  if (!glueRecordsMatchDomain(records, config.general.domain, config.general.nsname, addresses)) {
+  if (!glueRecordsMatchDomain(
+    records,
+    config.general.domain,
+    config.general.nsname,
+    addresses,
+    config.general.nsadmin,
+  )) {
     return true
   }
 
@@ -57,13 +63,14 @@ function shouldRefreshGlueRecords(
     config.general.domain,
     addresses,
     config.general.nsname,
+    config.general.nsadmin,
   )
   return !recordsEqual(records, expected)
 }
 
 /**
- * In shared (tiny) mode, set auth-zone glue A (+ AAAA when available) + NS.
- * Persists to config.cfg when records change.
+ * In shared (tiny) mode, set auth-zone glue A (+ AAAA when available) + NS + SOA.
+ * Persists to config.cfg when records change. Live SOA answers are still synthesised.
  */
 export async function ensureSharedModeGlueRecords(config: AcmeDnsConfig): Promise<boolean> {
   if (!config.api.shared_mode) {
@@ -87,6 +94,7 @@ export async function ensureSharedModeGlueRecords(config: AcmeDnsConfig): Promis
     config.general.domain,
     addresses,
     config.general.nsname,
+    config.general.nsadmin,
   )
 
   if (recordsEqual(config.general.records, next)) {
@@ -96,6 +104,12 @@ export async function ensureSharedModeGlueRecords(config: AcmeDnsConfig): Promis
   config.general.records = next
   await writeAcmeConfigFile(config)
 
-  console.info(`[acmedns] shared mode glue records → ${formatGlueRecordLog(config.general.domain, addresses)}`)
+  console.info(
+    `[acmedns] shared mode glue records → ${formatGlueRecordLog(
+      config.general.domain,
+      addresses,
+      config.general.nsadmin,
+    )}`,
+  )
   return true
 }
