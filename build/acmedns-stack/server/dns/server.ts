@@ -95,6 +95,9 @@ function parseStaticRecords(records: string[]): StaticRecords {
     else if (type === 'CNAME') {
       pushMap(out.cname, name, fqdn(value))
     }
+    else if (type === 'SOA') {
+      // Tiny-mode glue lists SOA for operators; answers are synthesised in-handler.
+    }
     else {
       console.warn(`[acmedns] unsupported static RR type in config: ${raw}`)
     }
