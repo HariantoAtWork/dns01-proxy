@@ -8,7 +8,7 @@ protocol = "both"
 domain = "${AUTH_DOMAIN}"
 nsname = "${AUTH_DOMAIN}"
 nsadmin = "${NSADMIN}"
-# Glue A (+ AAAA when IPv6 is detected) + NS are filled at boot from public addresses.
+# Glue A (+ AAAA when IPv6 is detected) + NS + SOA are filled at boot from public addresses.
 # Override with ACMEDNS_PUBLIC_IP / ACMEDNS_PUBLIC_IPV6 when auto-detect is wrong.
 records = []
 debug = false
