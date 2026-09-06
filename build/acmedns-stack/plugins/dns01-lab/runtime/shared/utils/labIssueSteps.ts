@@ -60,7 +60,7 @@ export function labRequestDomain(label: string): string | undefined {
     'FAKE LE validate ',
   ]) {
     if (label.startsWith(prefix)) {
-      const domain = label.slice(prefix.length).trim()
+      const domain = label.slice(prefix.length).trim().replace(/\s*\(\d+s\)\s*$/i, '').trim()
       return domain || undefined
     }
   }
@@ -118,7 +118,19 @@ export function advanceLabRequestPlan(
 
   const runningIdx = next.findIndex(item => item.status === 'running')
   if (runningIdx >= 0) {
-    next[runningIdx] = { ...next[runningIdx]!, status: 'done' }
+    const running = next[runningIdx]!
+    const runningDomain = labRequestDomain(running.label)
+    if (
+      running.step === stepIndex
+      && (
+        (!domain && !runningDomain)
+        || (Boolean(domain) && domain === runningDomain)
+      )
+    ) {
+      next[runningIdx] = { ...running, label }
+      return next
+    }
+    next[runningIdx] = { ...running, status: 'done' }
   }
 
   if (isChallengeStep(stepIndex) && domain) {

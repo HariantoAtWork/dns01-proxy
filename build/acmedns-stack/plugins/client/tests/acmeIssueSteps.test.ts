@@ -155,6 +155,29 @@ describe('acmeIssueSteps', () => {
     })
   })
 
+  test('updates DNS settle countdown label in place without duplicating steps', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
+    plan = seedAcmeChallengePlan(plan, 'sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_SETTLE, 'DNS settle sylo.space (5s)')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_SETTLE, 'DNS settle sylo.space (0s)')
+
+    const settleRows = plan.filter(item => item.step === ACME_REQUEST_STEPS.DNS_SETTLE)
+    expect(settleRows).toHaveLength(1)
+    expect(settleRows[0]).toMatchObject({
+      label: 'DNS settle sylo.space (0s)',
+      status: 'running',
+    })
+    expect(currentAcmeRequestProgress(plan)).toEqual({
+      index: 5,
+      total: 6,
+      label: 'DNS settle 0s',
+    })
+  })
+
   test('labels each step', () => {
     expect(acmeRequestStepLabel(ACME_REQUEST_STEPS.DNS_PREFLIGHT)).toBe('DNS preflight')
     expect(acmeRequestStepLabel(ACME_REQUEST_STEPS.DNS_SETTLE)).toBe('DNS settle')
