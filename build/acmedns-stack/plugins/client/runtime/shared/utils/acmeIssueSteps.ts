@@ -66,7 +66,7 @@ function newAcmeRequestItem(
 export function acmeRequestDomain(label: string): string | undefined {
   for (const prefix of ['Publish TXT ', 'TXT online ', 'DNS settle ', 'LE validate ']) {
     if (label.startsWith(prefix)) {
-      const domain = label.slice(prefix.length).trim().replace(/\s*\(\d+s\)\s*$/i, '').trim()
+      const domain = label.slice(prefix.length).trim().replace(/\s*\([^)]*\)\s*$/, '').trim()
       return domain || undefined
     }
   }
@@ -216,12 +216,12 @@ export function currentAcmeRequestProgress(
   const runningIdx = requests.findIndex(item => item.status === 'running')
   if (runningIdx >= 0) {
     const running = requests[runningIdx]!
-    const countdown = running.label.match(/\((\d+s)\)$/i)?.[1]
+    const detail = running.label.match(/\(([^)]+)\)$/)?.[1]
     const base = acmeRequestStepLabel(running.step)
     return {
       index: runningIdx + 1,
       total,
-      label: countdown ? `${base} ${countdown}` : base,
+      label: detail ? `${base} ${detail}` : base,
     }
   }
 

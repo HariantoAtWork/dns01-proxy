@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   ACME_REQUEST_STEP_TOTAL,
   ACME_REQUEST_STEPS,
+  acmeRequestDomain,
   acmeRequestStepLabel,
   acmeRequestStepProgress,
   advanceAcmeRequestPlan,
@@ -175,6 +176,30 @@ describe('acmeIssueSteps', () => {
       index: 5,
       total: 6,
       label: 'DNS settle 0s',
+    })
+  })
+
+  test('updates TXT online attempt countdown label in place without duplicating steps', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
+    plan = seedAcmeChallengePlan(plan, 'sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space (attempt 1 · timeout 180s)')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space (attempt 2 · 5s · timeout 175s)')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space (attempt 2 · 0s · timeout 170s)')
+
+    const onlineRows = plan.filter(item => item.step === ACME_REQUEST_STEPS.TXT_ONLINE)
+    expect(onlineRows).toHaveLength(1)
+    expect(onlineRows[0]).toMatchObject({
+      label: 'TXT online sylo.space (attempt 2 · 0s · timeout 170s)',
+      status: 'running',
+    })
+    expect(acmeRequestDomain('TXT online sylo.space (attempt 2 · 0s · timeout 170s)')).toBe('sylo.space')
+    expect(currentAcmeRequestProgress(plan)).toEqual({
+      index: 4,
+      total: 6,
+      label: 'TXT online attempt 2 · 0s · timeout 170s',
     })
   })
 
