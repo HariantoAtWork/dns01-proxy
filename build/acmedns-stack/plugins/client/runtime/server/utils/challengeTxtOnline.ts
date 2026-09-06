@@ -194,23 +194,42 @@ function logDns01Probe(
   })
 }
 
+export type ChallengeTxtOnlineProgress = {
+  /** 1-based attempt about to run (probe) or next attempt after the wait. */
+  attempt: number
+  phase: 'probe' | 'wait'
+  /** Milliseconds until the next probe when `phase` is `wait`. */
+  nextRetryInMs?: number
+  /** Milliseconds left before the TXT online poll timeout. */
+  timeoutRemainingMs: number
+}
+
 export async function waitForChallengeTxtOnline(options: {
   challengeName: string
   expectedTxt: string
   certName: string
   signal?: AbortSignal
   activitySource?: CertActivitySource
+  onProgress?: (progress: ChallengeTxtOnlineProgress) => void
 }): Promise<void> {
   const activitySource = options.activitySource ?? 'acme'
   const timeoutMs = challengeTxtPollTimeoutMs()
   const intervalMs = challengeTxtPollIntervalMs()
   const started = Date.now()
+  const deadline = started + timeoutMs
   let attempts = 0
   let lastProbeSignature = ''
 
-  while (Date.now() - started < timeoutMs) {
+  const timeoutRemainingMs = () => Math.max(0, deadline - Date.now())
+
+  while (Date.now() < deadline) {
     throwIfAborted(options.signal)
     attempts += 1
+    options.onProgress?.({
+      attempt: attempts,
+      phase: 'probe',
+      timeoutRemainingMs: timeoutRemainingMs(),
+    })
 
     const probe = await probeChallengeTxtOnline(options.challengeName, options.expectedTxt)
     const probeSignature = probe.hops
@@ -244,7 +263,22 @@ export async function waitForChallengeTxtOnline(options: {
       lastProbeSignature = probeSignature
     }
 
-    await sleepMs(intervalMs, options.signal)
+    const waitEndsAt = Math.min(Date.now() + intervalMs, deadline)
+    const nextAttempt = attempts + 1
+    while (true) {
+      throwIfAborted(options.signal)
+      const remainingMs = waitEndsAt - Date.now()
+      options.onProgress?.({
+        attempt: nextAttempt,
+        phase: 'wait',
+        nextRetryInMs: Math.max(0, remainingMs),
+        timeoutRemainingMs: timeoutRemainingMs(),
+      })
+      if (remainingMs <= 0) {
+        break
+      }
+      await sleepMs(Math.min(1000, remainingMs), options.signal)
+    }
   }
 
   throw new Error(

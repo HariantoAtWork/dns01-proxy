@@ -198,8 +198,6 @@ export async function runDns01Challenge(options: {
 
   throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
 
-  options.reportStep(ACME_REQUEST_STEPS.TXT_ONLINE, `TXT online ${domain}`)
-
   const challengeName = challengeHost(apexName(domain))
   await waitForChallengeTxtOnline({
     challengeName,
@@ -207,6 +205,21 @@ export async function runDns01Challenge(options: {
     certName: options.certName,
     signal: options.signal,
     activitySource,
+    onProgress: ({ attempt, phase, nextRetryInMs, timeoutRemainingMs }) => {
+      const timeoutSeconds = Math.max(0, Math.ceil(timeoutRemainingMs / 1000))
+      if (phase === 'wait') {
+        const nextSeconds = Math.max(0, Math.ceil((nextRetryInMs ?? 0) / 1000))
+        options.reportStep(
+          ACME_REQUEST_STEPS.TXT_ONLINE,
+          `TXT online ${domain} (attempt ${attempt} · ${nextSeconds}s · timeout ${timeoutSeconds}s)`,
+        )
+        return
+      }
+      options.reportStep(
+        ACME_REQUEST_STEPS.TXT_ONLINE,
+        `TXT online ${domain} (attempt ${attempt} · timeout ${timeoutSeconds}s)`,
+      )
+    },
   })
 
   const settleMs = acmeTxtSettleMs()

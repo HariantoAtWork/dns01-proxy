@@ -60,7 +60,7 @@ export function labRequestDomain(label: string): string | undefined {
     'FAKE LE validate ',
   ]) {
     if (label.startsWith(prefix)) {
-      const domain = label.slice(prefix.length).trim().replace(/\s*\(\d+s\)\s*$/i, '').trim()
+      const domain = label.slice(prefix.length).trim().replace(/\s*\([^)]*\)\s*$/, '').trim()
       return domain || undefined
     }
   }
