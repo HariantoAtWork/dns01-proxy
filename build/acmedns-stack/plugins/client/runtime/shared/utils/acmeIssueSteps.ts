@@ -66,7 +66,7 @@ function newAcmeRequestItem(
 export function acmeRequestDomain(label: string): string | undefined {
   for (const prefix of ['Publish TXT ', 'TXT online ', 'DNS settle ', 'LE validate ']) {
     if (label.startsWith(prefix)) {
-      const domain = label.slice(prefix.length).trim()
+      const domain = label.slice(prefix.length).trim().replace(/\s*\(\d+s\)\s*$/i, '').trim()
       return domain || undefined
     }
   }
@@ -122,7 +122,20 @@ export function advanceAcmeRequestPlan(
 
   const runningIdx = next.findIndex(item => item.status === 'running')
   if (runningIdx >= 0) {
-    next[runningIdx] = { ...next[runningIdx]!, status: 'done' }
+    const running = next[runningIdx]!
+    const runningDomain = acmeRequestDomain(running.label)
+    // Same step (e.g. DNS settle countdown ticks) — refresh label in place.
+    if (
+      running.step === stepIndex
+      && (
+        (!domain && !runningDomain)
+        || (Boolean(domain) && domain === runningDomain)
+      )
+    ) {
+      next[runningIdx] = { ...running, label }
+      return next
+    }
+    next[runningIdx] = { ...running, status: 'done' }
   }
 
   if (isChallengeStep(stepIndex) && domain) {
@@ -203,10 +216,12 @@ export function currentAcmeRequestProgress(
   const runningIdx = requests.findIndex(item => item.status === 'running')
   if (runningIdx >= 0) {
     const running = requests[runningIdx]!
+    const countdown = running.label.match(/\((\d+s)\)$/i)?.[1]
+    const base = acmeRequestStepLabel(running.step)
     return {
       index: runningIdx + 1,
       total,
-      label: acmeRequestStepLabel(running.step),
+      label: countdown ? `${base} ${countdown}` : base,
     }
   }
 

@@ -211,15 +211,27 @@ export async function runDns01Challenge(options: {
 
   const settleMs = acmeTxtSettleMs()
   if (settleMs > 0) {
-    const settleSeconds = Math.max(1, Math.round(settleMs / 1000))
-    options.reportStep(ACME_REQUEST_STEPS.DNS_SETTLE, `DNS settle ${domain}`)
+    const settleSeconds = Math.max(1, Math.ceil(settleMs / 1000))
     if (activitySource !== 'lab') {
       logAcmeStep(
         options.certName,
         `dns-01 TXT visible for ${domain}; waiting ${settleSeconds}s before LE validate`,
       )
     }
-    await abortableDelay(settleMs, options.signal)
+    const endsAt = Date.now() + settleMs
+    while (true) {
+      throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
+      const remainingMs = endsAt - Date.now()
+      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
+      options.reportStep(
+        ACME_REQUEST_STEPS.DNS_SETTLE,
+        `DNS settle ${domain} (${remainingSeconds}s)`,
+      )
+      if (remainingMs <= 0) {
+        break
+      }
+      await abortableDelay(Math.min(1000, remainingMs), options.signal)
+    }
   }
 
   const validateLabel = options.validateStepLabel?.(domain) ?? `LE validate ${domain}`
