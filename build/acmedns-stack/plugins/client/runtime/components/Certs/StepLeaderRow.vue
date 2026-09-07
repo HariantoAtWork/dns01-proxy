@@ -8,7 +8,7 @@ const { label, status, statusClass } = defineProps<{
 
 <template>
   <div class="flex min-w-0 items-baseline gap-2">
-    <span class="shrink-0" :class="statusClass">
+    <span class="min-w-0 break-all" :class="statusClass">
       {{ label }}
     </span>
     <span

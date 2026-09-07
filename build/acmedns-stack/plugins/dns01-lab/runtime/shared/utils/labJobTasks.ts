@@ -1,6 +1,8 @@
-import type { AcmeRequestItem, CertJobTask } from '../../../../client/runtime/shared/types/certs'
+import type { CertJobTask } from '../../../../client/runtime/shared/types/certs'
+import type { AcmeOrderToken } from '../../../../client/runtime/shared/utils/acmeIssueSteps'
 import {
   advanceLabRequestPlan,
+  applyLabOrderTokens,
   closeLabRequestPlan,
   createLabRequestPlan,
   finishLabRequestPlan,
@@ -84,6 +86,7 @@ export function trackLabJobTaskRequest(
   stepIndex: number,
   stepLabel?: string,
   seedAltNames?: string[],
+  orderTokens?: AcmeOrderToken[],
 ): CertJobTask[] {
   const idx = findTaskIndex(tasks, certName)
   if (idx < 0) {
@@ -94,11 +97,21 @@ export function trackLabJobTaskRequest(
   const task = next[idx]!
   const base = task.requests?.length ? task.requests : createLabRequestPlan()
   let requests = base
-  if (stepIndex === LAB_REQUEST_STEPS.ACME_ORDER) {
-    requests = seedLabChallengePlan(requests, certName, seedAltNames)
+
+  if (stepIndex === LAB_REQUEST_STEPS.ACME_ORDER && orderTokens?.length) {
+    requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
+    requests = applyLabOrderTokens(requests, certName, orderTokens)
   }
-  requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
-  requests = sortLabRequestItems(requests, certName)
+  else if (stepIndex === LAB_REQUEST_STEPS.ACME_ORDER) {
+    requests = seedLabChallengePlan(requests, certName, seedAltNames)
+    requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
+    requests = sortLabRequestItems(requests, certName)
+  }
+  else {
+    requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
+    requests = sortLabRequestItems(requests, certName)
+  }
+
   next[idx] = {
     ...task,
     requests,

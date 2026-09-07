@@ -32,12 +32,43 @@ describe('certJobTasks', () => {
       tasks,
       'a.test',
       ACME_REQUEST_STEPS.PUBLISH_TXT,
-      'Publish TXT',
+      'Publish TXT a.test',
     )
 
     const running = runningCertJobTask(tasks)
     expect(running?.requests?.find(item => item.step === ACME_REQUEST_STEPS.PUBLISH_TXT)?.status)
       .toBe('running')
+  })
+
+  test('trackCertJobTaskRequest lists order tokens then pending Publish TXT rows', () => {
+    let tasks = createCertJobTaskPlan(['mdstn.com'])
+    tasks = startCertJobTask(tasks, 'mdstn.com')
+    tasks = trackCertJobTaskRequest(
+      tasks,
+      'mdstn.com',
+      ACME_REQUEST_STEPS.ACME_ORDER,
+      'ACME order',
+      [
+        { domain: 'mdstn.com', token: 'tok-apex' },
+        { domain: 'www.mdstn.com', token: 'tok-www' },
+      ],
+    )
+
+    const labels = runningCertJobTask(tasks)?.requests?.map(item => item.label)
+    expect(labels).toEqual([
+      'DNS preflight',
+      'ACME order',
+      'mdstn.com → tok-apex',
+      'www.mdstn.com → tok-www',
+      'Publish TXT mdstn.com',
+      'TXT online mdstn.com',
+      'DNS settle mdstn.com',
+      'LE validate mdstn.com',
+      'Publish TXT www.mdstn.com',
+      'TXT online www.mdstn.com',
+      'DNS settle www.mdstn.com',
+      'LE validate www.mdstn.com',
+    ])
   })
 
   test('finishCertJobTask completes nested requests', () => {

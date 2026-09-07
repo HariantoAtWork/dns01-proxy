@@ -256,7 +256,12 @@ export async function executeApplyCertificates(options: {
         certName: line.certName,
         altNames: line.expanded,
         signal: certIssueSignal(options.abortSignal),
-        onRequestStep: ({ index, label }) => trackRunningJobRequest(index, label),
+        onRequestStep: ({ index, label, orderTokens }) => trackRunningJobRequest(
+          index,
+          label,
+          undefined,
+          orderTokens,
+        ),
       })
       completeRunningJobRequests()
       const after = await readCertMeta(options.mode, line.certName)
