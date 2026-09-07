@@ -11,7 +11,7 @@ useHead({ title: 'Proxy Hosts' })
 const toasts = useToasts()
 const {
   hosts,
-  certNames,
+  certEntries,
   healthById,
   pending,
   error,
@@ -205,6 +205,7 @@ onMounted(() => {
       v-else
       :hosts
       :health-by-id="healthById"
+      :cert-entries="certEntries"
       @edit="openEdit"
       @remove="askDelete"
       @export="onExport"
@@ -213,7 +214,7 @@ onMounted(() => {
     <ProxyHostModal
       ref="modal"
       v-model:open="modalOpen"
-      :cert-names
+      :cert-entries="certEntries"
       :saving
       @save="onSave"
     />

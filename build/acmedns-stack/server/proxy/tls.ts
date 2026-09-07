@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import type { ListenTlsOptions } from '../utils/listen'
 import { resolveTlsMaterial } from '../utils/listen'
+import { pickBestCertificateForDomain } from '../../plugins/proxy/runtime/shared/utils/proxyCertMatch'
+import { listLiveCertCandidatesSync } from './liveCerts'
 import { listEnabledProxyHosts, resolveCertPemPaths } from './routeTable'
 
 export interface BunTlsEntry {
@@ -21,11 +23,26 @@ export function loadDefaultTlsEntry(): BunTlsEntry | null {
   }
 }
 
+function readPemPair(certificateName: string): { cert: string, key: string } | null {
+  const paths = resolveCertPemPaths(certificateName)
+  if (!paths) {
+    return null
+  }
+  try {
+    return {
+      cert: readFileSync(paths.certPath, 'utf8'),
+      key: readFileSync(paths.keyPath, 'utf8'),
+    }
+  }
+  catch (error) {
+    console.warn(`[proxy] cannot read PEMs for ${certificateName}:`, error)
+    return null
+  }
+}
+
 /**
- * Build Bun `tls` option for edge HTTPS: one entry per proxy domain with a
- * readable certificateName PEM, plus the default auth cert.
- * Wildcard domains (`*.example.com`) are registered as SNI names as-is; the
- * certificate SANs should include that wildcard.
+ * Build Bun `tls` option for edge HTTPS: default auth cert plus one SNI entry
+ * per proxy domain, each bound to the best covering live/ certificate.
  */
 export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
   const entries: BunTlsEntry[] = []
@@ -36,23 +53,11 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
     entries.push(defaults)
   }
 
+  const liveCerts = listLiveCertCandidatesSync()
+  const pemCache = new Map<string, { cert: string, key: string }>()
+
   for (const host of listEnabledProxyHosts()) {
     if (!host.certificateName) {
-      continue
-    }
-    const paths = resolveCertPemPaths(host.certificateName)
-    if (!paths) {
-      console.warn(`[proxy] PEMs missing for certificateName=${host.certificateName}`)
-      continue
-    }
-    let cert: string
-    let key: string
-    try {
-      cert = readFileSync(paths.certPath, 'utf8')
-      key = readFileSync(paths.keyPath, 'utf8')
-    }
-    catch (error) {
-      console.warn(`[proxy] cannot read PEMs for ${host.certificateName}:`, error)
       continue
     }
     for (const name of host.domainNames) {
@@ -60,8 +65,27 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
       if (!serverName || seen.has(serverName)) {
         continue
       }
+
+      const best = pickBestCertificateForDomain(liveCerts, serverName)
+      const certName = best?.certName
+      if (!certName) {
+        console.warn(`[proxy] no live cert covers SNI ${serverName} (host ${host.id})`)
+        continue
+      }
+
+      let pem = pemCache.get(certName)
+      if (!pem) {
+        const loaded = readPemPair(certName)
+        if (!loaded) {
+          console.warn(`[proxy] PEMs missing for live cert ${certName} (SNI ${serverName})`)
+          continue
+        }
+        pemCache.set(certName, loaded)
+        pem = loaded
+      }
+
       seen.add(serverName)
-      entries.push({ cert, key, serverName })
+      entries.push({ cert: pem.cert, key: pem.key, serverName })
     }
   }
 
@@ -74,21 +98,28 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
   return entries
 }
 
-/** Whether edge HTTPS should bind (default cert and/or any proxy host PEMs). */
+/** Whether edge HTTPS should bind (default cert and/or any SSL-enabled proxy host). */
 export function shouldBindEdgeHttps(): boolean {
   if (resolveTlsMaterial()) {
     return true
   }
   for (const host of listEnabledProxyHosts()) {
-    if (host.certificateName && resolveCertPemPaths(host.certificateName)) {
-      return true
+    if (!host.certificateName) {
+      continue
+    }
+    // SSL on — bind if at least one domain has a readable live cert.
+    const liveCerts = listLiveCertCandidatesSync()
+    for (const name of host.domainNames) {
+      const best = pickBestCertificateForDomain(liveCerts, name)
+      if (best && resolveCertPemPaths(best.certName)) {
+        return true
+      }
     }
   }
   return false
 }
 
 export function toListenTlsMaterial(entry: BunTlsEntry): ListenTlsOptions {
-  // Paths are not used when entry already has PEM bodies — entry.ts reads via buildEdgeTlsOptions.
   return {
     certPath: '',
     keyPath: '',
