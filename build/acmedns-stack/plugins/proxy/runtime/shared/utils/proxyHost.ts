@@ -1,3 +1,4 @@
+import { v7 as uuidv7 } from 'uuid'
 import type {
   ForwardScheme,
   ProxyHost,
@@ -147,7 +148,7 @@ function asLocation(raw: unknown): ProxyLocation | null {
 
 export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost {
   const row = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const id = String(row.id || idFallback || crypto.randomUUID())
+  const id = String(row.id || idFallback || uuidv7())
   const domainNames = normalizeDomainNames(
     Array.isArray(row.domainNames)
       ? row.domainNames.map(String)
