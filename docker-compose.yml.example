@@ -30,6 +30,9 @@ services:
       - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
       - CERTS_ACME_DISABLED=${CERTS_ACME_DISABLED:-false}
       - CERTS_RENEW_DISABLED=${CERTS_RENEW_DISABLED:-false}
+      # TXT online → wait before LE validate; store lifetime = settle + hold (both ms)
+      - ACME_TXT_SETTLE_MS=${ACME_TXT_SETTLE_MS:-5000}
+      - ACME_TXT_HOLD_MS=${ACME_TXT_HOLD_MS:-300000}
       # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
       - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}
       - ACMEDNS_SHARED_MODE=${ACMEDNS_SHARED_MODE:-}

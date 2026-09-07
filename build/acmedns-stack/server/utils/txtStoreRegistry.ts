@@ -23,7 +23,7 @@ export function ensureTxtStoreReady(): TxtStore {
   if (!store) {
     const ttlSeconds = resolveTxtTtlSeconds()
     store = new InMemoryTxtStore({ ttlSeconds })
-    console.info(`[txt-ttl] in-memory TXT store ready (TTL ${ttlSeconds}s)`)
+    console.info(`[txt-ttl] in-memory TXT store ready (lifetime ${ttlSeconds}s = settle + hold)`)
   }
   return store
 }
