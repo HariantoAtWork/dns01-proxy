@@ -50,7 +50,7 @@ function statusClass(host: ProxyHost): string {
   if (!health) {
     return 'text-muted'
   }
-  return health.online ? 'text-signal' : 'text-danger'
+  return health.online ? 'text-live' : 'text-danger'
 }
 
 function sslAvailability(host: ProxyHost) {
