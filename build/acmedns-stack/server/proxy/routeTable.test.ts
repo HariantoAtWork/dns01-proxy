@@ -137,12 +137,39 @@ describe('proxy forward headers', () => {
     const headers = buildForwardHeaders(req, match, binding)
     expect(headers.get('X-Forwarded-Proto')).toBe('https')
     expect(headers.get('Upgrade')).toBe('websocket')
+    expect(headers.get('Connection')).toBe('Upgrade')
 
     const httpBinding: ListenBinding = { ...binding, port: 80, tls: null }
     const cdnReq = new Request('http://app.example.com/', {
       headers: { host: 'app.example.com', 'x-forwarded-proto': 'https' },
     })
     expect(buildForwardHeaders(cdnReq, match, httpBinding).get('X-Forwarded-Proto')).toBe('https')
+  })
+
+  test('does not reattach Connection keep-alive on ordinary HTTP when WS is enabled', () => {
+    const match = {
+      host: host({
+        domainNames: ['app.example.com'],
+        forwardHost: '10.0.0.1',
+        allowWebsocketUpgrade: true,
+      }),
+      location: null,
+    }
+    const binding: ListenBinding = {
+      host: '0.0.0.0',
+      port: 80,
+      role: 'edge',
+      tls: null,
+    }
+    const req = new Request('http://app.example.com/', {
+      headers: {
+        host: 'app.example.com',
+        connection: 'keep-alive',
+      },
+    })
+    const headers = buildForwardHeaders(req, match, binding)
+    expect(headers.get('Connection')).toBeNull()
+    expect(headers.get('Upgrade')).toBeNull()
   })
 
   test('Force SSL skips redirect when X-Forwarded-Proto is already https', () => {
