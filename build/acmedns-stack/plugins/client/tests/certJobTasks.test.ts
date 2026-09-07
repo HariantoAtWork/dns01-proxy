@@ -81,6 +81,17 @@ describe('certJobTasks', () => {
     expect(tasks[0]?.requests?.every(item => item.status === 'done')).toBe(true)
   })
 
+  test('finishCertJobTask marks running request failed on cert failure', () => {
+    let tasks = createCertJobTaskPlan(['a.test'])
+    tasks = startCertJobTask(tasks, 'a.test')
+    tasks = trackCertJobTaskRequest(tasks, 'a.test', ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online a.test')
+    tasks = finishCertJobTask(tasks, 'a.test', 'failed', 'ACME timed out')
+
+    expect(tasks[0]?.status).toBe('failed')
+    const online = tasks[0]?.requests?.find(item => item.step === ACME_REQUEST_STEPS.TXT_ONLINE)
+    expect(online?.status).toBe('failed')
+  })
+
   test('completeCertJobTaskRequests marks all request steps done', () => {
     let tasks = createCertJobTaskPlan(['a.test'])
     tasks = startCertJobTask(tasks, 'a.test')

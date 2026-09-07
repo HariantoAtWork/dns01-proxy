@@ -244,10 +244,11 @@ export function advanceAcmeRequestPlan(
   return next
 }
 
+/** Mark any running ACME step failed (abort / timeout / hard fail mid-plan). */
 export function finishAcmeRequestPlan(requests: AcmeRequestItem[]): AcmeRequestItem[] {
   return requests.map((item) => {
     if (item.status === 'running') {
-      return { ...item, status: 'done' }
+      return { ...item, status: 'failed' }
     }
     return { ...item }
   })

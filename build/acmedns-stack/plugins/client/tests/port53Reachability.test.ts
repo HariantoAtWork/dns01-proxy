@@ -20,8 +20,8 @@ describe('port53ProbeFromLookup', () => {
     expect(probe.message).toContain('UDP')
   })
 
-  test('maps ok TCP lookup', () => {
-    const probe = port53ProbeFromLookup('ok', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP} (TCP)`, 'tcp')
+  test('maps ok TCP lookup after fallback', () => {
+    const probe = port53ProbeFromLookup('ok', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP}`, 'tcp')
     expect(probe.status).toBe('ok')
     expect(probe.message).toContain('TCP')
   })
@@ -47,21 +47,16 @@ describe('summarizePort53Reachability', () => {
     expect(result.summary).toBe('ok')
   })
 
-  test('reports ok when public TCP answers even if UDP self-check times out', () => {
+  test('reports ok when public probe answered via TCP fallback', () => {
     const result = summarizePort53Reachability({
       authZone,
-      local: port53ProbeFromLookup('ok', '127.0.0.1', 'this container (UDP)'),
-      localTcp: port53ProbeFromLookup('ok', '127.0.0.1', 'this container (TCP)', 'tcp'),
-      hostPublic: [
-        port53ProbeFromLookup('timeout', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP} (UDP)`),
-        port53ProbeFromLookup('ok', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP} (TCP)`, 'tcp'),
-      ],
+      local: port53ProbeFromLookup('ok', '127.0.0.1', 'this container'),
+      hostPublic: [port53ProbeFromLookup('ok', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP}`, 'tcp')],
       configured: [],
       delegation: null,
     })
 
     expect(result.summary).toBe('ok')
-    expect(result.hint).toContain('hairpin')
   })
 
   test('reports partial (not failed) when local DNS works but public self-check times out', () => {

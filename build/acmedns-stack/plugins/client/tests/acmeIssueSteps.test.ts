@@ -100,7 +100,7 @@ describe('acmeIssueSteps', () => {
     expect(plan[1]?.status).toBe('running')
 
     plan = finishAcmeRequestPlan(plan)
-    expect(plan[1]?.status).toBe('done')
+    expect(plan[1]?.status).toBe('failed')
   })
 
   test('appends per-domain challenge rounds', () => {

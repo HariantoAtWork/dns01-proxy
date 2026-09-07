@@ -19,9 +19,7 @@ export type Port53ReachabilitySummary = 'ok' | 'partial' | 'failed' | 'unknown'
 export interface Port53Reachability {
   authZone: string
   local: Port53Probe | null
-  /** Same as local, over TCP/53. */
-  localTcp?: Port53Probe | null
-  /** Echo-detected host public IP(s) — UDP and TCP probes (may hairpin from inside Docker). */
+  /** Echo-detected host public IP(s) — each probe is UDP then TCP fallback. */
   hostPublic: Port53Probe[]
   /** Glue A/AAAA and env-pinned addresses — informational only. */
   configured: Port53Probe[]
@@ -86,16 +84,14 @@ function allTimeouts(probes: Port53Probe[]) {
 export function summarizePort53Reachability(input: {
   authZone: string
   local: Port53Probe | null
-  localTcp?: Port53Probe | null
   hostPublic: Port53Probe[]
   configured: Port53Probe[]
   delegation: Port53DelegationCheck | null
 }): Port53Reachability {
-  const localTcp = input.localTcp ?? null
   const hostPublicOk = anyOk(input.hostPublic)
   const configuredOk = anyOk(input.configured)
   const delegationOk = input.delegation ? anyOk(input.delegation.probes) : false
-  const localOk = input.local?.status === 'ok' || localTcp?.status === 'ok'
+  const localOk = input.local?.status === 'ok'
   const hostPublicTimedOut = allTimeouts(input.hostPublic)
   const delegationTimedOut = Boolean(
     input.delegation?.probes.length && allTimeouts(input.delegation.probes),
@@ -104,12 +100,9 @@ export function summarizePort53Reachability(input: {
   let summary: Port53ReachabilitySummary = 'unknown'
   let hint: string | undefined
 
-  // Green when a public/self IP answers on UDP or TCP 53 for the auth zone.
+  // Green when a public/self IP answers on port 53 for the auth zone (UDP, or TCP after UDP timeout).
   if (hostPublicOk) {
     summary = 'ok'
-    if (input.hostPublic.some(p => p.status === 'timeout')) {
-      hint = 'At least one public-IP probe answered (UDP or TCP). Other self-checks may still time out inside Docker (hairpin).'
-    }
   }
   else if (configuredOk && !input.hostPublic.length) {
     summary = 'ok'
@@ -177,7 +170,6 @@ export function summarizePort53Reachability(input: {
   return {
     authZone: input.authZone,
     local: input.local,
-    localTcp,
     hostPublic: input.hostPublic,
     configured: input.configured,
     delegation: input.delegation,

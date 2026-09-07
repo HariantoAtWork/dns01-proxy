@@ -71,20 +71,31 @@ async function probeAuthZoneAt(
   serverAddress: string,
   authZone: string,
   label: string,
-  transport: 'udp' | 'tcp' = 'udp',
 ): Promise<Port53Probe> {
   const zone = normalizeZoneFqdn(authZone)
-  const query = transport === 'tcp' ? dnsTcpQuery : dnsUdpQuery
   let lastLookup: 'ok' | 'nxdomain' | 'nodata' | 'timeout' = 'timeout'
+  let transport: 'udp' | 'tcp' = 'udp'
 
   for (const type of AUTH_ZONE_TYPES) {
-    const outcome = await query(zone, type, serverAddress, PROBE_TIMEOUT_MS)
-    lastLookup = outcome.lookup
-    if (outcome.lookup === 'ok') {
-      return port53ProbeFromLookup('ok', serverAddress, label, transport)
+    const udp = await dnsUdpQuery(zone, type, serverAddress, PROBE_TIMEOUT_MS)
+    lastLookup = udp.lookup
+    if (udp.lookup === 'ok') {
+      return port53ProbeFromLookup('ok', serverAddress, label, 'udp')
     }
-    if (outcome.lookup === 'nxdomain') {
-      return port53ProbeFromLookup('nxdomain', serverAddress, label, transport)
+    if (udp.lookup === 'nxdomain') {
+      return port53ProbeFromLookup('nxdomain', serverAddress, label, 'udp')
+    }
+  }
+
+  transport = 'tcp'
+  for (const type of AUTH_ZONE_TYPES) {
+    const tcp = await dnsTcpQuery(zone, type, serverAddress, PROBE_TIMEOUT_MS)
+    lastLookup = tcp.lookup
+    if (tcp.lookup === 'ok') {
+      return port53ProbeFromLookup('ok', serverAddress, label, 'tcp')
+    }
+    if (tcp.lookup === 'nxdomain') {
+      return port53ProbeFromLookup('nxdomain', serverAddress, label, 'tcp')
     }
   }
 
@@ -180,25 +191,17 @@ export async function lookupPort53Reachability(options?: {
 
   const localTarget = localDnsTarget(config.general.listen)
 
-  const [local, localTcp, hostPublic, hostPublicTcp, configured, delegation] = await Promise.all([
-    probeAuthZoneAt(localTarget, authZone, 'this container (UDP)'),
-    probeAuthZoneAt(localTarget, authZone, 'this container (TCP)', 'tcp'),
-    Promise.all(hostPublicTargets.map(item => probeAuthZoneAt(item.address, authZone, `${item.label} (UDP)`))),
-    Promise.all(hostPublicTargets.map(item => probeAuthZoneAt(
-      item.address,
-      authZone,
-      `${item.label} (TCP)`,
-      'tcp',
-    ))),
-    Promise.all(configuredTargets.map(item => probeAuthZoneAt(item.address, authZone, `${item.label} (UDP)`))),
+  const [local, hostPublic, configured, delegation] = await Promise.all([
+    probeAuthZoneAt(localTarget, authZone, 'this container'),
+    Promise.all(hostPublicTargets.map(item => probeAuthZoneAt(item.address, authZone, item.label))),
+    Promise.all(configuredTargets.map(item => probeAuthZoneAt(item.address, authZone, item.label))),
     delegationCheck(authZone, hostIpSet),
   ])
 
   return summarizePort53Reachability({
     authZone,
     local,
-    localTcp,
-    hostPublic: [...hostPublic, ...hostPublicTcp],
+    hostPublic,
     configured,
     delegation,
   })
