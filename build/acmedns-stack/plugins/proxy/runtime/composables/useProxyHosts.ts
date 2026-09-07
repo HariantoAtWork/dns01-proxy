@@ -1,4 +1,5 @@
 import type { ProxyHost, ProxyHostInput } from '#proxy-shared/types/proxyHost'
+import type { ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
 
 export type ProxyHostHealth = {
   online: boolean
@@ -7,12 +8,54 @@ export type ProxyHostHealth = {
   target?: string
 }
 
+type CertStatusApiEntry = {
+  certName: string
+  sansOnDisk?: string[]
+  liveOnDisk?: boolean
+  notAfter?: string
+  status?: string
+  tree?: string
+}
+
+function uniqueSans(values: string[]): string[] {
+  return [...new Set(values.map(value => value.trim().toLowerCase().replace(/\.$/, '')).filter(Boolean))]
+}
+
+/**
+ * Only certificates with live PEMs and leaf SANs on disk participate in matching.
+ * domains.txt names/expanded are ignored — matching is from `/live/<name>/fullchain.pem`.
+ */
+function toCandidate(entry: CertStatusApiEntry): ProxyCertCandidate | null {
+  const certName = entry.certName?.trim()
+  if (!certName) {
+    return null
+  }
+  if (entry.liveOnDisk !== true) {
+    return null
+  }
+  const sans = uniqueSans(Array.isArray(entry.sansOnDisk) ? entry.sansOnDisk : [])
+  if (!sans.length) {
+    return null
+  }
+  return {
+    certName,
+    sans,
+    liveOnDisk: true,
+    notAfter: entry.notAfter,
+    status: entry.status,
+  }
+}
+
 export function useProxyHosts() {
   const hosts = ref<ProxyHost[]>([])
-  const certNames = ref<string[]>([])
+  const certEntries = ref<ProxyCertCandidate[]>([])
   const healthById = ref<Record<string, ProxyHostHealth>>({})
   const pending = ref(false)
   const error = ref<string | null>(null)
+
+  const certNames = computed(() =>
+    [...new Set(certEntries.value.map(entry => entry.certName))].sort(),
+  )
 
   async function loadHosts() {
     pending.value = true
@@ -32,11 +75,22 @@ export function useProxyHosts() {
 
   async function loadCertNames() {
     try {
-      const data = await $fetch<{ entries: Array<{ certName: string }> }>('/api/certs/status')
-      certNames.value = [...new Set(data.entries.map(entry => entry.certName).filter(Boolean))].sort()
+      const data = await $fetch<{ entries: CertStatusApiEntry[] }>('/api/certs/status')
+      const byName = new Map<string, ProxyCertCandidate>()
+      for (const entry of data.entries) {
+        const candidate = toCandidate(entry)
+        if (!candidate) {
+          continue
+        }
+        const prev = byName.get(candidate.certName)
+        if (!prev || candidate.sans.length > prev.sans.length) {
+          byName.set(candidate.certName, candidate)
+        }
+      }
+      certEntries.value = [...byName.values()]
     }
     catch {
-      certNames.value = []
+      certEntries.value = []
     }
   }
 
@@ -96,6 +150,7 @@ export function useProxyHosts() {
 
   return {
     hosts,
+    certEntries,
     certNames,
     healthById,
     pending,

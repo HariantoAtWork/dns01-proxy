@@ -1,5 +1,12 @@
 <script setup lang="ts">
 import type { ProxyHost } from '#proxy-shared/types/proxyHost'
+import type { ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
+import {
+  proxyHostSslAvailability,
+  proxySslAvailabilityClass,
+  proxySslAvailabilityLabel,
+  proxySslCertLabel,
+} from '#proxy-shared/utils/proxyCertMatch'
 import { forwardTarget, isWildcardDomainName } from '#proxy-shared/utils/proxyHost'
 import {
   PhPencilSimple as Pencil,
@@ -12,9 +19,10 @@ type HostHealth = {
   latencyMs?: number
 }
 
-const { hosts, healthById = {} } = defineProps<{
+const { hosts, healthById = {}, certEntries = [] } = defineProps<{
   hosts: ProxyHost[]
   healthById?: Record<string, HostHealth>
+  certEntries?: ProxyCertCandidate[]
 }>()
 
 const emit = defineEmits<{
@@ -45,6 +53,14 @@ function statusClass(host: ProxyHost): string {
   return health.online ? 'text-signal' : 'text-danger'
 }
 
+function sslAvailability(host: ProxyHost) {
+  return proxyHostSslAvailability(host.certificateName, host.domainNames, certEntries)
+}
+
+function sslCertLabel(host: ProxyHost) {
+  return proxySslCertLabel(host.certificateName, host.domainNames, certEntries)
+}
+
 /** Public URL for an exact domain; wildcards stay plain text. */
 function domainHref(host: ProxyHost, name: string): string | null {
   if (isWildcardDomainName(name)) {
@@ -69,7 +85,7 @@ function domainEntries(host: ProxyHost) {
         <tr>
           <th class="px-3 py-2 font-medium">Source</th>
           <th class="px-3 py-2 font-medium">Forward</th>
-          <th class="px-3 py-2 font-medium">SSL</th>
+          <th class="px-3 py-2 font-medium">SSL availability</th>
           <th class="px-3 py-2 font-medium">Flags</th>
           <th class="px-3 py-2 font-medium">Status</th>
           <th class="px-3 py-2 font-medium text-right">Actions</th>
@@ -108,11 +124,29 @@ function domainEntries(host: ProxyHost) {
           <td class="px-3 py-2 font-mono text-xs text-muted">
             {{ forwardTarget(host) }}
           </td>
-          <td class="px-3 py-2 text-muted">
-            {{ host.certificateName || 'None' }}
+          <td class="px-3 py-2">
+            <div class="flex flex-col gap-0.5">
+              <span
+                class="text-xs font-medium"
+                :class="proxySslAvailabilityClass(sslAvailability(host))"
+              >
+                {{ proxySslAvailabilityLabel(sslAvailability(host)) }}
+              </span>
+              <span class="font-mono text-[11px] text-muted">
+                {{ sslCertLabel(host) }}
+              </span>
+            </div>
           </td>
           <td class="px-3 py-2">
             <div class="flex flex-wrap gap-1">
+              <span
+                v-if="host.certificateName"
+                class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
+              >SSL</span>
+              <span
+                v-if="host.sslForced"
+                class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
+              >Force SSL</span>
               <span
                 v-if="host.allowWebsocketUpgrade"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
@@ -121,10 +155,6 @@ function domainEntries(host: ProxyHost) {
                 v-if="host.blockExploits"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
               >Block</span>
-              <span
-                v-if="host.sslForced"
-                class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
-              >Force SSL</span>
             </div>
           </td>
           <td

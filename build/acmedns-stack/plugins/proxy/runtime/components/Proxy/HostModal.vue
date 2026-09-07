@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import type { ProxyHost, ProxyHostInput, ProxyLocation } from '#proxy-shared/types/proxyHost'
+import type { ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
+import {
+  PROXY_SSL_AUTO,
+  poolSslCoverage,
+  proxyHostSslAvailability,
+  proxySslAvailabilityClass,
+  proxySslAvailabilityLabel,
+  proxySslCertLabel,
+  resolveCertificatesForDomains,
+} from '#proxy-shared/utils/proxyCertMatch'
 import { emptyProxyHost, normalizeDomainNames, validateDomainName } from '#proxy-shared/utils/proxyHost'
 import { PhPlus as Plus, PhTrash as Trash } from '@phosphor-icons/vue'
 
-const { certNames = [], saving = false } = defineProps<{
-  certNames?: string[]
+const { certEntries = [], saving = false } = defineProps<{
+  certEntries?: ProxyCertCandidate[]
   saving?: boolean
 }>()
 
@@ -30,6 +40,35 @@ const tabs: Array<{ id: Tab, label: string }> = [
 const modalTitle = computed(() =>
   draft.value.id ? 'Edit Proxy Host' : 'Add Proxy Host',
 )
+
+const draftDomains = computed(() => normalizeDomainNames(domainsText.value))
+
+const sslBinding = computed(() => resolveCertificatesForDomains(draftDomains.value, certEntries))
+
+const sslEnabled = computed(() => Boolean(draft.value.certificateName))
+
+const boundAvailability = computed(() =>
+  proxyHostSslAvailability(draft.value.certificateName, draftDomains.value, certEntries),
+)
+
+const sslStatusLine = computed(() => {
+  if (!draftDomains.value.length) {
+    return 'Add domain names on Details first.'
+  }
+  if (!sslEnabled.value) {
+    if (sslBinding.value) {
+      return `Off — live certs ready: ${sslBinding.value.certNames.join(', ')}`
+    }
+    const pool = poolSslCoverage(draftDomains.value, certEntries)
+    if (pool.availability === 'some') {
+      return `Off — only ${pool.covered}/${pool.total} domains have a live cert.`
+    }
+    return 'Off — no live certificate covers these domains yet (Certificates page).'
+  }
+  const label = proxySslAvailabilityLabel(boundAvailability.value)
+  const certs = proxySslCertLabel(draft.value.certificateName, draftDomains.value, certEntries)
+  return `${label} · ${certs}`
+})
 
 function emptyLocation(): ProxyLocation {
   return {
@@ -65,10 +104,78 @@ function removeLocation(index: number) {
   draft.value.locations = draft.value.locations.filter((_, i) => i !== index)
 }
 
-function setCertificateName(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
-  draft.value.certificateName = value || null
+/** Enable SSL when every domain is covered by some live cert (may be several certs). */
+function applyLiveCertificates(): boolean {
+  const binding = resolveCertificatesForDomains(draftDomains.value, certEntries)
+  if (!binding) {
+    return false
+  }
+  draft.value.certificateName = PROXY_SSL_AUTO
+  return true
 }
+
+function clearSsl() {
+  draft.value.certificateName = null
+  draft.value.sslForced = false
+  draft.value.http2Support = false
+  draft.value.hstsEnabled = false
+  draft.value.hstsSubdomains = false
+}
+
+function setSslEnabled(enabled: boolean) {
+  if (!enabled) {
+    clearSsl()
+    formError.value = null
+    return
+  }
+  const ok = applyLiveCertificates()
+  if (!ok) {
+    formError.value = 'No live certificate covers every domain — issue SANs under live/ first.'
+    return
+  }
+  formError.value = null
+}
+
+/** When turning SSL options on, ensure live coverage for every domain. */
+function enableSslFeature(feature: 'sslForced' | 'http2Support' | 'hstsEnabled', enabled: boolean) {
+  if (!enabled) {
+    draft.value[feature] = false
+    if (feature === 'sslForced') {
+      draft.value.hstsEnabled = false
+      draft.value.hstsSubdomains = false
+    }
+    if (feature === 'hstsEnabled') {
+      draft.value.hstsSubdomains = false
+    }
+    return
+  }
+
+  if (!draft.value.certificateName) {
+    const ok = applyLiveCertificates()
+    if (!ok) {
+      formError.value = 'No live certificate covers every domain — issue SANs under live/ first.'
+      return
+    }
+    formError.value = null
+  }
+
+  draft.value[feature] = true
+  if (feature === 'hstsEnabled' && !draft.value.sslForced) {
+    draft.value.sslForced = true
+  }
+}
+
+/** Keep SSL only while the live pool fully covers every domain. */
+watch(draftDomains, () => {
+  if (!draft.value.certificateName) {
+    return
+  }
+  if (!resolveCertificatesForDomains(draftDomains.value, certEntries)) {
+    clearSsl()
+    return
+  }
+  draft.value.certificateName = PROXY_SSL_AUTO
+})
 
 function onSave() {
   formError.value = null
@@ -95,6 +202,15 @@ function onSave() {
     formError.value = 'Forward hostname / IP is required'
     tab.value = 'details'
     return
+  }
+  if (payload.certificateName) {
+    const binding = resolveCertificatesForDomains(payload.domainNames, certEntries)
+    if (!binding) {
+      formError.value = 'No live certificate fully covers these domains — turn SSL off or fix SANs under live/.'
+      tab.value = 'ssl'
+      return
+    }
+    payload.certificateName = PROXY_SSL_AUTO
   }
   emit('save', payload)
 }
@@ -332,58 +448,54 @@ watch(open, (value) => {
         v-show="tab === 'ssl'"
         class="flex flex-col gap-4"
       >
-        <UiField
-          label="SSL Certificate"
-          hint="from Certificates — no new LE here"
-        >
-          <template #default="{ id }">
-            <select
-              :id
-              :value="draft.certificateName || ''"
-              class="ui-input w-full border border-rule bg-paper px-3 py-2 text-sm"
-              style="border-radius: var(--radius-input)"
-              @change="setCertificateName"
+        <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
+          <label class="flex items-center justify-between gap-3 text-sm">
+            <span>SSL Certificate</span>
+            <input
+              type="checkbox"
+              class="size-4"
+              :checked="sslEnabled"
+              :disabled="!draftDomains.length && !sslEnabled"
+              @change="setSslEnabled(($event.target as HTMLInputElement).checked)"
             >
-              <option value="">
-                None
-              </option>
-              <option
-                v-for="name in certNames"
-                :key="name"
-                :value="name"
-              >
-                {{ name }}
-              </option>
-            </select>
-          </template>
-        </UiField>
+          </label>
+          <p
+            class="text-xs"
+            :class="sslEnabled ? proxySslAvailabilityClass(boundAvailability) : 'text-muted'"
+          >
+            {{ sslStatusLine }}
+          </p>
+          <p class="text-xs text-muted">
+            Uses live/ certificates per domain (e.g. *.mizu.work and *.harianto.dev together) — no manual pick.
+          </p>
+        </div>
 
         <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
           <label class="flex items-center justify-between gap-3 text-sm">
             <span>Force SSL</span>
             <input
-              v-model="draft.sslForced"
               type="checkbox"
               class="size-4"
-              :disabled="!draft.certificateName"
+              :checked="draft.sslForced"
+              @change="enableSslFeature('sslForced', ($event.target as HTMLInputElement).checked)"
             >
           </label>
           <label class="flex items-center justify-between gap-3 text-sm">
             <span>HTTP/2 Support</span>
             <input
-              v-model="draft.http2Support"
               type="checkbox"
               class="size-4"
-              :disabled="!draft.certificateName"
+              :checked="draft.http2Support"
+              @change="enableSslFeature('http2Support', ($event.target as HTMLInputElement).checked)"
             >
           </label>
           <label class="flex items-center justify-between gap-3 text-sm">
             <span>HSTS Enable</span>
             <input
-              v-model="draft.hstsEnabled"
               type="checkbox"
               class="size-4"
-              :disabled="!draft.certificateName || !draft.sslForced"
+              :checked="draft.hstsEnabled"
+              @change="enableSslFeature('hstsEnabled', ($event.target as HTMLInputElement).checked)"
             >
           </label>
           <label class="flex items-center justify-between gap-3 text-sm">
