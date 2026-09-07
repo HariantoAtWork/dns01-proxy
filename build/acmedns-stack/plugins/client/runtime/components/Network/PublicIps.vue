@@ -105,9 +105,6 @@ function port53ProbeRows(): Port53Probe[] {
   if (check.local) {
     rows.push(check.local)
   }
-  if (check.localTcp) {
-    rows.push(check.localTcp)
-  }
   rows.push(...check.configured)
   if (check.delegation) {
     rows.push(...check.delegation.probes)
@@ -149,7 +146,7 @@ function port53ProbeRows(): Port53Probe[] {
       <p class="max-w-[65ch] text-sm text-muted">
         Addresses the internet sees for this host and this browser.
         The host IPv4 (and IPv6 if the nameserver answers on it) go on the acme-dns A/AAAA glue.
-        Port 53 checks probe UDP and TCP DNS for your auth zone — Let's Encrypt needs that path, not HTTP.
+        Port 53 checks probe DNS for your auth zone (UDP, then TCP if UDP times out) — Let's Encrypt needs that path, not HTTP.
       </p>
 
       <div v-if="loading" class="mt-4 h-16 animate-pulse bg-paper" style="border-radius: var(--radius-input)" />
@@ -223,7 +220,7 @@ function port53ProbeRows(): Port53Probe[] {
         <p class="mt-1 text-sm text-muted">
           Auth zone
           <span class="font-mono text-ink">{{ port53.authZone }}</span>
-          · Green when your public IP answers on UDP or TCP 53 for the auth zone.
+          · Green when your public IP answers on port 53 for the auth zone (UDP, or TCP after UDP timeout).
         </p>
 
         <ul

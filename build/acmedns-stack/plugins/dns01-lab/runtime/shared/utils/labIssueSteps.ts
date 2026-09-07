@@ -207,10 +207,11 @@ export function advanceLabRequestPlan(
   return next
 }
 
+/** Mark any running lab step failed (abort / timeout / hard fail mid-plan). */
 export function finishLabRequestPlan(requests: AcmeRequestItem[]): AcmeRequestItem[] {
   return requests.map((item) => {
     if (item.status === 'running') {
-      return { ...item, status: 'done' }
+      return { ...item, status: 'failed' }
     }
     return { ...item }
   })

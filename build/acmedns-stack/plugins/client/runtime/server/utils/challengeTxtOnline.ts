@@ -59,10 +59,10 @@ async function probeChallengeTxtAtName(
   qname: string,
   expectedTxt: string,
 ): Promise<ChallengeTxtProbeResult & ChallengeTxtProbeHop> {
-  const [txtOutcomes, cnameOutcomes] = await Promise.all([
-    queryAuthoritative(qname, 'TXT'),
-    queryAuthoritative(qname, 'CNAME'),
-  ])
+  const [txtOutcomes, cnameOutcomes] = [
+    await queryAuthoritative(qname, 'TXT'),
+    await queryAuthoritative(qname, 'CNAME'),
+  ]
 
   const txtValues = collectTxtValues(txtOutcomes)
   const cnameTarget = pickCnameTarget(cnameOutcomes) ?? undefined
