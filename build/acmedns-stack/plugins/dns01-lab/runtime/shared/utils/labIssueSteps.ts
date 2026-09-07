@@ -1,5 +1,11 @@
 import type { AcmeRequestItem } from '../../../../client/runtime/shared/types/certs'
 import { apexName, canonicalSans } from '../../../../client/runtime/shared/utils/domains'
+import {
+  formatAcmeOrderTokenLabel,
+  isAcmeOrderTokenLabel,
+  parseAcmeOrderTokenLabel,
+  type AcmeOrderToken,
+} from '../../../../client/runtime/shared/utils/acmeIssueSteps'
 
 /** Fixed dns-01 request phases for the lab job requests array. */
 export const LAB_REQUEST_STEP_TOTAL = 6
@@ -36,6 +42,7 @@ export interface LabRequestStepProgress {
   index: number
   total: number
   label: string
+  orderTokens?: AcmeOrderToken[]
 }
 
 function newLabRequestItem(
@@ -69,6 +76,10 @@ export function labRequestDomain(label: string): string | undefined {
 
 function isChallengeStep(stepIndex: number) {
   return stepIndex >= LAB_REQUEST_STEPS.PUBLISH_TXT
+}
+
+function isLabOrderHeader(item: AcmeRequestItem) {
+  return item.step === LAB_REQUEST_STEPS.ACME_ORDER && !isAcmeOrderTokenLabel(item.label)
 }
 
 const CHALLENGE_STEP_ORDER = [
@@ -105,6 +116,40 @@ export function seedLabChallengePlan(
   }
 
   return next
+}
+
+export function applyLabOrderTokens(
+  requests: AcmeRequestItem[],
+  certName: string,
+  tokens: AcmeOrderToken[],
+): AcmeRequestItem[] {
+  let next = requests.map(item => ({ ...item }))
+
+  const headerIdx = next.findIndex(isLabOrderHeader)
+  if (headerIdx >= 0) {
+    next[headerIdx] = { ...next[headerIdx]!, status: 'done' }
+  }
+
+  const ordered = canonicalSans(tokens.map(item => item.domain))
+  const byDomain = new Map(tokens.map(item => [item.domain, item.token]))
+
+  for (const domain of ordered) {
+    const token = byDomain.get(domain)
+    if (!token) {
+      continue
+    }
+    const label = formatAcmeOrderTokenLabel(domain, token)
+    if (next.some(item => item.label === label || (
+      isAcmeOrderTokenLabel(item.label)
+      && parseAcmeOrderTokenLabel(item.label)?.domain === domain
+    ))) {
+      continue
+    }
+    next.push(newLabRequestItem(LAB_REQUEST_STEPS.ACME_ORDER, label, 'done'))
+  }
+
+  next = seedLabChallengePlan(next, certName, ordered.length ? ordered : undefined)
+  return sortLabRequestItems(next, certName)
 }
 
 export function advanceLabRequestPlan(
@@ -148,7 +193,11 @@ export function advanceLabRequestPlan(
     return next
   }
 
-  const pendingIdx = next.findIndex(item => item.step === stepIndex && item.status === 'pending')
+  const pendingIdx = next.findIndex(
+    item => item.step === stepIndex
+      && item.status === 'pending'
+      && (stepIndex !== LAB_REQUEST_STEPS.ACME_ORDER || !isAcmeOrderTokenLabel(item.label)),
+  )
   if (pendingIdx >= 0) {
     next[pendingIdx] = { ...next[pendingIdx]!, label, status: 'running' }
     return next
@@ -182,11 +231,44 @@ export function sortLabRequestItems(
     return requests
   }
 
-  const preamble = requests.filter(item => item.step <= LAB_REQUEST_STEPS.ACME_ORDER)
+  const preOrder = requests.filter(item => item.step < LAB_REQUEST_STEPS.ACME_ORDER)
+  const orderHeader = requests.filter(isLabOrderHeader)
+  const tokenRows = requests.filter(
+    item => item.step === LAB_REQUEST_STEPS.ACME_ORDER && isAcmeOrderTokenLabel(item.label),
+  )
   const challenge = requests.filter(item => Boolean(labRequestDomain(item.label)))
 
+  const tokenDomains = canonicalSans([
+    ...new Set(
+      tokenRows
+        .map(item => parseAcmeOrderTokenLabel(item.label)?.domain)
+        .filter(Boolean) as string[],
+    ),
+  ])
+  const sortedTokens: AcmeRequestItem[] = []
+  const usedTokens = new Set<string>()
+  for (const domain of tokenDomains) {
+    for (const item of tokenRows) {
+      if (usedTokens.has(item.id)) {
+        continue
+      }
+      if (parseAcmeOrderTokenLabel(item.label)?.domain === domain) {
+        sortedTokens.push(item)
+        usedTokens.add(item.id)
+      }
+    }
+  }
+  for (const item of tokenRows) {
+    if (!usedTokens.has(item.id)) {
+      sortedTokens.push(item)
+    }
+  }
+
   const domains = canonicalSans([
-    ...new Set(challenge.map(item => labRequestDomain(item.label)).filter(Boolean) as string[]),
+    ...new Set([
+      ...tokenDomains,
+      ...challenge.map(item => labRequestDomain(item.label)).filter(Boolean) as string[],
+    ]),
   ])
   if (!domains.length) {
     domains.push(apexName(certName))
@@ -210,5 +292,5 @@ export function sortLabRequestItems(
   }
 
   const orphans = challenge.filter(item => !used.has(item.id))
-  return [...preamble, ...grouped, ...orphans]
+  return [...preOrder, ...orderHeader, ...sortedTokens, ...grouped, ...orphans]
 }

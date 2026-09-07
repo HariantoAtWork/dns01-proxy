@@ -6,6 +6,7 @@ import {
   acmeRequestStepLabel,
   acmeRequestStepProgress,
   advanceAcmeRequestPlan,
+  applyAcmeOrderTokens,
   createAcmeRequestPlan,
   currentAcmeRequestLabel,
   currentAcmeRequestProgress,
@@ -52,6 +53,39 @@ describe('acmeIssueSteps', () => {
       'LE validate sylo.space',
     ])
     expect(plan.slice(2).every(item => item.status === 'pending')).toBe(true)
+  })
+
+  test('lists domain → token rows from the ACME order before Publish TXT', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
+    plan = applyAcmeOrderTokens(plan, 'mdstn.com', [
+      { domain: 'www.mdstn.com', token: 'tok-www' },
+      { domain: 'mdstn.com', token: 'tok-apex' },
+      { domain: '*.mdstn.com', token: 'tok-wild' },
+    ])
+
+    expect(plan.map(item => item.label)).toEqual([
+      'DNS preflight',
+      'ACME order',
+      'mdstn.com → tok-apex',
+      '*.mdstn.com → tok-wild',
+      'www.mdstn.com → tok-www',
+      'Publish TXT mdstn.com',
+      'TXT online mdstn.com',
+      'DNS settle mdstn.com',
+      'LE validate mdstn.com',
+      'Publish TXT *.mdstn.com',
+      'TXT online *.mdstn.com',
+      'DNS settle *.mdstn.com',
+      'LE validate *.mdstn.com',
+      'Publish TXT www.mdstn.com',
+      'TXT online www.mdstn.com',
+      'DNS settle www.mdstn.com',
+      'LE validate www.mdstn.com',
+    ])
+    expect(plan.find(item => item.label === 'ACME order')?.status).toBe('done')
+    expect(plan.filter(item => item.label.includes(' → ')).every(item => item.status === 'done')).toBe(true)
   })
 
   test('advances the plan through running and done states', () => {

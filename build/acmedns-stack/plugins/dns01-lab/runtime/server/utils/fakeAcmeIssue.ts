@@ -23,11 +23,16 @@ export async function runLabDns01(options: {
 }) {
   throwIfAborted(options.signal, 'Lab DNS-01 aborted')
 
-  const reportStep = (index: number, label?: string) => {
+  const reportStep = (
+    index: number,
+    label?: string,
+    orderTokens?: LabRequestStepProgress['orderTokens'],
+  ) => {
     options.onRequestStep?.({
       index,
       total: LAB_REQUEST_STEP_TOTAL,
       label: label ?? labRequestStepLabel(index),
+      ...(orderTokens?.length ? { orderTokens } : {}),
     })
   }
 
@@ -39,6 +44,15 @@ export async function runLabDns01(options: {
   reportStep(LAB_REQUEST_STEPS.ACME_ORDER, 'FAKE ACME order')
 
   const { challenges } = await fakeAcmeOrder(sans)
+  reportStep(
+    LAB_REQUEST_STEPS.ACME_ORDER,
+    'FAKE ACME order',
+    challenges.map(item => ({
+      domain: item.domain,
+      token: item.keyAuthorization,
+    })),
+  )
+
   const challengeSerial = createChallengeSerialGate()
 
   for (const challenge of challenges) {

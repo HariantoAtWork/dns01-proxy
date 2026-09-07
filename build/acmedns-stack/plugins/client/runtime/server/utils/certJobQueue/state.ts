@@ -13,6 +13,7 @@ import {
   startCertJobTask,
   trackCertJobTaskRequest,
 } from '../../../shared/utils/certJobTasks'
+import type { AcmeOrderToken } from '../../../shared/utils/acmeIssueSteps'
 import { getLabPlugin } from './labRegistry'
 import { publishCertLive } from '../certLiveBus'
 
@@ -202,14 +203,15 @@ export function trackRunningJobRequest(
   stepIndex: number,
   stepLabel?: string,
   seedAltNames?: string[],
+  orderTokens?: AcmeOrderToken[],
 ) {
   if (!running?.currentCert || !running.tasks?.length) {
     return
   }
   const lab = running.source === 'lab' ? getLabPlugin()?.jobTasks : undefined
   running.tasks = lab
-    ? lab.trackRequest(running.tasks, running.currentCert, stepIndex, stepLabel, seedAltNames)
-    : trackCertJobTaskRequest(running.tasks, running.currentCert, stepIndex, stepLabel)
+    ? lab.trackRequest(running.tasks, running.currentCert, stepIndex, stepLabel, seedAltNames, orderTokens)
+    : trackCertJobTaskRequest(running.tasks, running.currentCert, stepIndex, stepLabel, orderTokens)
   emitQueue()
 }
 
