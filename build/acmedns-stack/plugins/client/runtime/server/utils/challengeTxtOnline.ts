@@ -10,10 +10,10 @@ import {
 import { queryAuthoritative } from './dnsAuthoritative'
 import { appendCertActivity } from './certActivity'
 import { logAcmeStep } from './acmeLogger'
+import { resolveAcmeTxtSettleMs } from '../../../../txt-ttl/runtime/shared/txtTtlConstants'
 
 const DEFAULT_POLL_TIMEOUT_MS = 3 * 60 * 1000
 const DEFAULT_POLL_INTERVAL_MS = 5 * 1000
-const DEFAULT_TXT_SETTLE_MS = 5_000
 const MAX_CNAME_HOPS = 10
 
 export type { ChallengeTxtProbeResult } from '#shared/utils/challengeTxtProbe'
@@ -48,11 +48,7 @@ export function challengeTxtPollIntervalMs() {
 
 /** Pause after TXT online before telling LE to validate (`ACME_TXT_SETTLE_MS`, default 5s; 0 disables). */
 export function acmeTxtSettleMs() {
-  const value = Number(process.env.ACME_TXT_SETTLE_MS)
-  if (Number.isFinite(value) && value >= 0) {
-    return value
-  }
-  return DEFAULT_TXT_SETTLE_MS
+  return resolveAcmeTxtSettleMs()
 }
 
 async function probeChallengeTxtAtName(

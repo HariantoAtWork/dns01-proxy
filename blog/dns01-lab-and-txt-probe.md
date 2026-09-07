@@ -134,7 +134,7 @@ Locally, after the merge, challenge TXT lived in SQLite with **100 slots** per s
 So **`plugins/txt-ttl`**:
 
 - Challenge TXT moves to an **in-memory** store (plain `Map`, not Redis — this is one process)
-- Default **24h TTL** per slot (`ACME_TXT_TTL_SECONDS`)
+- Default slot lifetime = **settle + hold** (`ACME_TXT_SETTLE_MS` + `ACME_TXT_HOLD_MS`)
 - After validate (or fake validate in Lab), **`clearDns01ChallengeTxt`** removes the digest that was just used
 - Expired slots drop out of DNS answers on read; hourly purge cleans memory
 - **Purge local TXT slots** on `/lab` for manual resets

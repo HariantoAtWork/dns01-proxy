@@ -16,5 +16,7 @@ export default defineNitroPlugin(() => {
 
   interval.unref?.()
 
-  console.info(`[txt-ttl] plugin loaded (TTL ${resolveTxtTtlSeconds()}s, purge every ${PURGE_INTERVAL_MS / 1000}s)`)
+  console.info(
+    `[txt-ttl] plugin loaded (lifetime ${resolveTxtTtlSeconds()}s = settle + hold, purge every ${PURGE_INTERVAL_MS / 1000}s)`,
+  )
 })
