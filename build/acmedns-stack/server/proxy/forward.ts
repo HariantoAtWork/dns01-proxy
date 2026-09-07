@@ -85,14 +85,13 @@ export function buildForwardHeaders(
   }
   headers.set('X-Forwarded-Proto', forwardedProto)
 
+  // Only for real WebSocket upgrades — never re-attach Connection: keep-alive on
+  // ordinary HTTP (that blanks many upstream apps when Bun fetch proxies them).
   if (match.host.allowWebsocketUpgrade) {
     const upgrade = req.headers.get('upgrade')
-    const connection = req.headers.get('connection')
-    if (upgrade) {
+    if (upgrade?.toLowerCase() === 'websocket') {
       headers.set('Upgrade', upgrade)
-    }
-    if (connection) {
-      headers.set('Connection', connection)
+      headers.set('Connection', 'Upgrade')
     }
   }
 
