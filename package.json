@@ -13,6 +13,7 @@
     "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
     "docker:dev:restart": "bun run docker:dev:down && bun run docker:dev",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f acmedns-stack"
+    "docker:logs": "docker compose logs -f acmedns-stack",
+    "script:list-txt": "bun script/list-txt.ts"
   }
 }
