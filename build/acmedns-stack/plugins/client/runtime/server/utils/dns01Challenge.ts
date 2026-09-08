@@ -4,7 +4,7 @@ import { challengeHost } from '#shared/utils/challengeDns'
 import { tinyApexLabel } from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { ACME_REQUEST_STEPS } from '#shared/utils/acmeIssueSteps'
-import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
+import { resolveAcmeDnsBase, updateAcmeDnsTxt, isInProcessAcmeDnsBackend } from './acmedns'
 import { appendCertActivity } from './certActivity'
 import { acmeTxtSettleMs, waitForChallengeTxtOnline } from './challengeTxtOnline'
 import { logAcmeStep } from './acmeLogger'
@@ -198,29 +198,47 @@ export async function runDns01Challenge(options: {
 
   throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
 
-  const challengeName = challengeHost(apexName(domain))
-  await waitForChallengeTxtOnline({
-    challengeName,
-    expectedTxt: publish.txt,
-    certName: options.certName,
-    signal: options.signal,
-    activitySource,
-    onProgress: ({ attempt, phase, nextRetryInMs, timeoutRemainingMs }) => {
-      const timeoutSeconds = Math.max(0, Math.ceil(timeoutRemainingMs / 1000))
-      if (phase === 'wait') {
-        const nextSeconds = Math.max(0, Math.ceil((nextRetryInMs ?? 0) / 1000))
+  const localBackend = isInProcessAcmeDnsBackend(publish.serverUrl, publish.username)
+
+  if (localBackend) {
+    // Own auth zone: probe authoritative DNS (local listen under this zone).
+    const challengeName = challengeHost(apexName(domain))
+    await waitForChallengeTxtOnline({
+      challengeName,
+      expectedTxt: publish.txt,
+      certName: options.certName,
+      signal: options.signal,
+      activitySource,
+      onProgress: ({ attempt, phase, nextRetryInMs, timeoutRemainingMs }) => {
+        const timeoutSeconds = Math.max(0, Math.ceil(timeoutRemainingMs / 1000))
+        if (phase === 'wait') {
+          const nextSeconds = Math.max(0, Math.ceil((nextRetryInMs ?? 0) / 1000))
+          options.reportStep(
+            ACME_REQUEST_STEPS.TXT_ONLINE,
+            `TXT online ${domain} (attempt ${attempt} · ${nextSeconds}s · timeout ${timeoutSeconds}s)`,
+          )
+          return
+        }
         options.reportStep(
           ACME_REQUEST_STEPS.TXT_ONLINE,
-          `TXT online ${domain} (attempt ${attempt} · ${nextSeconds}s · timeout ${timeoutSeconds}s)`,
+          `TXT online ${domain} (attempt ${attempt} · timeout ${timeoutSeconds}s)`,
         )
-        return
-      }
-      options.reportStep(
-        ACME_REQUEST_STEPS.TXT_ONLINE,
-        `TXT online ${domain} (attempt ${attempt} · timeout ${timeoutSeconds}s)`,
-      )
-    },
-  })
+      },
+    })
+  }
+  else {
+    // Remote acme-dns: publish was POST /update — that acceptance is the online gate
+    // (no list API; LE will query the remote auth NS itself).
+    options.reportStep(
+      ACME_REQUEST_STEPS.TXT_ONLINE,
+      `TXT online ${domain} (remote /update)`,
+    )
+    logDns01Step(
+      options.certName,
+      `dns-01 ${domain}: TXT online via remote acme-dns /update (${resolveAcmeDnsBase(publish.serverUrl)})`,
+      activitySource,
+    )
+  }
 
   const settleMs = acmeTxtSettleMs()
   if (settleMs > 0) {
