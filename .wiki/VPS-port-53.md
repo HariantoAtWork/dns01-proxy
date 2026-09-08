@@ -1,8 +1,8 @@
 # VPS: bind port 53 to the public IP
 
-On a single-IP VPS, the NIC address **is** the public IP. Publishing `53:53` (`0.0.0.0:53`) often fails because **systemd-resolved** already holds `127.0.0.1:53`. Binding only the public address avoids that collision — no `network_mode: host`, no macvlan.
+On a single-IP VPS, the NIC address **is** the public IP. Publishing `53:53` (`0.0.0.0:53`) often fails because **systemd-resolved** already holds `127.0.0.1:53`. Binding only the public address avoids that collision — no `network_mode: host`.
 
-Macvlan needs a **second** provider IP. With one address, use this file instead. See [Macvlan for port 53](Macvlan-port-53.md) for LAN / Synology.
+At home the usual path is different: router **DMZ** (or forward UDP/TCP 53) to the Synology and publish `53:53` there. See [DMZ, Synology, and Mac](DMZ-Synology-and-Mac.md).
 
 ## Compose
 
@@ -41,6 +41,6 @@ dig @$PUBLIC_IP SOA auth.example.com +tcp
 
 ## Caveats
 
-- Linux with `ip` (iproute2). Not for Synology macvlan or binding on a Mac laptop.
+- Linux with `ip` (iproute2). Intended for a VPS, not for Mac laptop bind experiments.
 - Provider firewall / security group must allow **UDP+TCP 53**.
 - cloudflared still does **not** carry port 53 — [Cloudflared and DNS](Cloudflared-and-DNS.md).
