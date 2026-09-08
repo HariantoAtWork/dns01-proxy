@@ -52,6 +52,18 @@ function useInProcessUpdate(base: string, username: string): boolean {
   return shouldUseInProcessUpdate(base, username, routingContext(), user => Boolean(getByUsername(user)))
 }
 
+/**
+ * True when challenge TXT is published on this stack (in-process store).
+ * False for remote acme-dns (e.g. auth.acme-dns.io) — use HTTP /update only.
+ */
+export function isInProcessAcmeDnsBackend(serverUrl: string, username: string): boolean {
+  if (isSharedMode()) {
+    return true
+  }
+  const base = resolveAcmeDnsBase(serverUrl)
+  return useInProcessUpdate(base, username)
+}
+
 export function resolveAcmeDnsBase(requestedUrl?: string) {
   const fallback = resolveAcmednsUrl().value || defaultLocalAcmeDnsBase()
   return resolveAcmeDnsBaseUrl(requestedUrl, fallback)
