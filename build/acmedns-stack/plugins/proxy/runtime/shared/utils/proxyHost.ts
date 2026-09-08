@@ -1,4 +1,4 @@
-import { v7 as uuidv7 } from 'uuid'
+import { v7 as uuid } from 'uuid'
 import type {
   ForwardScheme,
   ProxyHost,
@@ -148,7 +148,7 @@ function asLocation(raw: unknown): ProxyLocation | null {
 
 export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost {
   const row = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  const id = String(row.id || idFallback || uuidv7())
+  const id = String(row.id || idFallback || uuid())
   const domainNames = normalizeDomainNames(
     Array.isArray(row.domainNames)
       ? row.domainNames.map(String)

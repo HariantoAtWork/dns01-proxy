@@ -1,4 +1,5 @@
 import type { CertJobTask } from '#shared/types/certs'
+import { v7 as uuid } from 'uuid'
 import {
   advanceAcmeRequestPlan,
   applyAcmeOrderTokens,
@@ -15,7 +16,7 @@ export function createCertJobTaskPlan(
   completed = new Set<string>(),
 ): CertJobTask[] {
   return certNames.map(certName => ({
-    id: crypto.randomUUID(),
+    id: uuid(),
     certName,
     status: completed.has(certName) ? 'done' : 'pending',
   }))
@@ -36,7 +37,7 @@ export function startCertJobTask(tasks: CertJobTask[], certName: string): CertJo
   const idx = findTaskIndex(next, certName)
   if (idx < 0) {
     next.push({
-      id: crypto.randomUUID(),
+      id: uuid(),
       certName,
       status: 'running',
       requests: createAcmeRequestPlan(),
