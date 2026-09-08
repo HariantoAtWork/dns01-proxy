@@ -4,7 +4,7 @@ import { challengeHost } from '#shared/utils/challengeDns'
 import { tinyApexLabel } from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { ACME_REQUEST_STEPS } from '#shared/utils/acmeIssueSteps'
-import { resolveAcmeDnsBase, updateAcmeDnsTxt } from './acmedns'
+import { resolveAcmeDnsBase, updateAcmeDnsTxt, isInProcessAcmeDnsPublish } from './acmedns'
 import { appendCertActivity } from './certActivity'
 import { acmeTxtSettleMs, waitForChallengeTxtOnline } from './challengeTxtOnline'
 import { logAcmeStep } from './acmeLogger'
@@ -180,7 +180,11 @@ export async function runDns01Challenge(options: {
     activitySource,
   )
 
-  options.reportStep(ACME_REQUEST_STEPS.PUBLISH_TXT, `Publish TXT ${domain}`)
+  const publishLocal = isInProcessAcmeDnsPublish(publish.serverUrl, publish.username)
+  options.reportStep(
+    ACME_REQUEST_STEPS.PUBLISH_TXT,
+    `Publish TXT ${domain} (${publishLocal ? 'local' : 'remote'})`,
+  )
 
   await updateAcmeDnsTxt({
     serverUrl: publish.serverUrl,
@@ -192,7 +196,7 @@ export async function runDns01Challenge(options: {
 
   logDns01Step(
     options.certName,
-    `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt}`,
+    `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} (${publishLocal ? 'local' : 'remote'})`,
     activitySource,
   )
 

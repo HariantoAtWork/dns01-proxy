@@ -52,6 +52,14 @@ function useInProcessUpdate(base: string, username: string): boolean {
   return shouldUseInProcessUpdate(base, username, routingContext(), user => Boolean(getByUsername(user)))
 }
 
+/** True when Publish TXT uses this stack's in-process store (not HTTP /update to a remote host). */
+export function isInProcessAcmeDnsPublish(serverUrl: string, username: string): boolean {
+  if (isSharedMode()) {
+    return true
+  }
+  return useInProcessUpdate(resolveAcmeDnsBase(serverUrl), username)
+}
+
 export function resolveAcmeDnsBase(requestedUrl?: string) {
   const fallback = resolveAcmednsUrl().value || defaultLocalAcmeDnsBase()
   return resolveAcmeDnsBaseUrl(requestedUrl, fallback)
