@@ -33,6 +33,8 @@ services:
       # TXT online → wait before LE validate; store lifetime = settle + hold (both ms)
       - ACME_TXT_SETTLE_MS=${ACME_TXT_SETTLE_MS:-5000}
       - ACME_TXT_HOLD_MS=${ACME_TXT_HOLD_MS:-300000}
+      # TXT online probes are UDP-only by default; set true to fall back to TCP after UDP timeout
+      - ACME_TXT_ONLINE_TCP_FALLBACK=${ACME_TXT_ONLINE_TCP_FALLBACK:-false}
       # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
       - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}
       - ACMEDNS_SHARED_MODE=${ACMEDNS_SHARED_MODE:-}

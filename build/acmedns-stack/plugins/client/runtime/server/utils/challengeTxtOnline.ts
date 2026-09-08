@@ -11,6 +11,9 @@ import { queryAuthoritative } from './dnsAuthoritative'
 import { appendCertActivity } from './certActivity'
 import { logAcmeStep } from './acmeLogger'
 import { resolveAcmeTxtSettleMs } from '../../../../txt-ttl/runtime/shared/txtTtlConstants'
+import { acmeTxtOnlineTcpFallback } from '../../shared/utils/challengeTxtOnlineEnv'
+
+export { acmeTxtOnlineTcpFallback } from '../../shared/utils/challengeTxtOnlineEnv'
 
 const DEFAULT_POLL_TIMEOUT_MS = 3 * 60 * 1000
 const DEFAULT_POLL_INTERVAL_MS = 5 * 1000
@@ -55,9 +58,10 @@ async function probeChallengeTxtAtName(
   qname: string,
   expectedTxt: string,
 ): Promise<ChallengeTxtProbeResult & ChallengeTxtProbeHop> {
+  const transport = { tcpFallback: acmeTxtOnlineTcpFallback() }
   const [txtOutcomes, cnameOutcomes] = [
-    await queryAuthoritative(qname, 'TXT'),
-    await queryAuthoritative(qname, 'CNAME'),
+    await queryAuthoritative(qname, 'TXT', transport),
+    await queryAuthoritative(qname, 'CNAME', transport),
   ]
 
   const txtValues = collectTxtValues(txtOutcomes)
