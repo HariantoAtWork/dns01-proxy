@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  authZoneTxtLabel,
+  mergeSharedPublishSubdomains,
   tinyApexFulldomain,
   tinyApexLabel,
 } from '../runtime/shared/utils/tinyModeDns'
@@ -14,5 +16,31 @@ describe('tinyApexLabel', () => {
   test('builds fulldomain under auth zone', () => {
     expect(tinyApexFulldomain('mdstn.com', 'auth.uti.email')).toBe('_mdstn-com_.auth.uti.email')
     expect(tinyApexFulldomain('sylo.space', 'auth.uti.email.')).toBe('_sylo-space_.auth.uti.email')
+  })
+})
+
+describe('authZoneTxtLabel', () => {
+  test('returns first label under auth zone', () => {
+    expect(authZoneTxtLabel('uuid-here.auth.mdstn.com', 'auth.mdstn.com')).toBe('uuid-here')
+    expect(authZoneTxtLabel('_mdstn-com_.auth.mdstn.com', 'auth.mdstn.com')).toBe('_mdstn-com_')
+    expect(authZoneTxtLabel('blabla-random-stuff-here.auth.mdstn.com.', 'auth.mdstn.com')).toBe(
+      'blabla-random-stuff-here',
+    )
+  })
+
+  test('returns zone apex key and rejects foreign names', () => {
+    expect(authZoneTxtLabel('auth.mdstn.com', 'auth.mdstn.com')).toBe('auth')
+    expect(authZoneTxtLabel('_acme-challenge.mdstn.com', 'auth.mdstn.com')).toBeNull()
+    expect(authZoneTxtLabel('uuid.auth.other.com', 'auth.mdstn.com')).toBeNull()
+  })
+})
+
+describe('mergeSharedPublishSubdomains', () => {
+  test('always includes encoded apex and any live auth-zone CNAME labels', () => {
+    expect(mergeSharedPublishSubdomains('mdstn.com', 'auth.mdstn.com', [])).toEqual(['_mdstn-com_'])
+    expect(mergeSharedPublishSubdomains('mdstn.com', 'auth.mdstn.com', [
+      'old-uuid.auth.mdstn.com',
+      '_mdstn-com_.auth.mdstn.com',
+    ])).toEqual(['_mdstn-com_', 'old-uuid'])
   })
 })

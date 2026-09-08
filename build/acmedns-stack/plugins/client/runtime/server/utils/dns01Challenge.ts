@@ -1,14 +1,22 @@
 import type { CertActivitySource } from '#shared/types/certs'
 import { findAccount, apexName } from '#shared/utils/domains'
 import { challengeHost } from '#shared/utils/challengeDns'
-import { tinyApexLabel } from '#shared/utils/tinyModeDns'
+import { normaliseDnsName } from '#shared/utils/dnsMatch'
+import { pickCnameTarget } from '#shared/utils/challengeTxtProbe'
+import {
+  mergeSharedPublishSubdomains,
+  tinyApexLabel,
+} from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { ACME_REQUEST_STEPS } from '#shared/utils/acmeIssueSteps'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt, isInProcessAcmeDnsPublish } from './acmedns'
 import { appendCertActivity } from './certActivity'
-import { acmeTxtSettleMs, waitForChallengeTxtOnline } from './challengeTxtOnline'
+import { acmeTxtOnlineTcpFallback, acmeTxtSettleMs, waitForChallengeTxtOnline } from './challengeTxtOnline'
+import { queryAuthoritative } from './dnsAuthoritative'
 import { logAcmeStep } from './acmeLogger'
 import { readStorage } from './storage'
+
+const MAX_SHARED_CNAME_HOPS = 10
 
 export function throwIfAborted(signal?: AbortSignal, message = 'DNS-01 aborted') {
   if (!signal?.aborted) {
@@ -113,10 +121,46 @@ export interface Dns01PublishTarget {
   serverUrl: string
   username: string
   password: string
+  /** Primary / first publish key (encoded Tiny label in shared mode). */
   subdomain: string
+  /** All TXT store keys to write (encoded + live CNAME labels under auth zone). */
+  subdomains: string[]
   txt: string
   certName: string
   domain: string
+}
+
+/** Follow public CNAME hops from the challenge host; collect targets under auth zone. */
+export async function collectChallengeCnameTargets(
+  challengeName: string,
+  authZone: string,
+): Promise<string[]> {
+  const targets: string[] = []
+  const visited = new Set<string>()
+  let current = normaliseDnsName(challengeName)
+  const zone = normaliseDnsName(authZone)
+  const transport = { tcpFallback: acmeTxtOnlineTcpFallback() }
+
+  for (let hop = 0; hop < MAX_SHARED_CNAME_HOPS; hop += 1) {
+    if (visited.has(current)) {
+      break
+    }
+    visited.add(current)
+
+    const cnameOutcomes = await queryAuthoritative(current, 'CNAME', transport)
+    const next = pickCnameTarget(cnameOutcomes)
+    if (!next) {
+      break
+    }
+    targets.push(next)
+    current = next
+    // Stop once we land under the auth zone — further hops are rare and unused.
+    if (current === zone || current.endsWith(`.${zone}`)) {
+      break
+    }
+  }
+
+  return targets
 }
 
 export function resolveDns01PublishTarget(options: {
@@ -126,6 +170,8 @@ export function resolveDns01PublishTarget(options: {
   preferUrl: string
   shared: ReturnType<typeof getSharedModeContext>
   storage: Awaited<ReturnType<typeof readStorage>>
+  /** Extra auth-zone CNAME targets (shared mode dual-publish). */
+  cnameTargets?: string[]
 }): Dns01PublishTarget {
   const domain = options.authzIdentifier
   const { key: storageKey, account } = options.shared
@@ -135,10 +181,17 @@ export function resolveDns01PublishTarget(options: {
     throw new Error(`No acme-dns account for ${domain}`)
   }
 
-  const subdomain = options.shared
-    ? tinyApexLabel(options.certName)
+  const subdomains = options.shared
+    ? mergeSharedPublishSubdomains(
+        options.certName,
+        options.shared.authZone,
+        options.cnameTargets ?? [],
+      )
     : account.subdomain
-  if (!subdomain) {
+      ? [account.subdomain]
+      : []
+  const subdomain = subdomains[0] || (options.shared ? tinyApexLabel(options.certName) : account.subdomain)
+  if (!subdomain || !subdomains.length) {
     throw new Error(`No acme-dns subdomain for ${domain}`)
   }
 
@@ -147,6 +200,7 @@ export function resolveDns01PublishTarget(options: {
     username: account.username,
     password: account.password,
     subdomain,
+    subdomains,
     txt: options.keyAuthorization,
     certName: options.certName,
     domain,
@@ -169,13 +223,22 @@ export async function runDns01Challenge(options: {
   const activitySource = options.activitySource ?? 'acme'
   throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
 
-  const publish = resolveDns01PublishTarget(options)
-  const domain = publish.domain
+  const domain = options.authzIdentifier
+  const challengeName = challengeHost(apexName(domain))
+  const cnameTargets = options.shared
+    ? await collectChallengeCnameTargets(challengeName, options.shared.authZone)
+    : []
 
+  const publish = resolveDns01PublishTarget({
+    ...options,
+    cnameTargets,
+  })
+
+  const subdomainList = publish.subdomains.join(', ')
   logDns01Step(
     options.certName,
     options.shared
-      ? `dns-01 ${domain}: publishing TXT to shared acme-dns subdomain ${publish.subdomain} (${publish.serverUrl})`
+      ? `dns-01 ${domain}: publishing TXT to shared acme-dns subdomain(s) ${subdomainList} (${publish.serverUrl})`
       : `dns-01 ${domain}: publishing TXT to acme-dns subdomain ${publish.subdomain} (${publish.serverUrl})`,
     activitySource,
   )
@@ -186,23 +249,24 @@ export async function runDns01Challenge(options: {
     `Publish TXT ${domain} (${publishLocal ? 'local' : 'remote'})`,
   )
 
-  await updateAcmeDnsTxt({
-    serverUrl: publish.serverUrl,
-    username: publish.username,
-    password: publish.password,
-    subdomain: publish.subdomain,
-    txt: publish.txt,
-  })
+  for (const subdomain of publish.subdomains) {
+    await updateAcmeDnsTxt({
+      serverUrl: publish.serverUrl,
+      username: publish.username,
+      password: publish.password,
+      subdomain,
+      txt: publish.txt,
+    })
+  }
 
   logDns01Step(
     options.certName,
-    `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} (${publishLocal ? 'local' : 'remote'})`,
+    `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} on ${subdomainList} (${publishLocal ? 'local' : 'remote'})`,
     activitySource,
   )
 
   throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
 
-  const challengeName = challengeHost(apexName(domain))
   await waitForChallengeTxtOnline({
     challengeName,
     expectedTxt: publish.txt,

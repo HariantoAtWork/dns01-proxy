@@ -10,7 +10,7 @@ Full stack docs: [Certificate checklist](Certificate-checklist) (UUID + Register
 
 | You (once per apex) | Server (automatic) |
 | --- | --- |
-| CNAME `_acme-challenge.mdstn.com` → `_mdstn-com_.auth.uti.email` | Publishes dns-01 TXT under `_mdstn-com_` during Apply |
+| CNAME `_acme-challenge.mdstn.com` → `_mdstn-com_.auth.uti.email` (or any `<label>.auth.uti.email`) | Publishes dns-01 TXT under `_mdstn-com_` **and** the live CNAME label during Apply |
 | Lines in `domains.txt` (Certs UI) | Renews production certs on a timer |
 | Delegate NS for the auth zone at your registrar (e.g. Cloudflare) | Fills glue **A** (+ **AAAA** if IPv6 is detected) + **NS** at boot |
 | Open port **53** on the host running this stack | Answers Let's Encrypt DNS queries for any `<uuid\|_label_>.auth.zone` |
@@ -45,7 +45,7 @@ _acme-challenge.sylo.space. CNAME  _sylo-space_.auth.uti.email.
 
 Nested wildcards on the same cert line still use the **full stack** CNAME chain (`_acme-challenge.oib.mdstn.com` → `_acme-challenge.mdstn.com`). See [Public DNS and port 53](Public-DNS-and-port-53).
 
-**Migration:** Older tiny installs that CNAME’d to the auth zone apex (`auth.uti.email`) must update each site to the encoded label. Shared apex TXT caused collisions across domains.
+**Migration:** Prefer the encoded label (`_mdstn-com_.…`). Legacy CNAMEs to a Register UUID (or any other label under the auth zone) still work: Apply dual-publishes the token to the encoded key **and** the live CNAME label. Older installs that CNAME’d to the auth zone apex (`auth.uti.email`) should update — shared apex TXT caused collisions across domains.
 
 ## Minimal `.env`
 
