@@ -1,4 +1,5 @@
 import type { AcmeRequestItem } from '#shared/types/certs'
+import { v7 as uuid } from 'uuid'
 import { apexName, canonicalSans } from './domains'
 
 /** Fixed ACME dns-01 request phases for the running job requests array. */
@@ -91,7 +92,7 @@ function newAcmeRequestItem(
   status: AcmeRequestItem['status'],
 ): AcmeRequestItem {
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     step,
     label,
     status,

@@ -1,5 +1,5 @@
 import { hashSync } from 'bcryptjs'
-import { v4 as uuidv4 } from 'uuid'
+import { v7 as uuid } from 'uuid'
 import type { AcmeDnsConfig, AcmeTxtAccount, AcmeTxtPost } from './types'
 import { generatePassword, sanitizeString, validCidrEntries, validKey } from './validation'
 import { openSqlite, type SqliteDatabase } from './sqlite'
@@ -167,9 +167,9 @@ function ensureTXTSlots(): void {
 export function registerAccount(allowfromInput: string[] = []): AcmeTxtAccount & { plaintextPassword: string } {
   const database = requireDb()
   const allowfrom = validCidrEntries(allowfromInput)
-  const username = uuidv4()
+  const username = uuid()
   const plaintextPassword = generatePassword(40)
-  const subdomain = uuidv4()
+  const subdomain = uuid()
   const passwordHash = hashSync(plaintextPassword, 10)
   const allowJson = JSON.stringify(allowfrom)
 

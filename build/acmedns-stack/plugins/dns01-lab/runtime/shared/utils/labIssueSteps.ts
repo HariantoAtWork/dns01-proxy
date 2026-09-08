@@ -1,4 +1,5 @@
 import type { AcmeRequestItem } from '../../../../client/runtime/shared/types/certs'
+import { v7 as uuid } from 'uuid'
 import { apexName, canonicalSans } from '../../../../client/runtime/shared/utils/domains'
 import {
   formatAcmeOrderTokenLabel,
@@ -51,7 +52,7 @@ function newLabRequestItem(
   status: AcmeRequestItem['status'],
 ): AcmeRequestItem {
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     step,
     label,
     status,
