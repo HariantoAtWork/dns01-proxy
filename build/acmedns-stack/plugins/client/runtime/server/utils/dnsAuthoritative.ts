@@ -74,19 +74,28 @@ async function resolveNameserverAddress(host: string): Promise<string | null> {
   return host.includes(':') ? host : null
 }
 
-/** One attempt: UDP first, then TCP only if UDP times out. */
+/** One attempt: UDP first; optional TCP only if UDP times out (`tcpFallback`, default true). */
 export async function dnsQueryUdpThenTcp(
   name: string,
   type: DnsUdpRecordType,
   serverAddress: string,
   timeoutMs = QUERY_TIMEOUT_MS,
+  options?: { tcpFallback?: boolean },
 ) {
-  const udp = await dnsUdpQuery(name, type, serverAddress, timeoutMs)
-  if (udp.lookup !== 'timeout') {
+  const tcpFallback = options?.tcpFallback !== false
+  const udp = await dnsUdpQuery(name, type, serverAddress, timeoutMs, {
+    retryOverTcp: tcpFallback && type === 'TXT',
+  })
+  if (udp.lookup !== 'timeout' || !tcpFallback) {
     return { ...udp, transport: 'udp' as const }
   }
   const tcp = await dnsTcpQuery(name, type, serverAddress, timeoutMs)
   return { ...tcp, transport: 'tcp' as const }
+}
+
+export interface AuthoritativeQueryOptions {
+  /** When false, never fall back to TCP (UDP only). Default true. */
+  tcpFallback?: boolean
 }
 
 async function queryViaNameserver(
@@ -94,6 +103,7 @@ async function queryViaNameserver(
   type: string,
   nameserverHost: string,
   serverAddress: string,
+  options?: AuthoritativeQueryOptions,
 ): Promise<DnsResolverOutcome> {
   const recordType = type.toUpperCase()
   const label = `auth:${nameserverHost}`
@@ -106,36 +116,45 @@ async function queryViaNameserver(
     name,
     recordType as 'CNAME' | 'TXT',
     serverAddress,
+    QUERY_TIMEOUT_MS,
+    { tcpFallback: options?.tcpFallback },
   )
   return { server: label, records: outcome.records, lookup: outcome.lookup }
 }
 
 /**
  * Query authoritative DNS for a name.
- * Under this stack's auth zone: try local listen first (UDP→TCP), return early on success.
- * Otherwise walk public NS addresses one-by-one (each UDP→TCP), no parallel UDP/TCP pair.
+ * Under this stack's auth zone: try local listen first, return early on success.
+ * Otherwise walk public NS addresses one-by-one.
+ * Default transport is UDP then TCP on UDP timeout; pass `tcpFallback: false` for UDP-only
+ * (TXT online default).
  */
-export async function queryAuthoritative(name: string, type: string): Promise<DnsResolverOutcome[]> {
+export async function queryAuthoritative(
+  name: string,
+  type: string,
+  options?: AuthoritativeQueryOptions,
+): Promise<DnsResolverOutcome[]> {
   const authZone = thisStackAuthZone()
   const localTarget = thisStackLocalDnsTarget()
 
   if (authZone && localTarget && isNameUnderZone(name, authZone)) {
-    const local = await queryViaNameserver(name, type, 'local', localTarget)
+    const local = await queryViaNameserver(name, type, 'local', localTarget, options)
     if (local.lookup === 'ok') {
       return [local]
     }
     // Keep a failed/empty local result and continue to public NS (still sequential).
-    const remotes = await queryRemoteAuthoritative(name, type, localTarget)
+    const remotes = await queryRemoteAuthoritative(name, type, localTarget, options)
     return [local, ...remotes]
   }
 
-  return queryRemoteAuthoritative(name, type, localTarget)
+  return queryRemoteAuthoritative(name, type, localTarget, options)
 }
 
 async function queryRemoteAuthoritative(
   name: string,
   type: string,
   localTarget: string | null,
+  options?: AuthoritativeQueryOptions,
 ): Promise<DnsResolverOutcome[]> {
   const nameservers = await findZoneNameservers(name)
   if (!nameservers.length) {
@@ -152,7 +171,7 @@ async function queryRemoteAuthoritative(
     if (localTarget && address === localTarget) {
       continue
     }
-    const outcome = await queryViaNameserver(name, type, host, address)
+    const outcome = await queryViaNameserver(name, type, host, address, options)
     outcomes.push(outcome)
     if (outcome.lookup === 'ok') {
       break

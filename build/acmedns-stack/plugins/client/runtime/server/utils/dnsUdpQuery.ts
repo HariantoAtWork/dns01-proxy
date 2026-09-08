@@ -101,13 +101,14 @@ export async function dnsUdpQuery(
   type: DnsUdpRecordType,
   serverAddress: string,
   timeoutMs = 2000,
+  options?: { retryOverTcp?: boolean },
 ): Promise<DnsUdpOutcome> {
   const resolve = UDPClient({
     dns: serverAddress,
     timeout: timeoutMs,
-    // Large multi-TXT answers (shared-mode tiny labels) exceed classic UDP 512B;
-    // without TCP fallback dns2 returns zero parsed answers while rcode stays NOERROR.
-    retryOverTCP: type === 'TXT',
+    // Large multi-TXT answers can exceed classic UDP 512B; dns2 can retry over TCP
+    // when the response is truncated. Callers that want UDP-only pass retryOverTcp: false.
+    retryOverTCP: options?.retryOverTcp ?? type === 'TXT',
   })
 
   try {
