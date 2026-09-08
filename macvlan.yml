@@ -1,0 +1,32 @@
+# Optional Compose file: dedicated LAN/public IP for UDP+TCP 53 when the host
+# already owns :53. Point NS/A glue at MACVLAN_IP — not the host IP.
+# Edge/control stay published on the host for reverse proxy / cloudflared / tsdproxy.
+#
+#   bun run docker:macvlan
+#   (or: docker compose -f docker-compose.yml -f docker-compose.override.yml -f macvlan.yml up -d)
+#
+# Compose merges ports by appending; !override replaces the base list so 53:53 is dropped.
+# Edit the CHANGE ME values before use.
+
+networks:
+  dns53:
+    name: acmedns-dns53
+    driver: macvlan
+    driver_opts:
+      parent: eth0 # CHANGE ME — host NIC (Synology often ovs_eth0 / eth0)
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24 # CHANGE ME
+          gateway: 192.168.1.1 # CHANGE ME
+
+services:
+  acmedns-stack:
+    networks:
+      dns53:
+        ipv4_address: 192.168.1.53 # CHANGE ME — dedicated IP answering :53
+    ports: !override
+      # DNS is on the macvlan IP (udp+tcp 53). Do not publish 53 on the host.
+      - "80:80"
+      - "443:443"
+      - "1080:1080"
+      - "1443:1443"

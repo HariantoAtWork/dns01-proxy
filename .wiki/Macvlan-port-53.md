@@ -4,7 +4,19 @@ When the Docker **host** already owns `:53` (Synology DNS Server, systemd-resolv
 
 ## Compose
 
-Copy [`docker-compose.override.yml.example`](../docker-compose.override.yml.example) → `docker-compose.override.yml` and set:
+Edit [`macvlan.yml`](../macvlan.yml) (CHANGE ME values), then:
+
+```bash
+bun run docker:macvlan
+# bun run docker:macvlan:down
+# bun run docker:macvlan:restart
+```
+
+Or with Compose directly:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f macvlan.yml up -d
+```
 
 | Field | Meaning |
 | --- | --- |
@@ -13,6 +25,8 @@ Copy [`docker-compose.override.yml.example`](../docker-compose.override.yml.exam
 | `dns53.ipv4_address` | Free IP for this container — the address in NS/A glue |
 
 `ports: !override` **drops** host `53:53` / `53:53/udp`. The process still listens on `0.0.0.0:53` inside the container; that is reachable as `MACVLAN_IP:53` (UDP and TCP). Edge (`80`/`443`) and control (`1080`/`1443`) stay on the host for reverse proxy / cloudflared / tsdproxy.
+
+On a VPS, `ipv4_address` must be an **extra** IP the provider assigned to this machine — not the primary host address, and not a quiet neighbour on the `/24`.
 
 ## DNS glue
 
