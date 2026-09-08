@@ -1,0 +1,19 @@
+# Optional Compose file: bind DNS :53 to the VPS public/NIC IPv4 only.
+# Use when 0.0.0.0:53 fails because systemd-resolved (or similar) owns 127.0.0.1:53.
+# Glue stays on the same IP. Linux VPS with one public address — not for Synology macvlan.
+#
+#   bun run docker:vps
+#   (or: PUBLIC_IP=x.x.x.x docker compose -f docker-compose.yml -f docker-compose.override.yml -f vps.yml up -d)
+#
+# bun run docker:vps sets PUBLIC_IP from the default IPv4 route (override with PUBLIC_IP=…).
+# Compose merges ports by appending; !override replaces the base list.
+
+services:
+  acmedns-stack:
+    ports: !override
+      - "${PUBLIC_IP}:53:53"
+      - "${PUBLIC_IP}:53:53/udp"
+      - "80:80"
+      - "443:443"
+      - "1080:1080"
+      - "1443:1443"
