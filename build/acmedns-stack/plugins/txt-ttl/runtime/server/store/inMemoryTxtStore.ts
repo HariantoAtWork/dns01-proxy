@@ -79,13 +79,16 @@ export class InMemoryTxtStore {
   getValues(subdomain: string): string[] {
     const now = this.now()
     const slots = this.slotsFor(subdomain)
-    const values: string[] = []
-    for (const slot of slots) {
+    const live: { value: string, expiresAt: number, index: number }[] = []
+    for (let index = 0; index < slots.length; index += 1) {
+      const slot = slots[index]!
       if (slot.value && slot.expiresAt > now) {
-        values.push(slot.value)
+        live.push({ value: slot.value, expiresAt: slot.expiresAt, index })
       }
     }
-    return values
+    // Newest first (later expiry), oldest last — DNS answers follow this order.
+    live.sort((a, b) => b.expiresAt - a.expiresAt || b.index - a.index)
+    return live.map(slot => slot.value)
   }
 
   clearByValue(subdomain: string, txt: string): number {
