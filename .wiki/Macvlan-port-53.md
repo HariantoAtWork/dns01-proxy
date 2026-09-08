@@ -26,7 +26,7 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml -f macvlan.y
 
 `ports: !override` **drops** host `53:53` / `53:53/udp`. The process still listens on `0.0.0.0:53` inside the container; that is reachable as `MACVLAN_IP:53` (UDP and TCP). Edge (`80`/`443`) and control (`1080`/`1443`) stay on the host for reverse proxy / cloudflared / tsdproxy.
 
-On a VPS, `ipv4_address` must be an **extra** IP the provider assigned to this machine — not the primary host address, and not a quiet neighbour on the `/24`.
+On a VPS, `ipv4_address` must be an **extra** IP the provider assigned to this machine — not the primary host address, and not a quiet neighbour on the `/24`. With a **single** public IP, use [`vps.yml`](../vps.yml) instead (`PUBLIC_IP:53`) — see [VPS port 53](VPS-port-53.md).
 
 ## DNS glue
 
