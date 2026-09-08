@@ -230,10 +230,30 @@ describe('acmeIssueSteps', () => {
       status: 'running',
     })
     expect(acmeRequestDomain('TXT online sylo.space (attempt 2 · 0s · timeout 170s)')).toBe('sylo.space')
+    expect(acmeRequestDomain('Publish TXT sylo.space (remote)')).toBe('sylo.space')
+    expect(acmeRequestDomain('Publish TXT sylo.space (local)')).toBe('sylo.space')
     expect(currentAcmeRequestProgress(plan)).toEqual({
       index: 4,
       total: 6,
       label: 'TXT online attempt 2 · 0s · timeout 170s',
+    })
+  })
+
+  test('advances seeded Publish TXT with local/remote annotation', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER, 'ACME order')
+    plan = applyAcmeOrderTokens(plan, 'sylo.space', [{ domain: 'sylo.space', token: 'tok' }])
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT sylo.space (remote)')
+
+    const publish = plan.find(item => item.step === ACME_REQUEST_STEPS.PUBLISH_TXT)
+    expect(publish).toMatchObject({
+      label: 'Publish TXT sylo.space (remote)',
+      status: 'running',
+    })
+    expect(currentAcmeRequestProgress(plan)).toEqual({
+      index: expect.any(Number),
+      total: expect.any(Number),
+      label: 'Publish TXT remote',
     })
   })
 
