@@ -147,7 +147,7 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 
 Single `acmedns-stack` service. Edge HTTP on `:80` and control on `:1080` are always on; edge/control HTTPS bind when TLS PEMs are available. Production compose publishes `80:80`, `443:443`, `1080:1080`, `1443:1443`.
 
-`cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel.
+`cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel. If the host already owns `:53`, use the macvlan block in `docker-compose.override.yml.example` (see [`.wiki/Macvlan-port-53.md`](.wiki/Macvlan-port-53.md)).
 
 More on DNS-01 and DMZ: [`.wiki/Home.md`](.wiki/Home.md).
 

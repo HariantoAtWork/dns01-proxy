@@ -1,18 +1,43 @@
+# Copy to docker-compose.override.yml (gitignored) and edit the CHANGE ME values.
+#
+# Macvlan gives the container its own LAN/public IP so UDP+TCP 53 do not bind on the
+# Docker host. Point NS/A glue (and router forwards) at MACVLAN_IP:53 — not the host IP.
+# Edge/control stay published on the host for reverse proxy / cloudflared / tsdproxy.
+#
+# Compose merges ports by appending; !override replaces the base list so 53:53 is dropped.
+
 networks:
   cloudflared:
     external: true
   tsdproxy:
     external: true
+  dns53:
+    name: acmedns-dns53
+    driver: macvlan
+    driver_opts:
+      parent: eth0 # CHANGE ME — host NIC (Synology often ovs_eth0 / eth0)
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24 # CHANGE ME
+          gateway: 192.168.1.1 # CHANGE ME
 
 services:
   acmedns-stack:
     networks:
-      - default
-      - cloudflared
-      - tsdproxy
+      default: {}
+      cloudflared: {}
+      tsdproxy: {}
+      dns53:
+        ipv4_address: 192.168.1.53 # CHANGE ME — dedicated IP answering :53
+    ports: !override
+      # DNS is on the macvlan IP (udp+tcp 53). Do not publish 53 on the host.
+      - "80:80"
+      - "443:443"
+      - "1080:1080"
+      - "1443:1443"
     labels:
       tsdproxy.enable: "true"
       tsdproxy.name: "acmedns-stack"
-      tsdproxy.container_port: "1080"  # control plane (UI + acme-dns), not edge :80
+      tsdproxy.container_port: "1080" # control plane (UI + acme-dns), not edge :80
     extra_hosts:
       - "host.docker.internal:host-gateway"
