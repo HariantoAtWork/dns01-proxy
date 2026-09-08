@@ -13,7 +13,7 @@ import { resolveAcmeDnsBase } from './acmedns'
 import { accountsDir, getLetsEncryptEmail } from './certSettings'
 import { writeLivePems } from './letsencryptFs'
 import { snapshotCertToLastSaved } from './certLastSaved'
-import { logAcmeStep, withAcmeLogContext } from './acmeLogger'
+import { logAcmeStep, withAcmeLogContext, configureAcmeHttpRetries } from './acmeLogger'
 import { canonicalSans } from '#shared/utils/domains'
 import {
   ACME_REQUEST_STEPS,
@@ -55,10 +55,20 @@ function directoryUrl(mode: LetsEncryptDirectoryMode) {
 }
 
 export async function createAcmeClient(mode: LetsEncryptDirectoryMode): Promise<AcmeClient> {
+  configureAcmeHttpRetries()
   const accountKey = await ensureAccountKey(mode)
+  // Challenge / order status polling — keep short so Cancel isn't stuck in backoff.
+  const backoffAttempts = (() => {
+    const raw = Number(process.env.ACME_BACKOFF_ATTEMPTS ?? 3)
+    if (!Number.isFinite(raw)) {
+      return 3
+    }
+    return Math.max(1, Math.min(20, Math.floor(raw)))
+  })()
   return new acme.Client({
     directoryUrl: directoryUrl(mode),
     accountKey,
+    backoffAttempts,
   })
 }
 

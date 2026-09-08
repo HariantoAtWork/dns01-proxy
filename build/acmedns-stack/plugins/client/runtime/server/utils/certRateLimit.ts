@@ -88,18 +88,27 @@ export async function recordCertRateLimit(input: {
 }): Promise<CertRateLimit> {
   await ensureLoaded()
   const seconds = Math.max(1, Math.floor(input.retryAfterSeconds))
-  const until = new Date(Date.now() + seconds * 1000).toISOString()
   const endpoint = input.endpoint || ''
   const scope: CertRateLimit['scope'] = /new-order|new-acct|new-nonce/i.test(endpoint)
     ? 'account'
     : 'cert'
 
+  const id = limitId({
+    mode: input.mode,
+    scope,
+    certName: input.certName,
+  })
+
+  // Keep the first active cooldown — later axios 429 retries must not stack / refresh "until".
+  const existing = (cache ?? []).find(item => item.id === id && Date.parse(item.until) > Date.now())
+  if (existing) {
+    return existing
+  }
+
+  const until = new Date(Date.now() + seconds * 1000).toISOString()
+
   const entry: CertRateLimit = {
-    id: limitId({
-      mode: input.mode,
-      scope,
-      certName: input.certName,
-    }),
+    id,
     mode: input.mode,
     scope,
     certName: input.certName,
@@ -157,4 +166,10 @@ export function rateLimitForCert(
 /** Boot hook — load file into memory. */
 export async function initCertRateLimits() {
   await ensureLoaded()
+}
+
+/** Test helper — drop in-memory cache so the next call reloads from disk. */
+export function resetCertRateLimitsForTests() {
+  cache = null
+  loadPromise = null
 }

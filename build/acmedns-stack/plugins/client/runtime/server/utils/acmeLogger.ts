@@ -3,15 +3,27 @@ import type { CertActivityLevel, LetsEncryptDirectoryMode } from '#shared/types/
 import { appendCertActivity } from './certActivity'
 import { clearCertRateLimit, recordCertRateLimit } from './certRateLimit'
 
+/** HTTP 429 / 5xx retries inside acme-client axios (default library: 5). */
+export const ACME_HTTP_RETRY_MAX_ATTEMPTS = (() => {
+  const raw = Number(process.env.ACME_HTTP_RETRY_MAX_ATTEMPTS ?? 3)
+  if (!Number.isFinite(raw)) {
+    return 3
+  }
+  return Math.max(0, Math.min(10, Math.floor(raw)))
+})()
+
 interface AcmeLogContext {
   certName: string
   mode: LetsEncryptDirectoryMode
   rateLimitAbort?: AbortController
+  /** How many Retry-After / wait messages we acted on in this cert run. */
+  rateLimitHits: number
 }
 
 let context: AcmeLogContext | null = null
 let installed = false
 let last429Endpoint: string | undefined
+let httpRetriesConfigured = false
 
 const RETRY_AFTER_RE = /retry-after response header with value:\s*(\d+)/i
 const WAITING_SECONDS_RE = /waiting\s+(\d+)\s+seconds/i
@@ -63,6 +75,21 @@ function formatDuration(totalSeconds: number) {
   return parts.join(' ')
 }
 
+/** Cap acme-client's axios 429/5xx retry loop (sleeps are not cancelable). */
+export function configureAcmeHttpRetries() {
+  if (httpRetriesConfigured) {
+    return
+  }
+  httpRetriesConfigured = true
+  const defaults = acme.axios.defaults as {
+    acmeSettings?: { retryMaxAttempts?: number, retryDefaultDelay?: number }
+  }
+  if (!defaults.acmeSettings) {
+    defaults.acmeSettings = {}
+  }
+  defaults.acmeSettings.retryMaxAttempts = ACME_HTTP_RETRY_MAX_ATTEMPTS
+}
+
 function noteRateLimitFromMessage(message: string) {
   const hit429 = HTTP_429_RE.exec(message)
   if (hit429?.[1]) {
@@ -82,9 +109,30 @@ function noteRateLimitFromMessage(message: string) {
     return
   }
 
-  const { mode, certName, rateLimitAbort } = context
+  context.rateLimitHits += 1
+  const { mode, certName, rateLimitAbort, rateLimitHits } = context
   const endpoint = last429Endpoint
   last429Endpoint = undefined
+
+  // First hit wins the persisted cooldown; later axios retries must not stack "until".
+  if (rateLimitHits > 1) {
+    if (rateLimitHits >= ACME_HTTP_RETRY_MAX_ATTEMPTS) {
+      try {
+        rateLimitAbort?.abort(
+          Object.assign(
+            new Error(
+              `Let's Encrypt rate limit — stopped after ${ACME_HTTP_RETRY_MAX_ATTEMPTS} HTTP retry attempt(s)`,
+            ),
+            { name: 'AbortError', rateLimited: true },
+          ),
+        )
+      }
+      catch {
+        // already aborted
+      }
+    }
+    return
+  }
 
   void recordCertRateLimit({
     mode,
@@ -119,6 +167,7 @@ export function installAcmeLogger() {
     return
   }
   installed = true
+  configureAcmeHttpRetries()
 
   acme.setLogger((message: string) => {
     noteRateLimitFromMessage(message)
@@ -138,7 +187,7 @@ export async function withAcmeLogContext<T>(
 ): Promise<T> {
   installAcmeLogger()
   const rateLimitAbort = new AbortController()
-  context = { ...ctx, rateLimitAbort }
+  context = { ...ctx, rateLimitAbort, rateLimitHits: 0 }
   try {
     return await fn(rateLimitAbort.signal)
   }
