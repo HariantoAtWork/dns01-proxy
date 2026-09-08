@@ -36,6 +36,51 @@ export function tinyApexFulldomain(apex: string, authZone: string): string {
   return `${label}.${zone}`
 }
 
+/**
+ * TXT store key for a name under the auth zone.
+ * `uuid.auth.mdstn.com` → `uuid`; `_mdstn-com_.auth.mdstn.com` → `_mdstn-com_`;
+ * zone apex → first label (`auth`).
+ */
+export function authZoneTxtLabel(fqdn: string, authZone: string): string | null {
+  const name = stripZoneFqdn(fqdn)
+  const zone = stripZoneFqdn(authZone)
+  if (!name || !zone) {
+    return null
+  }
+  if (name === zone) {
+    return zoneApexTxtSubdomain(zone)
+  }
+  if (!name.endsWith(`.${zone}`)) {
+    return null
+  }
+  const rest = name.slice(0, name.length - zone.length - 1)
+  const label = rest.split('.')[0]?.trim()
+  return label || null
+}
+
+/**
+ * Shared/Tiny publish keys: always the encoded apex label, plus any live CNAME
+ * targets under the auth zone (legacy UUID or arbitrary labels).
+ */
+export function mergeSharedPublishSubdomains(
+  certName: string,
+  authZone: string,
+  cnameTargets: string[],
+): string[] {
+  const out: string[] = []
+  const encoded = tinyApexLabel(certName)
+  if (encoded) {
+    out.push(encoded)
+  }
+  for (const target of cnameTargets) {
+    const label = authZoneTxtLabel(target, authZone)
+    if (label && !out.includes(label)) {
+      out.push(label)
+    }
+  }
+  return out
+}
+
 /** Auth zone hostname (glue / NS). Per-apex CNAME targets use tinyApexFulldomain. */
 export function sharedCnameTarget(zone: string) {
   return stripZoneFqdn(zone)
