@@ -3,7 +3,8 @@
 # Glue stays on the same IP. For home Synology, use DMZ/port-forward + normal 53:53 instead.
 #
 #   bun run docker:vps
-#   (or: PUBLIC_IP=x.x.x.x docker compose -f docker-compose.yml -f docker-compose.override.yml -f vps.yml up -d)
+#   (or: PUBLIC_IP=x.x.x.x docker compose -f docker-compose.yml -f vps.yml up -d)
+#   bun run docker:vps adds -f docker-compose.override.yml only when that file exists.
 #
 # bun run docker:vps sets PUBLIC_IP from the default IPv4 route (override with PUBLIC_IP=…).
 # Compose merges ports by appending; !override replaces the base list.
