@@ -28,18 +28,22 @@ describe('proxyUpstreamTimeoutMs', () => {
 })
 
 describe('sanitizeUpstreamResponseHeaders', () => {
-  test('strips hop-by-hop headers', () => {
+  test('strips hop-by-hop and length; keeps content-encoding', () => {
     const headers = new Headers({
       'content-type': 'text/html',
+      'content-encoding': 'gzip',
+      'content-length': '123',
       connection: 'keep-alive',
       'transfer-encoding': 'chunked',
       'x-app': 'ok',
     })
     const out = sanitizeUpstreamResponseHeaders(headers)
     expect(out.get('content-type')).toBe('text/html')
+    expect(out.get('content-encoding')).toBe('gzip')
     expect(out.get('x-app')).toBe('ok')
     expect(out.get('connection')).toBeNull()
     expect(out.get('transfer-encoding')).toBeNull()
+    expect(out.get('content-length')).toBeNull()
   })
 })
 
