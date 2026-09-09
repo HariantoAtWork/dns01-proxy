@@ -83,16 +83,48 @@ export function mergeSharedPublishSubdomains(
 
 /** Parse ACMEDNS_TINY_ACCEPT_ZONES (comma/space/semicolon separated). */
 export function parseTinyAcceptZones(raw?: string): string[] {
+  return parseTinyAcceptZoneEntries(raw).map(entry => entry.zone)
+}
+
+export interface TinyAcceptZoneEntry {
+  zone: string
+  /** Optional control URL override (`zone|https://…` or `zone=https://…`). */
+  serverUrl?: string
+}
+
+/**
+ * Parse ACMEDNS_TINY_ACCEPT_ZONES entries.
+ * Forms: `auth.a.com`, `auth.b.com|https://auth.b.com:1443`, `auth.c.com=https://auth.c.com`
+ */
+export function parseTinyAcceptZoneEntries(raw?: string): TinyAcceptZoneEntry[] {
   const source = (raw ?? process.env.ACMEDNS_TINY_ACCEPT_ZONES ?? '').trim()
   if (!source) {
     return []
   }
-  return [...new Set(
-    source
-      .split(/[,;\s]+/)
-      .map(stripZoneFqdn)
-      .filter(Boolean),
-  )]
+  const out: TinyAcceptZoneEntry[] = []
+  const seen = new Set<string>()
+  for (const part of source.split(/[,;\s]+/)) {
+    const token = part.trim()
+    if (!token) {
+      continue
+    }
+    let zone = token
+    let serverUrl: string | undefined
+    const pipe = token.indexOf('|')
+    const eq = token.indexOf('=')
+    const sep = pipe >= 0 ? pipe : eq >= 0 ? eq : -1
+    if (sep > 0) {
+      zone = token.slice(0, sep).trim()
+      serverUrl = token.slice(sep + 1).trim().replace(/\/$/, '') || undefined
+    }
+    const normalised = stripZoneFqdn(zone)
+    if (!normalised || seen.has(normalised)) {
+      continue
+    }
+    seen.add(normalised)
+    out.push({ zone: normalised, serverUrl })
+  }
+  return out
 }
 
 /**
@@ -102,6 +134,121 @@ export function parseTinyAcceptZones(raw?: string): string[] {
 export function tinyPreflightAcceptZones(localAuthZone: string, rawExtraZones?: string): string[] {
   const local = stripZoneFqdn(localAuthZone)
   return [...new Set([local, ...parseTinyAcceptZones(rawExtraZones)].filter(Boolean))]
+}
+
+export function tinyAcceptZoneServerUrls(rawExtraZones?: string): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const entry of parseTinyAcceptZoneEntries(rawExtraZones)) {
+    if (entry.serverUrl) {
+      map[entry.zone] = entry.serverUrl
+    }
+  }
+  return map
+}
+
+/** Split `label.auth.zone` (or zone apex) using known zones, else first-label + remainder. */
+export function splitTinyAuthFqdn(
+  fqdn: string,
+  knownZones: string[],
+): { label: string, zone: string } | null {
+  const name = stripZoneFqdn(fqdn)
+  if (!name) {
+    return null
+  }
+  const zones = [...new Set(knownZones.map(stripZoneFqdn).filter(Boolean))]
+    .sort((a, b) => b.length - a.length)
+
+  for (const zone of zones) {
+    if (name === zone) {
+      return { label: zoneApexTxtSubdomain(zone), zone }
+    }
+    if (name.endsWith(`.${zone}`)) {
+      const rest = name.slice(0, name.length - zone.length - 1)
+      const label = rest.split('.')[0]?.trim()
+      if (label) {
+        return { label, zone }
+      }
+    }
+  }
+
+  const dot = name.indexOf('.')
+  if (dot <= 0) {
+    return null
+  }
+  return {
+    label: name.slice(0, dot),
+    zone: name.slice(dot + 1),
+  }
+}
+
+export interface TinyPublishSlot {
+  subdomain: string
+  serverUrl: string
+  local: boolean
+  authZone: string
+}
+
+/**
+ * Local encoded label plus every live CNAME target — local in-process or remote
+ * HTTP /update when the target sits on another Tiny auth zone.
+ */
+export function planTinyPublishSlots(options: {
+  certName: string
+  localAuthZone: string
+  localServerUrl: string
+  cnameTargets: string[]
+  zoneServerUrls?: Record<string, string>
+}): TinyPublishSlot[] {
+  const localZone = stripZoneFqdn(options.localAuthZone)
+  const localUrl = options.localServerUrl.replace(/\/$/, '')
+  const zoneUrls = options.zoneServerUrls ?? tinyAcceptZoneServerUrls()
+  const knownZones = [...new Set([localZone, ...Object.keys(zoneUrls), ...parseTinyAcceptZones()])]
+  const slots: TinyPublishSlot[] = []
+  const seen = new Set<string>()
+
+  const add = (slot: TinyPublishSlot) => {
+    const key = `${slot.local ? 'local' : slot.serverUrl}|${slot.subdomain}`
+    if (seen.has(key) || !slot.subdomain) {
+      return
+    }
+    seen.add(key)
+    slots.push(slot)
+  }
+
+  const encoded = tinyApexLabel(options.certName)
+  if (encoded && localZone) {
+    add({
+      subdomain: encoded,
+      serverUrl: localUrl,
+      local: true,
+      authZone: localZone,
+    })
+  }
+
+  for (const target of options.cnameTargets) {
+    const parsed = splitTinyAuthFqdn(target, knownZones)
+    if (!parsed) {
+      continue
+    }
+    if (parsed.zone === localZone) {
+      add({
+        subdomain: parsed.label,
+        serverUrl: localUrl,
+        local: true,
+        authZone: parsed.zone,
+      })
+      continue
+    }
+    const serverUrl = (zoneUrls[parsed.zone] || `https://${parsed.zone}`).replace(/\/$/, '')
+    add({
+      subdomain: parsed.label,
+      serverUrl,
+      local: false,
+      authZone: parsed.zone,
+    })
+  }
+
+  return slots
 }
 
 /** Auth zone hostname (glue / NS). Per-apex CNAME targets use tinyApexFulldomain. */

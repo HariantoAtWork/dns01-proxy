@@ -58,7 +58,7 @@ Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt se
 
 ### Tiny stack (no Register)
 
-For a slim setup — no Register UI; CNAME `_acme-challenge.<apex>` → `_encoded-apex_.<auth zone>` — see [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). Minimal env: `ACMEDNS_TINY_DOMAIN` + `LETSENCRYPT_EMAIL`. **`ACMEDNS_SHARED_KEY` is optional** (internal `/update` password; auto-generated for the all-in-one UI).
+For a slim setup — no Register UI; CNAME `_acme-challenge.<apex>` → `_encoded-apex_.<auth zone>` — see [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). Minimal env: `ACMEDNS_TINY_DOMAIN` + `LETSENCRYPT_EMAIL`. **`ACMEDNS_TINY_SHARED_KEY` is optional** (internal `/update` password; auto-generated for the all-in-one UI).
 
 ## Ports
 
@@ -134,7 +134,7 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 | --- | --- | --- |
 | `ACMEDNS_URL` | `https://auth.example.org` | Public identity for register/update. Loopback or a host matching `config.cfg` `domain` still runs in-process. |
 | `ACMEDNS_TINY_DOMAIN` | `auth.uti.email` | **Tiny only.** Auth zone; enables shared mode. See [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). |
-| `ACMEDNS_SHARED_KEY` | _(omit)_ | **Tiny advanced.** Internal `/update` API password — not DNS. Auto-generated if unset. |
+| `ACMEDNS_TINY_SHARED_KEY` | _(omit)_ | **Tiny advanced.** Internal `/update` API password — not DNS. Auto-generated if unset. |
 | `ACMEDNS_PUBLIC_IP` | _(auto)_ | **Tiny.** Glue A record for auth zone. |
 | `ACMEDNS_PUBLIC_IPV6` | _(auto)_ | **Tiny.** Glue AAAA when IPv6 is available. |
 | `LETSENCRYPT_EMAIL` | `admin@example.com` | ACME account contact. |

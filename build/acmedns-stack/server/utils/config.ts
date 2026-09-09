@@ -13,7 +13,7 @@ import {
   envAcmeDnsListen,
   envAcmeDnsPort,
   envAcmednsSharedKey,
-  envAcmednsSharedMode,
+  envAcmednsTinyMode,
 } from '../../core/env'
 
 const DEFAULTS: AcmeDnsConfig = {
@@ -195,7 +195,7 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
     cached.api.disable_registration = true
   }
 
-  const sharedEnv = envAcmednsSharedMode()
+  const sharedEnv = envAcmednsTinyMode()
   if (sharedEnv === true) {
     cached.api.shared_mode = true
     cached.api.disable_registration = true
@@ -205,7 +205,7 @@ export function loadAcmeConfigSync(configPath?: string): AcmeDnsConfig {
     cached.api.shared_password = sharedKey
   }
 
-  // Dashboard sharedMode override beats ACMEDNS_SHARED_MODE (not a set tiny domain).
+  // Dashboard sharedMode override beats ACMEDNS_TINY_MODE (not a set tiny domain).
   if (!tinyDomain) {
     const snap = getAppSettingsSnapshot()
     if (typeof snap.sharedMode === 'boolean') {
