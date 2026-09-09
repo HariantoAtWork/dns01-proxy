@@ -146,7 +146,11 @@ export function tinyAcceptZoneServerUrls(rawExtraZones?: string): Record<string,
   return map
 }
 
-/** Split `label.auth.zone` (or zone apex) using known zones only — no site-apex fallback. */
+/**
+ * Split `label.auth.zone` (or zone apex) using known zones, else the Tiny
+ * convention `*.auth.<parent>` (so peers like auth.uti.email work without an allowlist).
+ * Never falls back to arbitrary site names (`_acme-challenge.harianto.dev`).
+ */
 export function splitTinyAuthFqdn(
   fqdn: string,
   knownZones: string[],
@@ -171,9 +175,28 @@ export function splitTinyAuthFqdn(
     }
   }
 
-  // Do not fall back to first-label + remainder — that turns intermediate CNAMEs
-  // like `_acme-challenge.harianto.dev` into a bogus remote Publish to https://harianto.dev.
-  return null
+  const parts = name.split('.')
+  const authIdx = parts.indexOf('auth')
+  if (authIdx < 0) {
+    return null
+  }
+  // Zone apex: auth.uti.email
+  if (authIdx === 0) {
+    if (parts.length < 2) {
+      return null
+    }
+    return { label: zoneApexTxtSubdomain(name), zone: name }
+  }
+  // label.auth.uti.email (auth must be followed by at least one parent label)
+  if (authIdx >= parts.length - 1) {
+    return null
+  }
+  const label = parts[0]?.trim()
+  const zone = parts.slice(authIdx).join('.')
+  if (!label || !zone.startsWith('auth.')) {
+    return null
+  }
+  return { label, zone }
 }
 
 export interface TinyPublishSlot {

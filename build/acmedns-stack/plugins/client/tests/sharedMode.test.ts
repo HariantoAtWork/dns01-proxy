@@ -115,4 +115,22 @@ describe('planTinyPublishSlots', () => {
         'local:4181bcdd-8cbb-4477-805d-4c2c6ca0caa3@https://auth.uti.email',
       ])
   })
+
+  test('publishes remote when CNAME lands on another auth.* zone', () => {
+    const slots = planTinyPublishSlots({
+      certName: 'harianto.dev',
+      localAuthZone: 'auth.mdstn.com',
+      localServerUrl: 'https://auth.mdstn.com',
+      cnameTargets: [
+        '_acme-challenge.harianto.dev',
+        '4181bcdd-8cbb-4477-805d-4c2c6ca0caa3.auth.uti.email',
+      ],
+    })
+
+    expect(slots.map(slot => `${slot.local ? 'local' : 'remote'}:${slot.subdomain}@${slot.serverUrl}`))
+      .toEqual([
+        'local:_harianto-dev_@https://auth.mdstn.com',
+        'remote:4181bcdd-8cbb-4477-805d-4c2c6ca0caa3@https://auth.uti.email',
+      ])
+  })
 })
