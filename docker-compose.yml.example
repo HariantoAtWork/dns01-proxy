@@ -35,6 +35,12 @@ services:
       - ACME_TXT_HOLD_MS=${ACME_TXT_HOLD_MS:-300000}
       # TXT online probes are UDP-only by default; set true to fall back to TCP after UDP timeout
       - ACME_TXT_ONLINE_TCP_FALLBACK=${ACME_TXT_ONLINE_TCP_FALLBACK:-false}
+      # Proxy log threshold: silent|error|warn|info|debug (also accepts LOG_LEVEL). Default info.
+      - PROXY_LOG_LEVEL=${PROXY_LOG_LEVEL:-${LOG_LEVEL:-info}}
+      # Access lines use this level (default info). Set debug to only log access when PROXY_LOG_LEVEL=debug.
+      - PROXY_ACCESS_LOG_LEVEL=${PROXY_ACCESS_LOG_LEVEL:-info}
+      # Force-disable access lines only (0/false). Prefer PROXY_LOG_LEVEL=warn to keep errors.
+      - PROXY_ACCESS_LOG=${PROXY_ACCESS_LOG:-true}
       # Upstream fetch deadline for edge proxy (ms; 0 disables). Default 60000.
       - PROXY_UPSTREAM_TIMEOUT_MS=${PROXY_UPSTREAM_TIMEOUT_MS:-60000}
       # Bun.serve idleTimeout seconds on edge (max 255). Default 120; 0 = Bun default (10s).

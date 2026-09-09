@@ -2,8 +2,11 @@ import type { Server, ServerWebSocket } from 'bun'
 import type { ListenBinding } from '../utils/listen'
 import {
   buildUpstreamWsUrl,
+  formatProxyUpstreamContext,
   resolveForwardTarget,
+  validateForwardTarget,
 } from './forward'
+import { proxyLog } from './proxyLog'
 import type { RouteMatch } from './routeTable'
 
 export interface ProxyWsData {
@@ -79,6 +82,14 @@ export function tryUpgradeProxyWebSocket(
 
   const target = resolveForwardTarget(match)
   const upstreamUrl = buildUpstreamWsUrl(reqUrl, target)
+  const context = formatProxyUpstreamContext(match, req, reqUrl, target, upstreamUrl)
+
+  const invalid = validateForwardTarget(target)
+  if (invalid) {
+    proxyLog('warn', `[proxy] invalid upstream config (ws): ${invalid} | ${context}`)
+    return false
+  }
+
   const upstreamHeaders = buildUpstreamWsHeaders(req, match)
 
   let upstream: WebSocket
@@ -86,7 +97,8 @@ export function tryUpgradeProxyWebSocket(
     upstream = new WebSocket(upstreamUrl, { headers: upstreamHeaders })
   }
   catch (error) {
-    console.warn(`[proxy] ws connect failed ${upstreamUrl}:`, error)
+    const message = error instanceof Error ? error.message : String(error)
+    proxyLog('warn', `[proxy] ws connect failed: ${message} | ${context}`)
     return false
   }
 
