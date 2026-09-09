@@ -176,7 +176,9 @@ export function buildForwardHeaders(
   return headers
 }
 
-/** Drop hop-by-hop headers so the client gets a clean streamed response. */
+/** Drop hop-by-hop / length headers so Bun can reframe the streamed body.
+ * Keep `content-encoding` — upstream fetch uses `decompress: false` so bytes stay compressed.
+ */
 export function sanitizeUpstreamResponseHeaders(headers: Headers): Headers {
   const out = new Headers(headers)
   out.delete('connection')
@@ -186,6 +188,7 @@ export function sanitizeUpstreamResponseHeaders(headers: Headers): Headers {
   out.delete('te')
   out.delete('trailers')
   out.delete('transfer-encoding')
+  out.delete('content-length')
   out.delete('upgrade')
   return out
 }
@@ -235,11 +238,14 @@ export async function forwardHttpRequest(
   const timeoutMs = proxyUpstreamTimeoutMs()
   const signal = timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined
 
-  const init: RequestInit & { duplex?: 'half' } = {
+  const init: RequestInit & { duplex?: 'half'; decompress?: boolean } = {
     method: req.method,
     headers,
     redirect: 'manual',
     signal,
+    // Bun fetch decompresses by default but keeps Content-Encoding — browsers then
+    // fail with blank pages / ERR_CONTENT_DECODING_FAILED. Pass bytes through as-is.
+    decompress: false,
   }
 
   // Stream the request body when present — avoid buffering whole uploads in RAM.
