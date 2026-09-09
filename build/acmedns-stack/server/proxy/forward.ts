@@ -8,6 +8,21 @@ export interface ForwardTarget {
   port: number
 }
 
+/** Default upstream fetch deadline (ms). `PROXY_UPSTREAM_TIMEOUT_MS=0` disables. */
+export const DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS = 60_000
+
+export function proxyUpstreamTimeoutMs(): number {
+  const raw = process.env.PROXY_UPSTREAM_TIMEOUT_MS
+  if (raw === undefined || raw.trim() === '') {
+    return DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS
+  }
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < 0) {
+    return DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS
+  }
+  return Math.floor(value)
+}
+
 export function resolveForwardTarget(match: RouteMatch): ForwardTarget {
   if (match.location) {
     return {
@@ -98,6 +113,28 @@ export function buildForwardHeaders(
   return headers
 }
 
+/** Drop hop-by-hop headers so the client gets a clean streamed response. */
+export function sanitizeUpstreamResponseHeaders(headers: Headers): Headers {
+  const out = new Headers(headers)
+  out.delete('connection')
+  out.delete('keep-alive')
+  out.delete('proxy-authenticate')
+  out.delete('proxy-authorization')
+  out.delete('te')
+  out.delete('trailers')
+  out.delete('transfer-encoding')
+  out.delete('upgrade')
+  return out
+}
+
+function isAbortLike(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+  const name = (error as { name?: string }).name
+  return name === 'AbortError' || name === 'TimeoutError'
+}
+
 export async function forwardHttpRequest(
   req: Request,
   match: RouteMatch,
@@ -107,27 +144,36 @@ export async function forwardHttpRequest(
   const target = resolveForwardTarget(match)
   const upstream = buildUpstreamUrl(reqUrl, target)
   const headers = buildForwardHeaders(req, match, binding)
+  const timeoutMs = proxyUpstreamTimeoutMs()
+  const signal = timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined
 
-  let body: ArrayBuffer | undefined
+  const init: RequestInit & { duplex?: 'half' } = {
+    method: req.method,
+    headers,
+    redirect: 'manual',
+    signal,
+  }
+
+  // Stream the request body when present — avoid buffering whole uploads in RAM.
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
-    body = await req.arrayBuffer()
+    init.body = req.body
+    init.duplex = 'half'
   }
 
   try {
-    const upstreamRes = await fetch(upstream, {
-      method: req.method,
-      headers,
-      body,
-      redirect: 'manual',
-    })
+    const upstreamRes = await fetch(upstream, init)
     return new Response(upstreamRes.body, {
       status: upstreamRes.status,
       statusText: upstreamRes.statusText,
-      headers: upstreamRes.headers,
+      headers: sanitizeUpstreamResponseHeaders(upstreamRes.headers),
     })
   }
   catch (error) {
     const message = error instanceof Error ? error.message : 'upstream error'
+    if (isAbortLike(error) && timeoutMs > 0) {
+      console.warn(`[proxy] upstream ${upstream} timed out after ${timeoutMs}ms`)
+      return new Response('Gateway Timeout', { status: 504 })
+    }
     console.warn(`[proxy] upstream ${upstream} failed:`, message)
     return new Response('Bad Gateway', { status: 502 })
   }

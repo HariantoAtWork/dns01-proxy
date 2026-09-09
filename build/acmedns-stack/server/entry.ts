@@ -10,6 +10,7 @@ import {
   type ListenBinding,
   type ListenTlsOptions,
 } from './utils/listen'
+import { resolveIdleTimeoutSeconds } from './utils/idleTimeout'
 import { tryHandleProxy } from './proxy/handle'
 import { reloadRouteTable } from './proxy/routeTable'
 import { buildEdgeTlsOptions, shouldBindEdgeHttps } from './proxy/tls'
@@ -108,7 +109,7 @@ function startControlBinding(binding: ListenBinding) {
   const base = {
     port: binding.port,
     hostname: binding.host,
-    idleTimeout: Number.parseInt(process.env.NITRO_BUN_IDLE_TIMEOUT || '') || undefined,
+    idleTimeout: resolveIdleTimeoutSeconds('control'),
     ...tlsServeOption(binding.tls),
     fetch: (req: Request, server: unknown) => handleFetch(req, server, binding),
   }
@@ -131,7 +132,7 @@ function startEdgeBinding(binding: ListenBinding, tlsBodies?: ReturnType<typeof 
   return Bun.serve({
     port: binding.port,
     hostname: binding.host,
-    idleTimeout: Number.parseInt(process.env.NITRO_BUN_IDLE_TIMEOUT || '') || undefined,
+    idleTimeout: resolveIdleTimeoutSeconds('edge'),
     ...tlsOpt,
     fetch: (req: Request, server: unknown) => handleFetch(req, server, binding),
     websocket: proxyWebsocketHandlers,
