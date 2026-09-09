@@ -81,6 +81,29 @@ export function mergeSharedPublishSubdomains(
   return out
 }
 
+/** Parse ACMEDNS_TINY_ACCEPT_ZONES (comma/space/semicolon separated). */
+export function parseTinyAcceptZones(raw?: string): string[] {
+  const source = (raw ?? process.env.ACMEDNS_TINY_ACCEPT_ZONES ?? '').trim()
+  if (!source) {
+    return []
+  }
+  return [...new Set(
+    source
+      .split(/[,;\s]+/)
+      .map(stripZoneFqdn)
+      .filter(Boolean),
+  )]
+}
+
+/**
+ * Auth zones Tiny DNS checks trust: this server’s zone plus optional remotes
+ * from ACMEDNS_TINY_ACCEPT_ZONES.
+ */
+export function tinyPreflightAcceptZones(localAuthZone: string, rawExtraZones?: string): string[] {
+  const local = stripZoneFqdn(localAuthZone)
+  return [...new Set([local, ...parseTinyAcceptZones(rawExtraZones)].filter(Boolean))]
+}
+
 /** Auth zone hostname (glue / NS). Per-apex CNAME targets use tinyApexFulldomain. */
 export function sharedCnameTarget(zone: string) {
   return stripZoneFqdn(zone)
