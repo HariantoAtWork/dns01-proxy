@@ -14,6 +14,7 @@
     "docker:dev:restart": "bun run docker:dev:down && bun run docker:dev",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f acmedns-stack",
-    "script:list-txt": "bun script/list-txt.ts"
+    "script:list-txt": "bun script/list-txt.ts",
+    "script:generate-password": "bun script/generate-password.ts"
   }
 }
