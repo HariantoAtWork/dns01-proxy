@@ -104,8 +104,8 @@ export function envAcmednsTinyDomain(): string | undefined {
   return envTrimmed('ACMEDNS_TINY_DOMAIN')
 }
 
-export function envAcmednsSharedMode(): boolean | undefined {
-  const raw = envTrimmed('ACMEDNS_SHARED_MODE')
+export function envAcmednsTinyMode(): boolean | undefined {
+  const raw = envTrimmed('ACMEDNS_TINY_MODE')
   if (raw === undefined) {
     return undefined
   }
@@ -113,7 +113,7 @@ export function envAcmednsSharedMode(): boolean | undefined {
 }
 
 export function envAcmednsSharedKey(): string | undefined {
-  return envTrimmed('ACMEDNS_SHARED_KEY')
+  return envTrimmed('ACMEDNS_TINY_SHARED_KEY')
 }
 
 export function envAcmeDnsListen(): string | undefined {

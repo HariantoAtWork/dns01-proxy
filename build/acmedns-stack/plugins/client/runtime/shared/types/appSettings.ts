@@ -11,7 +11,7 @@ export interface AppSettingsFile {
   certsRenewDisabled?: boolean
   /**
    * Dashboard override for tiny/shared mode.
-   * Wins over ACMEDNS_SHARED_MODE; a non-empty tiny domain still forces shared mode on.
+   * Wins over ACMEDNS_TINY_MODE; a non-empty tiny domain still forces shared mode on.
    */
   sharedMode?: boolean
   /**

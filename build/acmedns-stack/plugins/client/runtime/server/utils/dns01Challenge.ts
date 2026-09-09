@@ -5,7 +5,9 @@ import { normaliseDnsName } from '#shared/utils/dnsMatch'
 import { pickCnameTarget } from '#shared/utils/challengeTxtProbe'
 import {
   mergeSharedPublishSubdomains,
+  planTinyPublishSlots,
   tinyApexLabel,
+  type TinyPublishSlot,
 } from '#shared/utils/tinyModeDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { ACME_REQUEST_STEPS } from '#shared/utils/acmeIssueSteps'
@@ -125,6 +127,8 @@ export interface Dns01PublishTarget {
   subdomain: string
   /** All TXT store keys to write (encoded + live CNAME labels under auth zone). */
   subdomains: string[]
+  /** Tiny: per-slot local vs remote HTTP /update destinations. */
+  slots: TinyPublishSlot[]
   txt: string
   certName: string
   domain: string
@@ -154,7 +158,7 @@ export async function collectChallengeCnameTargets(
     }
     targets.push(next)
     current = next
-    // Stop once we land under the auth zone — further hops are rare and unused.
+    // Stop once we land under this stack's auth zone — remote Tiny targets keep going until NODATA.
     if (current === zone || current.endsWith(`.${zone}`)) {
       break
     }
@@ -181,12 +185,31 @@ export function resolveDns01PublishTarget(options: {
     throw new Error(`No acme-dns account for ${domain}`)
   }
 
+  const localServerUrl = account.server_url || options.preferUrl
+  const slots = options.shared
+    ? planTinyPublishSlots({
+        certName: options.certName,
+        localAuthZone: options.shared.authZone,
+        localServerUrl,
+        cnameTargets: options.cnameTargets ?? [],
+      })
+    : account.subdomain
+      ? [{
+          subdomain: account.subdomain,
+          serverUrl: localServerUrl,
+          local: isInProcessAcmeDnsPublish(localServerUrl, account.username),
+          authZone: '',
+        } satisfies TinyPublishSlot]
+      : []
+
   const subdomains = options.shared
-    ? mergeSharedPublishSubdomains(
-        options.certName,
-        options.shared.authZone,
-        options.cnameTargets ?? [],
-      )
+    ? (slots.length
+        ? [...new Set(slots.map(slot => slot.subdomain))]
+        : mergeSharedPublishSubdomains(
+            options.certName,
+            options.shared.authZone,
+            options.cnameTargets ?? [],
+          ))
     : account.subdomain
       ? [account.subdomain]
       : []
@@ -196,11 +219,19 @@ export function resolveDns01PublishTarget(options: {
   }
 
   return {
-    serverUrl: account.server_url || options.preferUrl,
+    serverUrl: localServerUrl,
     username: account.username,
     password: account.password,
     subdomain,
     subdomains,
+    slots: slots.length
+      ? slots
+      : subdomains.map(name => ({
+          subdomain: name,
+          serverUrl: localServerUrl,
+          local: true,
+          authZone: options.shared?.authZone || '',
+        })),
     txt: options.keyAuthorization,
     certName: options.certName,
     domain,
@@ -234,34 +265,42 @@ export async function runDns01Challenge(options: {
     cnameTargets,
   })
 
-  const subdomainList = publish.subdomains.join(', ')
+  const slotSummary = publish.slots
+    .map(slot => `${slot.subdomain}@${slot.local ? 'local' : slot.serverUrl}`)
+    .join(', ')
   logDns01Step(
     options.certName,
     options.shared
-      ? `dns-01 ${domain}: publishing TXT to shared acme-dns subdomain(s) ${subdomainList} (${publish.serverUrl})`
+      ? `dns-01 ${domain}: publishing TXT to shared acme-dns slot(s) ${slotSummary}`
       : `dns-01 ${domain}: publishing TXT to acme-dns subdomain ${publish.subdomain} (${publish.serverUrl})`,
     activitySource,
   )
 
-  const publishLocal = isInProcessAcmeDnsPublish(publish.serverUrl, publish.username)
+  const anyRemote = publish.slots.some(slot => !slot.local)
+  const anyLocal = publish.slots.some(slot => slot.local)
+  const publishPlace = anyRemote && anyLocal
+    ? 'local+remote'
+    : anyRemote
+      ? 'remote'
+      : 'local'
   options.reportStep(
     ACME_REQUEST_STEPS.PUBLISH_TXT,
-    `Publish TXT ${domain} (${publishLocal ? 'local' : 'remote'})`,
+    `Publish TXT ${domain} (${publishPlace})`,
   )
 
-  for (const subdomain of publish.subdomains) {
+  for (const slot of publish.slots) {
     await updateAcmeDnsTxt({
-      serverUrl: publish.serverUrl,
+      serverUrl: slot.serverUrl,
       username: publish.username,
       password: publish.password,
-      subdomain,
+      subdomain: slot.subdomain,
       txt: publish.txt,
     })
   }
 
   logDns01Step(
     options.certName,
-    `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} on ${subdomainList} (${publishLocal ? 'local' : 'remote'})`,
+    `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} on ${slotSummary}`,
     activitySource,
   )
 

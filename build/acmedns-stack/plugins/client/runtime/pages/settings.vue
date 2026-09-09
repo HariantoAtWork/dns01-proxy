@@ -373,7 +373,7 @@ onMounted(() => {
           </template>
           <p v-else class="mt-2 text-xs text-muted">
             Toggle saves immediately (dashboard override wins over
-            <span class="font-mono">ACMEDNS_SHARED_MODE</span>). Clear overrides to fall back to compose/env.
+            <span class="font-mono">ACMEDNS_TINY_MODE</span>). Clear overrides to fall back to compose/env.
           </p>
         </div>
         <button
