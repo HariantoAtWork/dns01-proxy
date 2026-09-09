@@ -20,17 +20,14 @@ const {
   loadAllHealth,
   saveHost,
   removeHost,
-  exportNginx,
 } = useProxyHosts()
 
 const modalOpen = ref(false)
 const editingId = ref<string | null>(null)
 const saving = ref(false)
+const togglingId = ref<string | null>(null)
 const deleteOpen = ref(false)
 const deleteTarget = ref<ProxyHost | null>(null)
-const exportOpen = ref(false)
-const exportSnippet = ref('')
-const exportTitle = ref('')
 const modalRef = useTemplateRef<{ load: (host?: ProxyHost | null) => void }>('modal')
 
 async function refresh() {
@@ -104,26 +101,17 @@ async function confirmDelete() {
   }
 }
 
-async function onExport(host: ProxyHost) {
+async function onToggleEnabled(host: ProxyHost, enabled: boolean) {
+  togglingId.value = host.id
   try {
-    const data = await exportNginx(host.id)
-    exportTitle.value = host.domainNames[0] || host.id
-    exportSnippet.value = data.snippet
-    exportOpen.value = true
+    await saveHost({ ...host, enabled })
   }
   catch (err) {
-    const message = err instanceof Error ? err.message : 'Export failed'
+    const message = err instanceof Error ? err.message : 'Update failed'
     toasts.error(message, 'Proxy')
   }
-}
-
-async function copyExport() {
-  try {
-    await navigator.clipboard.writeText(exportSnippet.value)
-    toasts.ok('Nginx snippet copied', 'Proxy')
-  }
-  catch {
-    toasts.error('Could not copy to clipboard', 'Proxy')
+  finally {
+    togglingId.value = null
   }
 }
 
@@ -206,9 +194,10 @@ onMounted(() => {
       :hosts
       :health-by-id="healthById"
       :cert-entries="certEntries"
+      :toggling-id="togglingId"
       @edit="openEdit"
       @remove="askDelete"
-      @export="onExport"
+      @toggle-enabled="onToggleEnabled"
     />
 
     <ProxyHostModal
@@ -232,29 +221,5 @@ onMounted(() => {
         from the live Bun reverse proxy.
       </p>
     </UiConfirmDialog>
-
-    <UiModal
-      v-model:open="exportOpen"
-      :title="`Nginx export (reference) — ${exportTitle}`"
-      size="lg"
-    >
-      <div class="flex flex-col gap-3">
-        <p class="text-xs text-muted">
-          Reference only — traffic is handled by Bun, not nginx.
-        </p>
-        <pre class="overflow-x-auto rounded-[var(--radius-panel)] border border-rule bg-paper p-3 font-mono text-xs text-ink whitespace-pre-wrap">{{ exportSnippet }}</pre>
-        <div class="flex justify-end gap-2">
-          <UiButton
-            variant="ghost"
-            @click="exportOpen = false"
-          >
-            Close
-          </UiButton>
-          <UiButton @click="copyExport">
-            Copy
-          </UiButton>
-        </div>
-      </div>
-    </UiModal>
   </div>
 </template>

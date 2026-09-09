@@ -129,11 +129,16 @@ function startEdgeBinding(binding: ListenBinding, tlsBodies?: ReturnType<typeof 
     ? { tls: tlsBodies }
     : tlsServeOption(binding.tls)
 
+  // Prefer HTTP/2 beside h1 on edge HTTPS (ALPN). Per-host http2Support is stored for
+  // UI/future; the listener is process-wide so we enable h2 whenever TLS is present.
+  const http2 = Boolean(tlsBodies || binding.tls)
+
   return Bun.serve({
     port: binding.port,
     hostname: binding.host,
     idleTimeout: resolveIdleTimeoutSeconds('edge'),
     ...tlsOpt,
+    ...(http2 ? { http2: true } : {}),
     fetch: (req: Request, server: unknown) => handleFetch(req, server, binding),
     websocket: proxyWebsocketHandlers,
   } as Parameters<typeof Bun.serve>[0])

@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { buildNginxSnippet } from '../runtime/shared/utils/nginxSnippet'
 import {
+  asForwardPort,
+  defaultForwardPort,
   domainPatternMatchesHostname,
+  hstsHeaderValue,
   normalizeProxyHost,
   validateDomainName,
   validateProxyHost,
@@ -19,7 +21,33 @@ describe('proxyHost normalize', () => {
     expect(host.forwardScheme).toBe('http')
     expect(host.forwardPort).toBe(8123)
     expect(host.allowWebsocketUpgrade).toBe(true)
+    expect(host.http2Support).toBe(true)
     expect(validateProxyHost(host)).toBeNull()
+  })
+
+  test('defaults empty port by scheme and strips legacy keys', () => {
+    const httpHost = normalizeProxyHost({
+      domainNames: ['a.example.com'],
+      forwardHost: 'app',
+      forwardScheme: 'http',
+      forwardPort: '',
+      cachingEnabled: true,
+      blockExploits: true,
+      advancedConfig: 'return 444;',
+    })
+    expect(httpHost.forwardPort).toBe(80)
+    expect(httpHost).not.toHaveProperty('cachingEnabled')
+    expect(httpHost).not.toHaveProperty('blockExploits')
+    expect(httpHost).not.toHaveProperty('advancedConfig')
+
+    const httpsHost = normalizeProxyHost({
+      domainNames: ['a.example.com'],
+      forwardHost: 'app',
+      forwardScheme: 'https',
+    })
+    expect(httpsHost.forwardPort).toBe(443)
+    expect(defaultForwardPort('https')).toBe(443)
+    expect(asForwardPort(0, 'http')).toBe(80)
   })
 
   test('rejects empty domains', () => {
@@ -44,22 +72,12 @@ describe('proxyHost normalize', () => {
     expect(domainPatternMatchesHostname('*.example.com', 'example.com')).toBe(false)
     expect(domainPatternMatchesHostname('*.example.com', 'a.b.example.com')).toBe(false)
   })
-})
 
-describe('nginxSnippet', () => {
-  test('includes websocket headers when enabled', () => {
-    const snippet = buildNginxSnippet(normalizeProxyHost({
-      domainNames: ['ha.example.com'],
-      forwardHost: '192.168.1.20',
-      forwardPort: 8123,
-      allowWebsocketUpgrade: true,
-      certificateName: 'ha.example.com',
-      sslForced: true,
-      trustForwardedProto: true,
-    }))
-    expect(snippet).toContain('server_name ha.example.com')
-    expect(snippet).toContain('proxy_set_header Upgrade')
-    expect(snippet).toContain('X-Forwarded-Proto $http_x_forwarded_proto')
-    expect(snippet).toContain('return 301 https')
+  test('hstsHeaderValue', () => {
+    expect(hstsHeaderValue({ hstsEnabled: false, hstsSubdomains: true })).toBeNull()
+    expect(hstsHeaderValue({ hstsEnabled: true, hstsSubdomains: false }))
+      .toBe('max-age=31536000')
+    expect(hstsHeaderValue({ hstsEnabled: true, hstsSubdomains: true }))
+      .toBe('max-age=31536000; includeSubDomains')
   })
 })

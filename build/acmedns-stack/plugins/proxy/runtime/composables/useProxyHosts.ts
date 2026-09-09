@@ -144,10 +144,6 @@ export function useProxyHosts() {
     healthById.value = next
   }
 
-  async function exportNginx(id: string) {
-    return $fetch<{ hostId: string, snippet: string }>(`/api/proxy/hosts/${id}/nginx`)
-  }
-
   return {
     hosts,
     certEntries,
@@ -161,6 +157,5 @@ export function useProxyHosts() {
     loadAllHealth,
     saveHost,
     removeHost,
-    exportNginx,
   }
 }
