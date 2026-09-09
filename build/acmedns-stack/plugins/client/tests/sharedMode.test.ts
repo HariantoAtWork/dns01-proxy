@@ -2,8 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import {
   authZoneTxtLabel,
   mergeSharedPublishSubdomains,
+  parseTinyAcceptZones,
   tinyApexFulldomain,
   tinyApexLabel,
+  tinyPreflightAcceptZones,
 } from '../runtime/shared/utils/tinyModeDns'
 
 describe('tinyApexLabel', () => {
@@ -42,5 +44,19 @@ describe('mergeSharedPublishSubdomains', () => {
       'old-uuid.auth.mdstn.com',
       '_mdstn-com_.auth.mdstn.com',
     ])).toEqual(['_mdstn-com_', 'old-uuid'])
+  })
+})
+
+describe('tinyPreflightAcceptZones', () => {
+  test('includes local zone and parsed remote Tiny auth zones', () => {
+    expect(tinyPreflightAcceptZones('auth.uti.email', 'auth.vps.test, auth.nas.test')).toEqual([
+      'auth.uti.email',
+      'auth.vps.test',
+      'auth.nas.test',
+    ])
+    expect(parseTinyAcceptZones('auth.a.test;auth.b.test')).toEqual([
+      'auth.a.test',
+      'auth.b.test',
+    ])
   })
 })

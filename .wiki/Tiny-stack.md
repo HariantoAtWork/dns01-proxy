@@ -67,6 +67,7 @@ When `ACMEDNS_TINY_DOMAIN` is set and `ACMEDNS_URL` is omitted, the public URL d
 | Variable | Required? | Purpose |
 | --- | --- | --- |
 | `ACMEDNS_TINY_DOMAIN` | **Yes** (recommended) | Auth zone hostname. Overrides `config.cfg` `domain` + `nsname`; turns on shared mode. |
+| `ACMEDNS_TINY_ACCEPT_ZONES` | No | Extra Tiny auth zones (comma-separated) accepted by DNS preflight/UI when CNAMEs point at **other** Tiny servers. Same encoded label on another zone is also accepted. |
 | `LETSENCRYPT_EMAIL` | **Yes** | ACME account contact. |
 | `ACMEDNS_URL` | No | Public HTTP identity. Defaults to `https://<ACMEDNS_TINY_DOMAIN>`. |
 | `ACMEDNS_SHARED_KEY` | No | See [Shared API key](#shared-api-key-acmedns_shared_key) below. |

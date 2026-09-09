@@ -78,7 +78,13 @@ export async function dnsQueryCnameMatch(
   const publicOutcomes = await queryAllResolvers(name, 'CNAME')
 
   if (mode === 'public') {
-    const publicResult = evaluateCnameResolverOutcomes(publicOutcomes, name, expected, DNS_RESOLVERS.length)
+    const publicResult = evaluateCnameResolverOutcomes(
+      publicOutcomes,
+      name,
+      expected,
+      DNS_RESOLVERS.length,
+      options,
+    )
     return publicResult
   }
 
@@ -88,12 +94,17 @@ export async function dnsQueryCnameMatch(
     name,
     expected,
     DNS_RESOLVERS.length,
+    options,
   )
 }
 
 /** UI / save recheck — authoritative first, then public resolvers. */
-export async function dnsQueryCnameAnyMatch(name: string, expected: string): Promise<DnsCnameMatchResult> {
-  return dnsQueryCnameMatch(name, expected, 'any')
+export async function dnsQueryCnameAnyMatch(
+  name: string,
+  expected: string,
+  options?: CnameMatchOptions,
+): Promise<DnsCnameMatchResult> {
+  return dnsQueryCnameMatch(name, expected, 'any', options)
 }
 
 /** Apply preflight — authoritative NS only (same path Let's Encrypt uses for dns-01). */

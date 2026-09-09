@@ -82,7 +82,35 @@ describe('evaluateAuthoritativeCnameOutcomes', () => {
 
     expect(result.status).toBe('ok')
     expect(result.actual).toContain(alternate)
-    expect(result.message).toContain('auth zone')
+    expect(result.message).toContain('auth.uti.email')
+  })
+
+  test('accepts CNAME under another listed Tiny auth zone', () => {
+    const result = evaluateAuthoritativeCnameOutcomes([
+      {
+        server: 'auth:ns1.example.com',
+        lookup: 'ok',
+        records: [{ name, data: ['uuid.auth.other-tiny.test'] }],
+      },
+    ], name, '_sylo-space_.auth.uti.email', {
+      acceptUnderZones: ['auth.uti.email', 'auth.other-tiny.test'],
+    })
+
+    expect(result.status).toBe('ok')
+    expect(result.actual).toContain('uuid.auth.other-tiny.test')
+  })
+
+  test('accepts same Tiny encoded label on a remote auth zone', () => {
+    const result = evaluateAuthoritativeCnameOutcomes([
+      {
+        server: 'auth:ns1.example.com',
+        lookup: 'ok',
+        records: [{ name, data: ['_sylo-space_.auth.remote.test'] }],
+      },
+    ], name, '_sylo-space_.auth.uti.email', { acceptSameTinyLabel: true })
+
+    expect(result.status).toBe('ok')
+    expect(result.message).toContain('Tiny label')
   })
 
   test('still rejects CNAME outside auth zone in Tiny mode preflight', () => {

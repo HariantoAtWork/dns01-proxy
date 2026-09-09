@@ -37,6 +37,7 @@ services:
       - ACME_TXT_ONLINE_TCP_FALLBACK=${ACME_TXT_ONLINE_TCP_FALLBACK:-false}
       # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
       - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}
+      - ACMEDNS_TINY_ACCEPT_ZONES=${ACMEDNS_TINY_ACCEPT_ZONES:-}
       - ACMEDNS_SHARED_MODE=${ACMEDNS_SHARED_MODE:-}
       - ACMEDNS_SHARED_KEY=${ACMEDNS_SHARED_KEY:-}
       - ACMEDNS_PUBLIC_IP=${ACMEDNS_PUBLIC_IP:-}
