@@ -146,7 +146,7 @@ export function tinyAcceptZoneServerUrls(rawExtraZones?: string): Record<string,
   return map
 }
 
-/** Split `label.auth.zone` (or zone apex) using known zones, else first-label + remainder. */
+/** Split `label.auth.zone` (or zone apex) using known zones only — no site-apex fallback. */
 export function splitTinyAuthFqdn(
   fqdn: string,
   knownZones: string[],
@@ -171,14 +171,9 @@ export function splitTinyAuthFqdn(
     }
   }
 
-  const dot = name.indexOf('.')
-  if (dot <= 0) {
-    return null
-  }
-  return {
-    label: name.slice(0, dot),
-    zone: name.slice(dot + 1),
-  }
+  // Do not fall back to first-label + remainder — that turns intermediate CNAMEs
+  // like `_acme-challenge.harianto.dev` into a bogus remote Publish to https://harianto.dev.
+  return null
 }
 
 export interface TinyPublishSlot {
