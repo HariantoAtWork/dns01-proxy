@@ -1,6 +1,7 @@
 import type { Server } from 'bun'
 import type { ListenBinding } from '../utils/listen'
 import { isControlBinding, isEdgeBinding } from '../utils/listen'
+import { logProxyAccess } from './accessLog'
 import { isReservedHostname } from './reserved'
 import { forwardHttpRequest, forceSslRedirect } from './forward'
 import { matchProxyRoute } from './routeTable'
@@ -47,22 +48,60 @@ export async function tryHandleProxy(
     return null
   }
 
+  const inbound = req.headers.get('host') || reqUrl.host || '(no host)'
+  const path = `${reqUrl.pathname}${reqUrl.search}`
+
   const match = matchProxyRoute(req.headers.get('host'), reqUrl.pathname)
   if (!match) {
+    logProxyAccess({
+      status: 404,
+      method: req.method,
+      inbound,
+      path,
+      upstream: '(no-route)',
+      note: 'unmatched-host',
+    })
     return new Response('Not Found', { status: 404 })
   }
 
   if (!binding.tls) {
     const redirect = forceSslRedirect(req, reqUrl, match.host)
     if (redirect) {
+      logProxyAccess({
+        status: redirect.status,
+        method: req.method,
+        inbound,
+        path,
+        upstream: '(force-ssl)',
+        id: match.host.id,
+        note: 'redirect',
+      })
       return redirect
     }
   }
 
   if (req.headers.get('upgrade')?.toLowerCase() === 'websocket') {
     if (tryUpgradeProxyWebSocket(req, server, binding, reqUrl, match)) {
+      logProxyAccess({
+        status: 101,
+        method: req.method,
+        inbound,
+        path,
+        upstream: '(websocket)',
+        id: match.host.id,
+        note: 'upgrade',
+      })
       return { upgraded: true }
     }
+    logProxyAccess({
+      status: 502,
+      method: req.method,
+      inbound,
+      path,
+      upstream: '(websocket)',
+      id: match.host.id,
+      note: 'upgrade-failed',
+    })
     return new Response('WebSocket upgrade failed', { status: 502 })
   }
 
