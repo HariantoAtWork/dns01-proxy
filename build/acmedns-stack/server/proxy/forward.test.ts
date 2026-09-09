@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import {
   DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS,
+  applyHstsHeader,
   formatProxyUpstreamContext,
   proxyUpstreamTimeoutMs,
   sanitizeUpstreamResponseHeaders,
   validateForwardTarget,
 } from './forward'
 import type { RouteMatch } from './routeTable'
+import type { ListenBinding } from '../utils/listen'
 
 const ENV = 'PROXY_UPSTREAM_TIMEOUT_MS'
 
@@ -72,16 +74,13 @@ describe('formatProxyUpstreamContext', () => {
         forwardScheme: 'http',
         forwardHost: '',
         forwardPort: 80,
-        cachingEnabled: false,
-        blockExploits: false,
         allowWebsocketUpgrade: false,
         locations: [],
         sslForced: false,
-        http2Support: false,
+        http2Support: true,
         hstsEnabled: false,
         hstsSubdomains: false,
         trustForwardedProto: false,
-        advancedConfig: '',
         enabled: true,
       },
       location: null,
@@ -100,5 +99,56 @@ describe('formatProxyUpstreamContext', () => {
     expect(line).toContain('inbound=app.example.com')
     expect(line).toContain('host=""')
     expect(line).toContain('→ http://:80/')
+  })
+})
+
+describe('applyHstsHeader', () => {
+  const tlsBinding: ListenBinding = {
+    host: '0.0.0.0',
+    port: 443,
+    role: 'edge',
+    tls: { certPath: '/c', keyPath: '/k' },
+  }
+  const plainBinding: ListenBinding = {
+    host: '0.0.0.0',
+    port: 80,
+    role: 'edge',
+    tls: null,
+  }
+
+  test('sets Strict-Transport-Security on HTTPS when enabled', () => {
+    const headers = new Headers({ 'content-type': 'text/plain' })
+    const req = new Request('https://app.example.com/')
+    applyHstsHeader(
+      headers,
+      { hstsEnabled: true, hstsSubdomains: true, sslForced: false, trustForwardedProto: false },
+      req,
+      tlsBinding,
+    )
+    expect(headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains')
+  })
+
+  test('skips HSTS on plain HTTP without forced SSL', () => {
+    const headers = new Headers()
+    const req = new Request('http://app.example.com/')
+    applyHstsHeader(
+      headers,
+      { hstsEnabled: true, hstsSubdomains: false, sslForced: false, trustForwardedProto: false },
+      req,
+      plainBinding,
+    )
+    expect(headers.get('Strict-Transport-Security')).toBeNull()
+  })
+
+  test('sets HSTS when Force SSL is on even on plain binding', () => {
+    const headers = new Headers()
+    const req = new Request('http://app.example.com/')
+    applyHstsHeader(
+      headers,
+      { hstsEnabled: true, hstsSubdomains: false, sslForced: true, trustForwardedProto: false },
+      req,
+      plainBinding,
+    )
+    expect(headers.get('Strict-Transport-Security')).toBe('max-age=31536000')
   })
 })

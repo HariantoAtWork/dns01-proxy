@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ProxyHost, ProxyHostInput, ProxyLocation } from '#proxy-shared/types/proxyHost'
+import type { ForwardScheme, ProxyHost, ProxyHostInput, ProxyLocation } from '#proxy-shared/types/proxyHost'
 import type { ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
 import {
   PROXY_SSL_AUTO,
@@ -10,7 +10,13 @@ import {
   proxySslCertLabel,
   resolveCertificatesForDomains,
 } from '#proxy-shared/utils/proxyCertMatch'
-import { emptyProxyHost, normalizeDomainNames, validateDomainName } from '#proxy-shared/utils/proxyHost'
+import {
+  asForwardPort,
+  defaultForwardPort,
+  emptyProxyHost,
+  normalizeDomainNames,
+  validateDomainName,
+} from '#proxy-shared/utils/proxyHost'
 import { PhPlus as Plus, PhTrash as Trash } from '@phosphor-icons/vue'
 
 const { certEntries = [], saving = false } = defineProps<{
@@ -23,7 +29,7 @@ const emit = defineEmits<{
   save: [host: ProxyHostInput]
 }>()
 
-type Tab = 'details' | 'locations' | 'ssl' | 'advanced'
+type Tab = 'details' | 'locations' | 'ssl'
 
 const tab = ref<Tab>('details')
 const draft = ref<ProxyHostInput>(emptyProxyHost())
@@ -34,7 +40,6 @@ const tabs: Array<{ id: Tab, label: string }> = [
   { id: 'details', label: 'Details' },
   { id: 'locations', label: 'Locations' },
   { id: 'ssl', label: 'SSL' },
-  { id: 'advanced', label: 'Advanced' },
 ]
 
 const modalTitle = computed(() =>
@@ -70,13 +75,14 @@ const sslStatusLine = computed(() => {
   return `${label} · ${certs}`
 })
 
+const portPlaceholder = computed(() => String(defaultForwardPort(draft.value.forwardScheme)))
+
 function emptyLocation(): ProxyLocation {
   return {
     path: '/',
     forwardScheme: 'http',
     forwardHost: '',
     forwardPort: 80,
-    advancedConfig: '',
   }
 }
 
@@ -177,13 +183,31 @@ watch(draftDomains, () => {
   draft.value.certificateName = PROXY_SSL_AUTO
 })
 
+watch(
+  () => draft.value.forwardScheme,
+  (scheme, previous) => {
+    if (!previous) {
+      return
+    }
+    const port = Number(draft.value.forwardPort)
+    if (!port || port === defaultForwardPort(previous as ForwardScheme)) {
+      draft.value.forwardPort = defaultForwardPort(scheme)
+    }
+  },
+)
+
 function onSave() {
   formError.value = null
+  const scheme = draft.value.forwardScheme
   const payload: ProxyHostInput = {
     ...draft.value,
     ...(draft.value.id ? { id: draft.value.id } : {}),
     domainNames: normalizeDomainNames(domainsText.value),
-    forwardPort: Number(draft.value.forwardPort) || 80,
+    forwardPort: asForwardPort(draft.value.forwardPort, scheme),
+    locations: draft.value.locations.map(location => ({
+      ...location,
+      forwardPort: asForwardPort(location.forwardPort, location.forwardScheme),
+    })),
   }
   if (!payload.domainNames.length) {
     formError.value = 'At least one domain name is required'
@@ -259,7 +283,7 @@ watch(open, (value) => {
         class="flex min-h-[14rem] flex-col gap-4"
         role="tabpanel"
       >
-        <UiField label="Domain Names" hint="one per line; wildcards like *.example.com match one label">
+        <UiField label="Domain Names" hint="one per line or comma-separated; wildcards like *.example.com match one label">
           <template #default="{ id }">
             <textarea
               :id
@@ -298,7 +322,7 @@ watch(open, (value) => {
               />
             </template>
           </UiField>
-          <UiField label="Forward Port">
+          <UiField label="Forward Port" :hint="`empty → ${portPlaceholder}`">
             <template #default="{ id }">
               <input
                 :id
@@ -306,6 +330,7 @@ watch(open, (value) => {
                 type="number"
                 min="1"
                 max="65535"
+                :placeholder="portPlaceholder"
                 class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
                 style="border-radius: var(--radius-input)"
               >
@@ -323,22 +348,6 @@ watch(open, (value) => {
             >
           </label>
           <label class="flex items-center justify-between gap-3 text-sm">
-            <span>Cache Assets</span>
-            <input
-              v-model="draft.cachingEnabled"
-              type="checkbox"
-              class="size-4"
-            >
-          </label>
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>Block Common Exploits</span>
-            <input
-              v-model="draft.blockExploits"
-              type="checkbox"
-              class="size-4"
-            >
-          </label>
-          <label class="flex items-center justify-between gap-3 text-sm">
             <span>Websockets Support</span>
             <input
               v-model="draft.allowWebsocketUpgrade"
@@ -347,16 +356,6 @@ watch(open, (value) => {
             >
           </label>
         </div>
-
-        <UiField label="Access List" hint="placeholder — lists later">
-          <template #default="{ id }">
-            <UiInput
-              :id
-              model-value="Publicly Accessible"
-              disabled
-            />
-          </template>
-        </UiField>
       </div>
 
       <div
@@ -430,25 +429,18 @@ watch(open, (value) => {
                 mono
               />
             </UiField>
-            <UiField label="Port">
+            <UiField label="Port" :hint="`empty → ${defaultForwardPort(location.forwardScheme)}`">
               <input
                 v-model.number="location.forwardPort"
                 type="number"
                 min="1"
                 max="65535"
+                :placeholder="String(defaultForwardPort(location.forwardScheme))"
                 class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
                 style="border-radius: var(--radius-input)"
               >
             </UiField>
           </div>
-          <UiField label="Advanced (optional)">
-            <textarea
-              v-model="location.advancedConfig"
-              rows="3"
-              class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-xs"
-              style="border-radius: var(--radius-input)"
-            />
-          </UiField>
         </div>
       </div>
 
@@ -498,6 +490,9 @@ watch(open, (value) => {
               @change="enableSslFeature('http2Support', ($event.target as HTMLInputElement).checked)"
             >
           </label>
+          <p class="text-xs text-muted">
+            Also serve HTTP/2 beside HTTP/1.1 on the edge HTTPS listener (ALPN). Not a replacement for h1.
+          </p>
           <label class="flex items-center justify-between gap-3 text-sm">
             <span>HSTS Enable</span>
             <input
@@ -525,30 +520,6 @@ watch(open, (value) => {
             >
           </label>
         </div>
-      </div>
-
-      <div
-        v-show="tab === 'advanced'"
-        class="flex min-h-[14rem] flex-col gap-3"
-        role="tabpanel"
-      >
-        <p class="text-xs text-muted">
-          Placeholders: <code class="font-mono">$server</code>
-          <code class="font-mono">$port</code>
-          <code class="font-mono">$forward_scheme</code>
-        </p>
-        <UiField label="Custom nginx config">
-          <textarea
-            v-model="draft.advancedConfig"
-            rows="10"
-            class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-xs"
-            style="border-radius: var(--radius-input)"
-            placeholder="# Extra directives inside location /"
-          />
-        </UiField>
-        <p class="text-xs text-muted">
-          Stored and exported only — this stack does not reload a live reverse proxy in v1.
-        </p>
       </div>
 
       <div class="flex justify-end gap-2 border-t border-rule pt-3">

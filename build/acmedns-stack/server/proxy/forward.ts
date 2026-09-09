@@ -1,4 +1,5 @@
 import type { ProxyHost, ProxyLocation } from '../../plugins/proxy/runtime/shared/types/proxyHost'
+import { hstsHeaderValue } from '../../plugins/proxy/runtime/shared/utils/proxyHost'
 import type { ListenBinding } from '../utils/listen'
 import { logProxyAccess } from './accessLog'
 import { proxyLog } from './proxyLog'
@@ -193,6 +194,43 @@ export function sanitizeUpstreamResponseHeaders(headers: Headers): Headers {
   return out
 }
 
+/** True when the client-facing request is (or should be treated as) HTTPS. */
+export function clientFacingHttps(
+  req: Request,
+  host: Pick<ProxyHost, 'sslForced' | 'trustForwardedProto'>,
+  binding: ListenBinding,
+): boolean {
+  if (binding.tls) {
+    return true
+  }
+  if (host.sslForced) {
+    return true
+  }
+  const incomingProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase()
+  if (incomingProto === 'https') {
+    return true
+  }
+  if (host.trustForwardedProto && incomingProto) {
+    return incomingProto === 'https'
+  }
+  return false
+}
+
+/** Attach Strict-Transport-Security when HSTS is on and the client sees HTTPS. */
+export function applyHstsHeader(
+  headers: Headers,
+  host: Pick<ProxyHost, 'hstsEnabled' | 'hstsSubdomains' | 'sslForced' | 'trustForwardedProto'>,
+  req: Request,
+  binding: ListenBinding,
+): Headers {
+  const value = hstsHeaderValue(host)
+  if (!value || !clientFacingHttps(req, host, binding)) {
+    return headers
+  }
+  headers.set('Strict-Transport-Security', value)
+  return headers
+}
+
 function isAbortLike(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false
@@ -257,10 +295,16 @@ export async function forwardHttpRequest(
   try {
     const upstreamRes = await fetch(upstream, init)
     access(upstreamRes.status)
+    const headers = applyHstsHeader(
+      sanitizeUpstreamResponseHeaders(upstreamRes.headers),
+      match.host,
+      req,
+      binding,
+    )
     return new Response(upstreamRes.body, {
       status: upstreamRes.status,
       statusText: upstreamRes.statusText,
-      headers: sanitizeUpstreamResponseHeaders(upstreamRes.headers),
+      headers,
     })
   }
   catch (error) {

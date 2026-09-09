@@ -5,7 +5,6 @@ export interface ProxyLocation {
   forwardScheme: ForwardScheme
   forwardHost: string
   forwardPort: number
-  advancedConfig?: string
 }
 
 export interface ProxyHost {
@@ -14,8 +13,6 @@ export interface ProxyHost {
   forwardScheme: ForwardScheme
   forwardHost: string
   forwardPort: number
-  cachingEnabled: boolean
-  blockExploits: boolean
   allowWebsocketUpgrade: boolean
   accessListId?: string | null
   locations: ProxyLocation[]
@@ -25,7 +22,6 @@ export interface ProxyHost {
   hstsEnabled: boolean
   hstsSubdomains: boolean
   trustForwardedProto: boolean
-  advancedConfig: string
   enabled: boolean
 }
 

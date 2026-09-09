@@ -11,7 +11,6 @@ import { forwardTarget, isWildcardDomainName } from '#proxy-shared/utils/proxyHo
 import {
   PhPencilSimple as Pencil,
   PhTrash as Trash,
-  PhCode as Code,
 } from '@phosphor-icons/vue'
 
 type HostHealth = {
@@ -19,16 +18,17 @@ type HostHealth = {
   latencyMs?: number
 }
 
-const { hosts, healthById = {}, certEntries = [] } = defineProps<{
+const { hosts, healthById = {}, certEntries = [], togglingId = null } = defineProps<{
   hosts: ProxyHost[]
   healthById?: Record<string, HostHealth>
   certEntries?: ProxyCertCandidate[]
+  togglingId?: string | null
 }>()
 
 const emit = defineEmits<{
   edit: [host: ProxyHost]
   remove: [host: ProxyHost]
-  export: [host: ProxyHost]
+  'toggle-enabled': [host: ProxyHost, enabled: boolean]
 }>()
 
 function statusLabel(host: ProxyHost): string {
@@ -76,6 +76,11 @@ function domainEntries(host: ProxyHost) {
     href: domainHref(host, name),
   }))
 }
+
+function onEnabledChange(host: ProxyHost, event: Event) {
+  const checked = (event.target as HTMLInputElement).checked
+  emit('toggle-enabled', host, checked)
+}
 </script>
 
 <template>
@@ -87,6 +92,7 @@ function domainEntries(host: ProxyHost) {
           <th class="px-3 py-2 font-medium">Forward</th>
           <th class="px-3 py-2 font-medium">SSL availability</th>
           <th class="px-3 py-2 font-medium">Flags</th>
+          <th class="px-3 py-2 font-medium">Enabled</th>
           <th class="px-3 py-2 font-medium">Status</th>
           <th class="px-3 py-2 font-medium text-right">Actions</th>
         </tr>
@@ -115,10 +121,6 @@ function domainEntries(host: ProxyHost) {
                   class="font-mono text-sm"
                 >{{ entry.name }}</span>
               </template>
-              <span
-                v-if="!host.enabled"
-                class="text-xs text-muted"
-              >Disabled</span>
             </div>
           </td>
           <td class="px-3 py-2 font-mono text-xs text-muted">
@@ -151,11 +153,17 @@ function domainEntries(host: ProxyHost) {
                 v-if="host.allowWebsocketUpgrade"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
               >WS</span>
-              <span
-                v-if="host.blockExploits"
-                class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
-              >Block</span>
             </div>
+          </td>
+          <td class="px-3 py-2">
+            <input
+              type="checkbox"
+              class="size-4"
+              :checked="host.enabled"
+              :disabled="togglingId === host.id"
+              :aria-label="`Enable ${host.domainNames[0] || host.id}`"
+              @change="onEnabledChange(host, $event)"
+            >
           </td>
           <td
             class="px-3 py-2 text-xs font-medium"
@@ -169,15 +177,6 @@ function domainEntries(host: ProxyHost) {
           </td>
           <td class="px-3 py-2">
             <div class="flex justify-end gap-1">
-              <UiButton
-                variant="icon"
-                size="sm"
-                aria-label="Export nginx snippet"
-                title="Export nginx snippet (reference)"
-                @click="emit('export', host)"
-              >
-                <Code :size="14" weight="regular" aria-hidden="true" />
-              </UiButton>
               <UiButton
                 variant="icon"
                 size="sm"

@@ -7,24 +7,26 @@ import type {
   ProxyLocation,
 } from '../types/proxyHost'
 
+/** Default upstream port for a forward scheme (empty/invalid port → this). */
+export function defaultForwardPort(scheme: ForwardScheme): number {
+  return scheme === 'https' ? 443 : 80
+}
+
 export function emptyProxyHost(): ProxyHostInput {
   return {
     domainNames: [],
     forwardScheme: 'http',
     forwardHost: '',
     forwardPort: 80,
-    cachingEnabled: false,
-    blockExploits: false,
     allowWebsocketUpgrade: false,
     accessListId: null,
     locations: [],
     certificateName: null,
     sslForced: false,
-    http2Support: false,
+    http2Support: true,
     hstsEnabled: false,
     hstsSubdomains: false,
     trustForwardedProto: false,
-    advancedConfig: '',
     enabled: true,
   }
 }
@@ -119,10 +121,14 @@ function asScheme(value: unknown): ForwardScheme {
   return value === 'https' ? 'https' : 'http'
 }
 
-function asPort(value: unknown, fallback: number): number {
+/** Empty / invalid / 0 → scheme default (80 http, 443 https). */
+export function asForwardPort(value: unknown, scheme: ForwardScheme): number {
+  if (value === undefined || value === null || value === '') {
+    return defaultForwardPort(scheme)
+  }
   const n = typeof value === 'number' ? value : Number(value)
   if (!Number.isFinite(n) || n < 1 || n > 65535) {
-    return fallback
+    return defaultForwardPort(scheme)
   }
   return Math.trunc(n)
 }
@@ -137,12 +143,12 @@ function asLocation(raw: unknown): ProxyLocation | null {
   if (!path || !forwardHost) {
     return null
   }
+  const forwardScheme = asScheme(row.forwardScheme)
   return {
     path: path.startsWith('/') ? path : `/${path}`,
-    forwardScheme: asScheme(row.forwardScheme),
+    forwardScheme,
     forwardHost,
-    forwardPort: asPort(row.forwardPort, 80),
-    advancedConfig: typeof row.advancedConfig === 'string' ? row.advancedConfig : '',
+    forwardPort: asForwardPort(row.forwardPort, forwardScheme),
   }
 }
 
@@ -157,15 +163,14 @@ export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost
   const locations = Array.isArray(row.locations)
     ? row.locations.map(asLocation).filter((item): item is ProxyLocation => Boolean(item))
     : []
+  const forwardScheme = asScheme(row.forwardScheme)
 
   return {
     id,
     domainNames,
-    forwardScheme: asScheme(row.forwardScheme),
+    forwardScheme,
     forwardHost: String(row.forwardHost || '').trim(),
-    forwardPort: asPort(row.forwardPort, 80),
-    cachingEnabled: Boolean(row.cachingEnabled),
-    blockExploits: Boolean(row.blockExploits),
+    forwardPort: asForwardPort(row.forwardPort, forwardScheme),
     allowWebsocketUpgrade: Boolean(row.allowWebsocketUpgrade),
     accessListId: row.accessListId == null || row.accessListId === ''
       ? null
@@ -175,11 +180,11 @@ export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost
       ? null
       : String(row.certificateName),
     sslForced: Boolean(row.sslForced),
-    http2Support: Boolean(row.http2Support),
+    // Prefer on for new/missing values; explicit false stays off.
+    http2Support: row.http2Support === undefined ? true : Boolean(row.http2Support),
     hstsEnabled: Boolean(row.hstsEnabled),
     hstsSubdomains: Boolean(row.hstsSubdomains),
     trustForwardedProto: Boolean(row.trustForwardedProto),
-    advancedConfig: typeof row.advancedConfig === 'string' ? row.advancedConfig : '',
     enabled: row.enabled === undefined ? true : Boolean(row.enabled),
   }
 }
@@ -217,4 +222,14 @@ export function validateProxyHost(host: ProxyHost): string | null {
     }
   }
   return null
+}
+
+/** Strict-Transport-Security value, or null when HSTS is off. */
+export function hstsHeaderValue(host: Pick<ProxyHost, 'hstsEnabled' | 'hstsSubdomains'>): string | null {
+  if (!host.hstsEnabled) {
+    return null
+  }
+  return host.hstsSubdomains
+    ? 'max-age=31536000; includeSubDomains'
+    : 'max-age=31536000'
 }
