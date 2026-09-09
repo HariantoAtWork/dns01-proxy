@@ -12,78 +12,81 @@ const emit = defineEmits<{
 }>()
 
 const open = defineModel<boolean>('open', { required: true })
-const dialog = useTemplateRef<HTMLDialogElement>('dialog')
-const confirming = ref(false)
+const panel = useTemplateRef<HTMLElement>('panel')
+const titleId = useId()
 
 watch(open, async (value) => {
-  await nextTick()
-  const el = dialog.value
-  if (!el) {
+  if (!value) {
     return
   }
-  if (value && !el.open) {
-    el.showModal()
-  }
-  if (!value && el.open) {
-    el.close()
-  }
+  await nextTick()
+  // Focus the panel so Enter/Space hit the confirm form, not a parent dialog control.
+  panel.value?.querySelector<HTMLElement>('button[type="submit"]')?.focus()
 })
 
 function onCancel() {
-  open.value = false
-  if (!confirming.value) {
-    emit('cancel')
-  }
-  confirming.value = false
-}
-
-function onClose() {
-  if (confirming.value) {
-    confirming.value = false
+  if (!open.value) {
     return
   }
-  // Nested dialog teardown can close this element while v-model still says open.
-  if (open.value) {
-    nextTick(() => {
-      if (open.value && dialog.value && !dialog.value.open) {
-        dialog.value.showModal()
-      }
-    })
-  }
+  open.value = false
+  emit('cancel')
 }
 
 function onConfirm() {
-  confirming.value = true
   // Emit before closing so parents that clear state via v-model still have context.
   emit('confirm')
   open.value = false
 }
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    onCancel()
+  }
+}
 </script>
 
 <template>
-  <!-- Keep outside parent <dialog> trees; nested showModal closes the Register modal. -->
+  <!--
+    Overlay (not <dialog>) so Confirm can open above Register/Proxy modals.
+    A nested showModal() would close the parent dialog and look like the modal “vanished”.
+  -->
   <Teleport to="body">
-    <dialog
-      ref="dialog"
-      class="w-[min(28rem,calc(100vw-2rem))] border border-rule bg-panel p-0 text-ink shadow-[0_16px_40px_var(--shadow)] backdrop:bg-ink/40"
-      style="border-radius: var(--radius-panel)"
-      @cancel="onCancel"
-      @close="onClose"
+    <div
+      v-if="open"
+      class="fixed inset-0 z-[80] flex items-center justify-center bg-ink/40 p-4"
+      role="presentation"
+      @click.self="onCancel"
+      @keydown="onKeydown"
     >
-      <form class="flex flex-col gap-4 p-5" @submit.prevent="onConfirm">
-        <h2 class="text-lg font-semibold tracking-tight">{{ title }}</h2>
-        <div class="text-sm text-muted">
-          <slot />
-        </div>
-        <div class="flex justify-end gap-2">
-          <UiButton type="button" variant="ghost" @click="onCancel">
-            {{ cancelLabel }}
-          </UiButton>
-          <UiButton type="submit" :variant="danger ? 'danger' : 'signal'">
-            {{ confirmLabel }}
-          </UiButton>
-        </div>
-      </form>
-    </dialog>
+      <div
+        ref="panel"
+        role="alertdialog"
+        aria-modal="true"
+        :aria-labelledby="titleId"
+        class="w-[min(28rem,calc(100vw-2rem))] border border-rule bg-panel p-0 text-ink shadow-[0_16px_40px_var(--shadow)]"
+        style="border-radius: var(--radius-panel)"
+        tabindex="-1"
+        @click.stop
+      >
+        <form class="flex flex-col gap-4 p-5" @submit.prevent="onConfirm">
+          <h2 :id="titleId" class="text-lg font-semibold tracking-tight">
+            {{ title }}
+          </h2>
+          <div class="text-sm text-muted">
+            <slot />
+          </div>
+          <div class="flex justify-end gap-2">
+            <UiButton type="button" variant="ghost" @click="onCancel">
+              {{ cancelLabel }}
+            </UiButton>
+            <UiButton type="submit" :variant="danger ? 'danger' : 'signal'">
+              {{ confirmLabel }}
+            </UiButton>
+          </div>
+        </form>
+      </div>
+    </div>
   </Teleport>
 </template>

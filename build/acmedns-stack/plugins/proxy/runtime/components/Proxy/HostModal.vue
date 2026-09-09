@@ -224,17 +224,23 @@ watch(open, (value) => {
 
 <template>
   <UiModal v-model:open="open" :title="modalTitle" size="lg">
-    <div class="flex flex-col gap-4">
-      <div class="flex flex-wrap gap-1 border-b border-rule pb-2">
+    <div class="flex min-h-[20rem] flex-col gap-4">
+      <div
+        class="sticky top-0 z-[1] -mx-1 flex flex-wrap gap-1 border-b border-rule bg-panel pb-2"
+        role="tablist"
+        aria-label="Proxy host sections"
+      >
         <button
           v-for="item in tabs"
           :key="item.id"
           type="button"
+          role="tab"
           class="rounded-[6px] px-3 py-1.5 text-sm"
           :class="tab === item.id
             ? 'bg-signal text-signal-ink'
             : 'text-muted hover:bg-panel hover:text-ink'"
-          @click="tab = item.id"
+          :aria-selected="tab === item.id"
+          @click.stop="tab = item.id"
         >
           {{ item.label }}
         </button>
@@ -250,7 +256,8 @@ watch(open, (value) => {
 
       <div
         v-show="tab === 'details'"
-        class="flex flex-col gap-4"
+        class="flex min-h-[14rem] flex-col gap-4"
+        role="tabpanel"
       >
         <UiField label="Domain Names" hint="one per line; wildcards like *.example.com match one label">
           <template #default="{ id }">
@@ -354,7 +361,8 @@ watch(open, (value) => {
 
       <div
         v-show="tab === 'locations'"
-        class="flex flex-col gap-3"
+        class="flex min-h-[14rem] flex-col gap-3"
+        role="tabpanel"
       >
         <div class="flex items-center justify-between gap-2">
           <p class="text-sm text-muted">
@@ -446,7 +454,8 @@ watch(open, (value) => {
 
       <div
         v-show="tab === 'ssl'"
-        class="flex flex-col gap-4"
+        class="flex min-h-[14rem] flex-col gap-4"
+        role="tabpanel"
       >
         <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
           <label class="flex items-center justify-between gap-3 text-sm">
@@ -520,7 +529,8 @@ watch(open, (value) => {
 
       <div
         v-show="tab === 'advanced'"
-        class="flex flex-col gap-3"
+        class="flex min-h-[14rem] flex-col gap-3"
+        role="tabpanel"
       >
         <p class="text-xs text-muted">
           Placeholders: <code class="font-mono">$server</code>
