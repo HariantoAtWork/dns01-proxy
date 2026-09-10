@@ -21,8 +21,9 @@ import {
 } from '#proxy-shared/utils/proxyHost'
 import { PhPlus as Plus, PhTrash as Trash } from '@phosphor-icons/vue'
 
-const { certEntries = [], saving = false } = defineProps<{
+const { certEntries = [], accessLists = [], saving = false } = defineProps<{
   certEntries?: ProxyCertCandidate[]
+  accessLists?: Array<{ id: string, name: string }>
   saving?: boolean
 }>()
 
@@ -442,6 +443,32 @@ watch(open, (value) => {
             </template>
           </UiInfoDrawer>
         </div>
+
+        <UiField
+          label="Access List"
+          hint="Gate by IP / Basic Auth — manage lists under Access Lists"
+        >
+          <template #default="{ id }">
+            <select
+              :id
+              class="ui-input w-full border border-rule bg-paper px-3 py-2 text-sm"
+              style="border-radius: var(--radius-input)"
+              :value="draft.accessListId || ''"
+              @change="draft.accessListId = ($event.target as HTMLSelectElement).value || null"
+            >
+              <option value="">
+                Publicly Accessible
+              </option>
+              <option
+                v-for="list in accessLists"
+                :key="list.id"
+                :value="list.id"
+              >
+                {{ list.name }}
+              </option>
+            </select>
+          </template>
+        </UiField>
       </div>
 
       <div

@@ -1,11 +1,15 @@
 import type { Server } from 'bun'
 import type { ListenBinding } from '../utils/listen'
 import { isControlBinding, isEdgeBinding } from '../utils/listen'
+import { recordAccessDeny } from './accessDenies'
+import { getAccessListById, getProxySettingsCached } from './accessListState'
 import { logProxyAccess } from './accessLog'
+import { resolveProxyClientIp } from './clientIp'
 import { isReservedHostname } from './reserved'
 import { forwardHttpRequest, forceSslRedirect } from './forward'
 import { matchProxyRoute } from './routeTable'
 import { tryUpgradeProxyWebSocket } from './websocket'
+import { evaluateAccessList } from './accessEvaluate'
 
 function hostnameOf(req: Request, url: URL): string {
   const header = req.headers.get('host')
@@ -22,6 +26,69 @@ function hostnameOf(req: Request, url: URL): string {
     return raw
   }
   return url.hostname.toLowerCase()
+}
+
+async function enforceAccessList(
+  req: Request,
+  server: Server,
+  match: NonNullable<ReturnType<typeof matchProxyRoute>>,
+  inbound: string,
+  path: string,
+): Promise<Response | null> {
+  const listId = match.host.accessListId
+  if (!listId) {
+    return null
+  }
+  const list = getAccessListById(listId)
+  if (!list) {
+    return null
+  }
+
+  const settings = getProxySettingsCached()
+  const resolved = resolveProxyClientIp(req, {
+    trustForwardedClientIp: settings.trustForwardedClientIp,
+    server,
+  })
+  const result = await evaluateAccessList(
+    list,
+    resolved.address,
+    req.headers.get('authorization'),
+  )
+
+  if (result.ok) {
+    if (result.stripAuthorization) {
+      match.stripAuthorization = true
+    }
+    return null
+  }
+
+  const ipLabel = resolved.address || 'unknown'
+  recordAccessDeny({
+    ip: ipLabel,
+    hostId: match.host.id,
+    domain: match.host.domainNames[0] || inbound,
+    listId: list.id,
+    reason: result.reason,
+  })
+  logProxyAccess({
+    status: result.status,
+    method: req.method,
+    inbound,
+    path,
+    upstream: '(access-list)',
+    id: match.host.id,
+    note: `access-denied ip=${ipLabel} list=${list.id} ${result.reason}`,
+  })
+
+  if (result.status === 401) {
+    return new Response('Unauthorized', {
+      status: 401,
+      headers: {
+        'WWW-Authenticate': `Basic realm="Proxy Access List"`,
+      },
+    })
+  }
+  return new Response('Forbidden', { status: 403 })
 }
 
 /**
@@ -80,6 +147,11 @@ export async function tryHandleProxy(
     }
   }
 
+  const denied = await enforceAccessList(req, server, match, inbound, path)
+  if (denied) {
+    return denied
+  }
+
   if (req.headers.get('upgrade')?.toLowerCase() === 'websocket') {
     if (tryUpgradeProxyWebSocket(req, server, binding, reqUrl, match)) {
       logProxyAccess({
@@ -105,5 +177,5 @@ export async function tryHandleProxy(
     return new Response('WebSocket upgrade failed', { status: 502 })
   }
 
-  return forwardHttpRequest(req, match, binding, reqUrl)
+  return forwardHttpRequest(req, match, binding, reqUrl, server)
 }

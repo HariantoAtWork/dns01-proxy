@@ -88,6 +88,14 @@ export function getProxyHostsFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'proxy-hosts.json')
 }
 
+export function getProxyAccessListsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-access-lists.json')
+}
+
+export function getProxySettingsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-settings.json')
+}
+
 export function getBackupDir(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'backup')
 }

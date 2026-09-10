@@ -14,6 +14,8 @@ export interface RouteMatch {
   host: ProxyHost
   /** Matched custom location, or null for the default forward target. */
   location: ProxyLocation | null
+  /** When true, drop Authorization before upstream (Access List passAuthUpstream=false). */
+  stripAuthorization?: boolean
 }
 
 /** Exact hostname → host (e.g. `app.example.com`). */

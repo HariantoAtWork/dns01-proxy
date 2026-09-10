@@ -1,9 +1,12 @@
 import type { ProxyHost, ProxyLocation } from '../../plugins/proxy/runtime/shared/types/proxyHost'
 import { hstsHeaderValue } from '../../plugins/proxy/runtime/shared/utils/proxyHost'
 import type { ListenBinding } from '../utils/listen'
+import { getProxySettingsCached } from './accessListState'
 import { logProxyAccess } from './accessLog'
+import { resolveProxyClientIp } from './clientIp'
 import { proxyLog } from './proxyLog'
 import type { RouteMatch } from './routeTable'
+import type { Server } from 'bun'
 
 export interface ForwardTarget {
   scheme: 'http' | 'https'
@@ -112,18 +115,20 @@ function errorCode(error: unknown): string {
   return typeof code === 'string' || typeof code === 'number' ? String(code) : ''
 }
 
-function clientIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for')
-  if (xff) {
-    return xff.split(',')[0]!.trim()
-  }
-  return req.headers.get('x-real-ip') || ''
+function clientIp(req: Request, server?: Server): string {
+  const settings = getProxySettingsCached()
+  const resolved = resolveProxyClientIp(req, {
+    trustForwardedClientIp: settings.trustForwardedClientIp,
+    server,
+  })
+  return resolved.address || ''
 }
 
 export function buildForwardHeaders(
   req: Request,
   match: RouteMatch,
   binding: ListenBinding,
+  server?: Server,
 ): Headers {
   const headers = new Headers(req.headers)
   // Hop-by-hop
@@ -137,10 +142,14 @@ export function buildForwardHeaders(
   headers.delete('transfer-encoding')
   headers.delete('upgrade')
 
+  if (match.stripAuthorization) {
+    headers.delete('authorization')
+  }
+
   const hostHeader = req.headers.get('host') || match.host.domainNames[0] || ''
   headers.set('Host', hostHeader.split(':')[0] || hostHeader)
 
-  const ip = clientIp(req)
+  const ip = clientIp(req, server)
   if (ip) {
     headers.set('X-Real-IP', ip)
     const prior = req.headers.get('x-forwarded-for')
@@ -244,6 +253,7 @@ export async function forwardHttpRequest(
   match: RouteMatch,
   binding: ListenBinding,
   reqUrl: URL,
+  server?: Server,
 ): Promise<Response> {
   const target = resolveForwardTarget(match)
   const upstream = buildUpstreamUrl(reqUrl, target)
@@ -272,7 +282,7 @@ export async function forwardHttpRequest(
     return new Response('Bad Gateway', { status: 502 })
   }
 
-  const headers = buildForwardHeaders(req, match, binding)
+  const headers = buildForwardHeaders(req, match, binding, server)
   const timeoutMs = proxyUpstreamTimeoutMs()
   const signal = timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined
 
@@ -295,7 +305,7 @@ export async function forwardHttpRequest(
   try {
     const upstreamRes = await fetch(upstream, init)
     access(upstreamRes.status)
-    const headers = applyHstsHeader(
+    const outHeaders = applyHstsHeader(
       sanitizeUpstreamResponseHeaders(upstreamRes.headers),
       match.host,
       req,
@@ -304,7 +314,7 @@ export async function forwardHttpRequest(
     return new Response(upstreamRes.body, {
       status: upstreamRes.status,
       statusText: upstreamRes.statusText,
-      headers,
+      headers: outHeaders,
     })
   }
   catch (error) {
