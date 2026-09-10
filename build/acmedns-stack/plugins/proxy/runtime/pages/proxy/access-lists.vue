@@ -3,10 +3,9 @@ import type { AccessListInput, AccessListPublic } from '#proxy-shared/types/acce
 import {
   PhArrowsClockwise as ArrowsClockwise,
   PhPlus as Plus,
-  PhShieldCheck as Shield,
 } from '@phosphor-icons/vue'
 
-useHead({ title: 'Access Lists' })
+useHead({ title: 'Access Lists · Proxy' })
 
 const toasts = useToasts()
 const {
@@ -124,25 +123,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6">
+  <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="flex flex-col gap-1">
-        <div class="flex items-center gap-2">
-          <Shield
-            :size="22"
-            weight="duotone"
-            class="text-signal"
-            aria-hidden="true"
-          />
-          <h1 class="text-2xl font-semibold tracking-tight text-ink">
-            Access Lists
-          </h1>
-        </div>
-        <p class="text-sm text-muted">
-          Gate Proxy Hosts by IP/CIDR and optional Basic Auth. Bind a list on each host.
+        <h2 class="text-xl font-semibold tracking-tight text-ink">
+          Access Lists
+        </h2>
+        <p class="max-w-[65ch] text-sm text-muted">
+          IP allow/deny and Basic Auth. Bind a list on each host instead of public access.
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <UiButton
           variant="ghost"
           size="sm"

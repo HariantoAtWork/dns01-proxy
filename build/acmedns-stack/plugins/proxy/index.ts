@@ -10,7 +10,7 @@ import {
 } from 'nuxt/kit'
 
 function pageRouteFromFile(relPath: string): { name: string, path: string } {
-  const withoutExt = relPath.replace(/\.vue$/, '')
+  const withoutExt = relPath.replace(/\.vue$/, '').replace(/\\/g, '/')
   const segments = withoutExt.split('/')
   const routeSegments: string[] = []
   const nameParts: string[] = []
@@ -49,7 +49,7 @@ function collectVueFiles(dir: string, base = dir): string[] {
       out.push(...collectVueFiles(full, base))
     }
     else if (entry.endsWith('.vue')) {
-      out.push(relative(base, full))
+      out.push(relative(base, full).replace(/\\/g, '/'))
     }
   }
   return out
@@ -77,7 +77,34 @@ export default defineNuxtModule({
 
     const pagesDir = resolver.resolve('./runtime/pages')
     extendPages((pages) => {
+      // Nested under /proxy: overview, hosts, access-lists.
+      pages.push({
+        name: 'acmedns-proxy',
+        path: '/proxy',
+        file: resolver.resolve('./runtime/pages/proxy.vue'),
+        children: [
+          {
+            name: 'acmedns-proxy-overview',
+            path: '',
+            file: resolver.resolve('./runtime/pages/proxy/index.vue'),
+          },
+          {
+            name: 'acmedns-proxy-hosts',
+            path: 'hosts',
+            file: resolver.resolve('./runtime/pages/proxy/hosts.vue'),
+          },
+          {
+            name: 'acmedns-proxy-access-lists',
+            path: 'access-lists',
+            file: resolver.resolve('./runtime/pages/proxy/access-lists.vue'),
+          },
+        ],
+      })
+
       for (const rel of collectVueFiles(pagesDir)) {
+        if (rel === 'proxy.vue' || rel.startsWith('proxy/')) {
+          continue
+        }
         const { name, path } = pageRouteFromFile(rel)
         pages.push({
           name: `acmedns-proxy-${name}`,
