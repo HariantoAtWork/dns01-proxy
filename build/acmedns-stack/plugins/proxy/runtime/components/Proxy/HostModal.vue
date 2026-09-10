@@ -37,6 +37,35 @@ const tab = ref<Tab>('details')
 const draft = ref<ProxyHostInput>(emptyProxyHost())
 const domainsText = ref('')
 const formError = ref<string | null>(null)
+const sslInfoOpen = reactive({
+  cert: false,
+  force: false,
+  http2: false,
+  hsts: false,
+  hstsSubdomains: false,
+  trustForwardedProto: false,
+})
+
+const detailsInfoOpen = reactive({
+  domains: false,
+  enabled: false,
+  websockets: false,
+})
+
+function resetSslInfoOpen() {
+  sslInfoOpen.cert = false
+  sslInfoOpen.force = false
+  sslInfoOpen.http2 = false
+  sslInfoOpen.hsts = false
+  sslInfoOpen.hstsSubdomains = false
+  sslInfoOpen.trustForwardedProto = false
+}
+
+function resetDetailsInfoOpen() {
+  detailsInfoOpen.domains = false
+  detailsInfoOpen.enabled = false
+  detailsInfoOpen.websockets = false
+}
 
 const tabs: Array<{ id: Tab, label: string }> = [
   { id: 'details', label: 'Details' },
@@ -91,6 +120,8 @@ function emptyLocation(): ProxyLocation {
 function load(host?: ProxyHost | null) {
   tab.value = 'details'
   formError.value = null
+  resetSslInfoOpen()
+  resetDetailsInfoOpen()
   if (host) {
     // Hosts from the list are Vue proxies — structuredClone throws on them.
     draft.value = structuredClone(toRaw(host))
@@ -309,7 +340,11 @@ watch(open, (value) => {
         class="flex min-h-[14rem] flex-col gap-4"
         role="tabpanel"
       >
-        <UiField label="Domain Names" hint="one per line or comma-separated; wildcards like *.example.com match one label">
+        <UiField
+          v-model:info-open="detailsInfoOpen.domains"
+          label="Domain Names"
+          info="One per line or comma-separated. Wildcards like *.example.com match one label."
+        >
           <template #default="{ id }">
             <textarea
               :id
@@ -368,22 +403,44 @@ watch(open, (value) => {
         </div>
 
         <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>Enabled</span>
-            <input
-              v-model="draft.enabled"
-              type="checkbox"
-              class="size-4"
-            >
-          </label>
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>Websockets Support</span>
-            <input
-              v-model="draft.allowWebsocketUpgrade"
-              type="checkbox"
-              class="size-4"
-            >
-          </label>
+          <UiInfoDrawer
+            v-model="detailsInfoOpen.enabled"
+            label="About Enabled"
+          >
+            <template #title>
+              <span>Enabled</span>
+            </template>
+            <template #action>
+              <input
+                v-model="draft.enabled"
+                type="checkbox"
+                class="size-4"
+                aria-label="Enabled"
+              >
+            </template>
+            <template #info>
+              When off, the edge proxy ignores this host — no routing until you turn it back on.
+            </template>
+          </UiInfoDrawer>
+          <UiInfoDrawer
+            v-model="detailsInfoOpen.websockets"
+            label="About Websockets Support"
+          >
+            <template #title>
+              <span>Websockets Support</span>
+            </template>
+            <template #action>
+              <input
+                v-model="draft.allowWebsocketUpgrade"
+                type="checkbox"
+                class="size-4"
+                aria-label="Websockets Support"
+              >
+            </template>
+            <template #info>
+              Allow WebSocket upgrades through to the upstream (Upgrade / Connection headers). Leave off for plain HTTP only.
+            </template>
+          </UiInfoDrawer>
         </div>
       </div>
 
@@ -482,75 +539,135 @@ watch(open, (value) => {
         role="tabpanel"
       >
         <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>SSL Certificate</span>
-            <input
-              type="checkbox"
-              class="size-4"
-              :checked="sslEnabled"
-              :disabled="!draftDomains.length && !sslEnabled"
-              @change="setSslEnabled(($event.target as HTMLInputElement).checked)"
-            >
-          </label>
-          <p
-            class="text-xs"
-            :class="sslEnabled ? proxySslAvailabilityClass(boundAvailability) : 'text-muted'"
+          <UiInfoDrawer
+            v-model="sslInfoOpen.cert"
+            label="About SSL certificates"
           >
-            {{ sslStatusLine }}
-          </p>
-          <p class="text-xs text-muted">
-            Uses live/ certificates per domain (e.g. *.mizu.work and *.harianto.dev together) — no manual pick.
-          </p>
+            <template #title>
+              <span>SSL Certificate</span>
+            </template>
+            <template #action>
+              <input
+                type="checkbox"
+                class="size-4"
+                :checked="sslEnabled"
+                :disabled="!draftDomains.length && !sslEnabled"
+                aria-label="SSL Certificate"
+                @change="setSslEnabled(($event.target as HTMLInputElement).checked)"
+              >
+            </template>
+            <p
+              class="text-xs"
+              :class="sslEnabled ? proxySslAvailabilityClass(boundAvailability) : 'text-muted'"
+            >
+              {{ sslStatusLine }}
+            </p>
+            <template #info>
+              Uses live/ certificates per domain (e.g. *.mizu.work and *.harianto.dev together) — no manual pick.
+            </template>
+          </UiInfoDrawer>
         </div>
 
         <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>Force SSL</span>
-            <input
-              type="checkbox"
-              class="size-4"
-              :checked="draft.sslForced"
-              @change="enableSslFeature('sslForced', ($event.target as HTMLInputElement).checked)"
-            >
-          </label>
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>HTTP/2 Support</span>
-            <input
-              type="checkbox"
-              class="size-4"
-              :checked="draft.http2Support"
-              @change="enableSslFeature('http2Support', ($event.target as HTMLInputElement).checked)"
-            >
-          </label>
-          <p class="text-xs text-muted">
-            Also serve HTTP/2 beside HTTP/1.1 on the edge HTTPS listener (ALPN). Not a replacement for h1.
-          </p>
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>HSTS Enable</span>
-            <input
-              type="checkbox"
-              class="size-4"
-              :checked="draft.hstsEnabled"
-              @change="enableSslFeature('hstsEnabled', ($event.target as HTMLInputElement).checked)"
-            >
-          </label>
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>HSTS Subdomains</span>
-            <input
-              v-model="draft.hstsSubdomains"
-              type="checkbox"
-              class="size-4"
-              :disabled="!draft.hstsEnabled"
-            >
-          </label>
-          <label class="flex items-center justify-between gap-3 text-sm">
-            <span>Trust Forwarded Proto</span>
-            <input
-              v-model="draft.trustForwardedProto"
-              type="checkbox"
-              class="size-4"
-            >
-          </label>
+          <UiInfoDrawer
+            v-model="sslInfoOpen.force"
+            label="About Force SSL"
+          >
+            <template #title>
+              <span>Force SSL</span>
+            </template>
+            <template #action>
+              <input
+                type="checkbox"
+                class="size-4"
+                :checked="draft.sslForced"
+                aria-label="Force SSL"
+                @change="enableSslFeature('sslForced', ($event.target as HTMLInputElement).checked)"
+              >
+            </template>
+            <template #info>
+              Redirect HTTP to HTTPS for this host when SSL is enabled. Skips the redirect when the request already looks like HTTPS (e.g. X-Forwarded-Proto).
+            </template>
+          </UiInfoDrawer>
+          <UiInfoDrawer
+            v-model="sslInfoOpen.http2"
+            label="About HTTP/2 support"
+          >
+            <template #title>
+              <span>HTTP/2 Support</span>
+            </template>
+            <template #action>
+              <input
+                type="checkbox"
+                class="size-4"
+                :checked="draft.http2Support"
+                aria-label="HTTP/2 Support"
+                @change="enableSslFeature('http2Support', ($event.target as HTMLInputElement).checked)"
+              >
+            </template>
+            <template #info>
+              Also serve HTTP/2 beside HTTP/1.1 on the edge HTTPS listener (ALPN). Not a replacement for h1.
+            </template>
+          </UiInfoDrawer>
+          <UiInfoDrawer
+            v-model="sslInfoOpen.hsts"
+            label="About HSTS"
+          >
+            <template #title>
+              <span>HSTS Enable</span>
+            </template>
+            <template #action>
+              <input
+                type="checkbox"
+                class="size-4"
+                :checked="draft.hstsEnabled"
+                aria-label="HSTS Enable"
+                @change="enableSslFeature('hstsEnabled', ($event.target as HTMLInputElement).checked)"
+              >
+            </template>
+            <template #info>
+              Send Strict-Transport-Security (max-age one year) on HTTPS responses. Turning this on also enables Force SSL.
+            </template>
+          </UiInfoDrawer>
+          <UiInfoDrawer
+            v-model="sslInfoOpen.hstsSubdomains"
+            label="About HSTS Subdomains"
+          >
+            <template #title>
+              <span>HSTS Subdomains</span>
+            </template>
+            <template #action>
+              <input
+                v-model="draft.hstsSubdomains"
+                type="checkbox"
+                class="size-4"
+                aria-label="HSTS Subdomains"
+                :disabled="!draft.hstsEnabled"
+              >
+            </template>
+            <template #info>
+              Add includeSubDomains to the HSTS header so browsers apply it to every subdomain of this host.
+            </template>
+          </UiInfoDrawer>
+          <UiInfoDrawer
+            v-model="sslInfoOpen.trustForwardedProto"
+            label="About Trust Forwarded Proto"
+          >
+            <template #title>
+              <span>Trust Forwarded Proto</span>
+            </template>
+            <template #action>
+              <input
+                v-model="draft.trustForwardedProto"
+                type="checkbox"
+                class="size-4"
+                aria-label="Trust Forwarded Proto"
+              >
+            </template>
+            <template #info>
+              Honour inbound X-Forwarded-Proto (Cloudflare Flexible, Synology TLS termination, and similar) when deciding the client scheme and avoiding redirect loops.
+            </template>
+          </UiInfoDrawer>
         </div>
       </div>
 
