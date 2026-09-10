@@ -5,6 +5,7 @@ import {
   domainPatternMatchesHostname,
   hstsHeaderValue,
   normalizeProxyHost,
+  parseForwardTargetInput,
   validateDomainName,
   validateProxyHost,
 } from '../runtime/shared/utils/proxyHost'
@@ -79,5 +80,34 @@ describe('proxyHost normalize', () => {
       .toBe('max-age=31536000')
     expect(hstsHeaderValue({ hstsEnabled: true, hstsSubdomains: true }))
       .toBe('max-age=31536000; includeSubDomains')
+  })
+
+  test('parseForwardTargetInput splits URLs and host:port', () => {
+    expect(parseForwardTargetInput('http://stremio-server:11470')).toEqual({
+      scheme: 'http',
+      host: 'stremio-server',
+      port: 11470,
+    })
+    expect(parseForwardTargetInput('https://app.example.com/')).toEqual({
+      scheme: 'https',
+      host: 'app.example.com',
+      port: 443,
+    })
+    expect(parseForwardTargetInput('vaultwarden:8080')).toEqual({
+      scheme: 'http',
+      host: 'vaultwarden',
+      port: 8080,
+    })
+    expect(parseForwardTargetInput('plain-hostname')).toBeNull()
+
+    const host = normalizeProxyHost({
+      domainNames: ['a.example.com'],
+      forwardHost: 'http://stremio-server:11470',
+      forwardScheme: 'https',
+      forwardPort: 443,
+    })
+    expect(host.forwardScheme).toBe('http')
+    expect(host.forwardHost).toBe('stremio-server')
+    expect(host.forwardPort).toBe(11470)
   })
 })

@@ -12,9 +12,11 @@ import {
 } from '#proxy-shared/utils/proxyCertMatch'
 import {
   asForwardPort,
+  applyForwardTargetInput,
   defaultForwardPort,
   emptyProxyHost,
   normalizeDomainNames,
+  parseForwardTargetInput,
   validateDomainName,
 } from '#proxy-shared/utils/proxyHost'
 import { PhPlus as Plus, PhTrash as Trash } from '@phosphor-icons/vue'
@@ -196,8 +198,32 @@ watch(
   },
 )
 
+function pasteForwardTarget(
+  target: { forwardScheme: ForwardScheme, forwardHost: string, forwardPort: number },
+  event: ClipboardEvent,
+) {
+  const text = event.clipboardData?.getData('text') ?? ''
+  if (!parseForwardTargetInput(text)) {
+    return
+  }
+  event.preventDefault()
+  applyForwardTargetInput(target, text)
+}
+
+function onHostForwardBlur() {
+  applyForwardTargetInput(draft.value, draft.value.forwardHost)
+}
+
+function onLocationForwardBlur(location: ProxyLocation) {
+  applyForwardTargetInput(location, location.forwardHost)
+}
+
 function onSave() {
   formError.value = null
+  applyForwardTargetInput(draft.value, draft.value.forwardHost)
+  for (const location of draft.value.locations) {
+    applyForwardTargetInput(location, location.forwardHost)
+  }
   const scheme = draft.value.forwardScheme
   const payload: ProxyHostInput = {
     ...draft.value,
@@ -319,6 +345,8 @@ watch(open, (value) => {
                 :id
                 v-model="draft.forwardHost"
                 mono
+                @paste="pasteForwardTarget(draft, $event)"
+                @blur="onHostForwardBlur"
               />
             </template>
           </UiField>
@@ -333,6 +361,7 @@ watch(open, (value) => {
                 :placeholder="portPlaceholder"
                 class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
                 style="border-radius: var(--radius-input)"
+                @paste="pasteForwardTarget(draft, $event)"
               >
             </template>
           </UiField>
@@ -427,6 +456,8 @@ watch(open, (value) => {
               <UiInput
                 v-model="location.forwardHost"
                 mono
+                @paste="pasteForwardTarget(location, $event)"
+                @blur="onLocationForwardBlur(location)"
               />
             </UiField>
             <UiField label="Port" :hint="`empty → ${defaultForwardPort(location.forwardScheme)}`">
@@ -438,6 +469,7 @@ watch(open, (value) => {
                 :placeholder="String(defaultForwardPort(location.forwardScheme))"
                 class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
                 style="border-radius: var(--radius-input)"
+                @paste="pasteForwardTarget(location, $event)"
               >
             </UiField>
           </div>

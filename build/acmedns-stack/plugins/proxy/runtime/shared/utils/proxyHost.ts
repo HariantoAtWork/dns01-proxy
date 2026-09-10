@@ -133,22 +133,96 @@ export function asForwardPort(value: unknown, scheme: ForwardScheme): number {
   return Math.trunc(n)
 }
 
+export type ParsedForwardTarget = {
+  scheme: ForwardScheme
+  host: string
+  port: number
+}
+
+/**
+ * Parse a pasted forward URL or `host:port` into scheme / host / port.
+ * Returns null for plain hostnames (leave the field as typed).
+ */
+export function parseForwardTargetInput(raw: string): ParsedForwardTarget | null {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  let candidate = trimmed
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+    // full URL — ok
+  }
+  else if (/^[^/\s?#]+:\d{1,5}$/.test(trimmed)) {
+    // host:port without scheme (IPv6 bracket form: [::1]:8080)
+    candidate = `http://${trimmed}`
+  }
+  else {
+    return null
+  }
+
+  try {
+    const url = new URL(candidate)
+    const scheme = url.protocol === 'https:'
+      ? 'https'
+      : url.protocol === 'http:'
+        ? 'http'
+        : null
+    if (!scheme) {
+      return null
+    }
+    const host = url.hostname.trim()
+    if (!host) {
+      return null
+    }
+    const port = url.port
+      ? asForwardPort(url.port, scheme)
+      : defaultForwardPort(scheme)
+    return { scheme, host, port }
+  }
+  catch {
+    return null
+  }
+}
+
+/** Apply URL paste parsing onto a forward target; returns true when fields changed. */
+export function applyForwardTargetInput(
+  target: { forwardScheme: ForwardScheme, forwardHost: string, forwardPort: number },
+  raw: string,
+): boolean {
+  const parsed = parseForwardTargetInput(raw)
+  if (!parsed) {
+    return false
+  }
+  target.forwardScheme = parsed.scheme
+  target.forwardHost = parsed.host
+  target.forwardPort = parsed.port
+  return true
+}
+
 function asLocation(raw: unknown): ProxyLocation | null {
   if (!raw || typeof raw !== 'object') {
     return null
   }
   const row = raw as Record<string, unknown>
   const path = String(row.path || '').trim()
-  const forwardHost = String(row.forwardHost || '').trim()
+  let forwardScheme = asScheme(row.forwardScheme)
+  let forwardHost = String(row.forwardHost || '').trim()
+  let forwardPort = asForwardPort(row.forwardPort, forwardScheme)
+  const parsed = parseForwardTargetInput(forwardHost)
+  if (parsed) {
+    forwardScheme = parsed.scheme
+    forwardHost = parsed.host
+    forwardPort = parsed.port
+  }
   if (!path || !forwardHost) {
     return null
   }
-  const forwardScheme = asScheme(row.forwardScheme)
   return {
     path: path.startsWith('/') ? path : `/${path}`,
     forwardScheme,
     forwardHost,
-    forwardPort: asForwardPort(row.forwardPort, forwardScheme),
+    forwardPort,
   }
 }
 
@@ -163,14 +237,22 @@ export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost
   const locations = Array.isArray(row.locations)
     ? row.locations.map(asLocation).filter((item): item is ProxyLocation => Boolean(item))
     : []
-  const forwardScheme = asScheme(row.forwardScheme)
+  let forwardScheme = asScheme(row.forwardScheme)
+  let forwardHost = String(row.forwardHost || '').trim()
+  let forwardPort = asForwardPort(row.forwardPort, forwardScheme)
+  const parsed = parseForwardTargetInput(forwardHost)
+  if (parsed) {
+    forwardScheme = parsed.scheme
+    forwardHost = parsed.host
+    forwardPort = parsed.port
+  }
 
   return {
     id,
     domainNames,
     forwardScheme,
-    forwardHost: String(row.forwardHost || '').trim(),
-    forwardPort: asForwardPort(row.forwardPort, forwardScheme),
+    forwardHost,
+    forwardPort,
     allowWebsocketUpgrade: Boolean(row.allowWebsocketUpgrade),
     accessListId: row.accessListId == null || row.accessListId === ''
       ? null
