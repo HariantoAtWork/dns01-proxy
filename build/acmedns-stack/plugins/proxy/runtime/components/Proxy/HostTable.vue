@@ -16,6 +16,7 @@ import {
 type HostHealth = {
   online: boolean
   latencyMs?: number
+  error?: string
 }
 
 const { hosts, healthById = {}, certEntries = [], togglingId = null } = defineProps<{
@@ -40,6 +41,24 @@ function statusLabel(host: ProxyHost): string {
     return '…'
   }
   return health.online ? 'Online' : 'Offline'
+}
+
+function statusDetail(host: ProxyHost): string {
+  const health = healthById[host.id]
+  if (!health || health.online || !health.error) {
+    return ''
+  }
+  const error = health.error
+  if (/ENOTFOUND/i.test(error)) {
+    return 'DNS: hostname not on this Docker network'
+  }
+  if (/ECONNREFUSED/i.test(error)) {
+    return 'connection refused'
+  }
+  if (/timeout/i.test(error)) {
+    return 'timeout'
+  }
+  return error.length > 48 ? `${error.slice(0, 45)}…` : error
 }
 
 function statusClass(host: ProxyHost): string {
@@ -169,11 +188,19 @@ function onEnabledChange(host: ProxyHost, event: Event) {
             class="px-3 py-2 text-xs font-medium"
             :class="statusClass(host)"
           >
-            {{ statusLabel(host) }}
-            <span
-              v-if="healthById[host.id]?.online && healthById[host.id]?.latencyMs != null"
-              class="ml-1 font-normal text-muted"
-            >{{ healthById[host.id]?.latencyMs }}ms</span>
+            <div>{{ statusLabel(host) }}
+              <span
+                v-if="healthById[host.id]?.online && healthById[host.id]?.latencyMs != null"
+                class="ml-1 font-normal text-muted"
+              >{{ healthById[host.id]?.latencyMs }}ms</span>
+            </div>
+            <p
+              v-if="statusDetail(host)"
+              class="mt-0.5 max-w-[16rem] font-normal text-muted"
+              :title="healthById[host.id]?.error"
+            >
+              {{ statusDetail(host) }}
+            </p>
           </td>
           <td class="px-3 py-2">
             <div class="flex justify-end gap-1">
