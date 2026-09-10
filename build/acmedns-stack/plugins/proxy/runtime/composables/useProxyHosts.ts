@@ -6,6 +6,8 @@ export type ProxyHostHealth = {
   latencyMs?: number
   status?: number
   target?: string
+  via?: 'http' | 'tcp'
+  error?: string
 }
 
 type CertStatusApiEntry = {
