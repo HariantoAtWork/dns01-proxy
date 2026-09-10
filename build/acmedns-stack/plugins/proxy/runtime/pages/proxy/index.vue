@@ -22,6 +22,8 @@ const {
   removeHost,
 } = useProxyHosts()
 
+const { lists: accessLists, loadLists: loadAccessLists } = useAccessLists()
+
 const modalOpen = ref(false)
 const editingId = ref<string | null>(null)
 const saving = ref(false)
@@ -32,7 +34,7 @@ const modalRef = useTemplateRef<{ load: (host?: ProxyHost | null) => void }>('mo
 
 async function refresh() {
   try {
-    await Promise.all([loadHosts(), loadCertNames()])
+    await Promise.all([loadHosts(), loadCertNames(), loadAccessLists()])
     await loadAllHealth()
   }
   catch {
@@ -204,6 +206,7 @@ onMounted(() => {
       ref="modal"
       v-model:open="modalOpen"
       :cert-entries="certEntries"
+      :access-lists="accessLists"
       :saving
       @save="onSave"
     />

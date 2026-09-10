@@ -34,7 +34,7 @@ export function buildUpstreamWsHeaders(req: Request, match: RouteMatch): Record<
     headers.Origin = origin
   }
   const authorization = req.headers.get('authorization')
-  if (authorization) {
+  if (authorization && !match.stripAuthorization) {
     headers.Authorization = authorization
   }
   const protocol = req.headers.get('sec-websocket-protocol')

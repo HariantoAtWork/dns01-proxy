@@ -11,6 +11,8 @@ import {
   getDomainsFilePath as getCoreDomainsFilePath,
   getLabDomainsFilePath as getCoreLabDomainsFilePath,
   getProxyHostsFilePath as getCoreProxyHostsFilePath,
+  getProxyAccessListsFilePath as getCoreProxyAccessListsFilePath,
+  getProxySettingsFilePath as getCoreProxySettingsFilePath,
   getBackupDir as getCoreBackupDir,
   type DataRootOptions,
 } from '../../core/paths'
@@ -70,6 +72,14 @@ export function getLabDomainsFilePath(): string {
 
 export function getProxyHostsFilePath(): string {
   return getCoreProxyHostsFilePath(runtimeOptions())
+}
+
+export function getProxyAccessListsFilePath(): string {
+  return getCoreProxyAccessListsFilePath(runtimeOptions())
+}
+
+export function getProxySettingsFilePath(): string {
+  return getCoreProxySettingsFilePath(runtimeOptions())
 }
 
 export function getBackupDir(): string {
