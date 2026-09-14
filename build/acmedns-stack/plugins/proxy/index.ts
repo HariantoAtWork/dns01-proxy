@@ -98,6 +98,11 @@ export default defineNuxtModule({
             path: 'access-lists',
             file: resolver.resolve('./runtime/pages/proxy/access-lists.vue'),
           },
+          {
+            name: 'acmedns-proxy-bearer-keys',
+            path: 'bearer-keys',
+            file: resolver.resolve('./runtime/pages/proxy/bearer-keys.vue'),
+          },
         ],
       })
 

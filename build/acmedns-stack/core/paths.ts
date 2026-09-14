@@ -92,6 +92,10 @@ export function getProxyAccessListsFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'proxy-access-lists.json')
 }
 
+export function getProxyBearerKeysFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-bearer-keys.json')
+}
+
 export function getProxySettingsFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'proxy-settings.json')
 }

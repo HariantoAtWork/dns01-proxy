@@ -21,9 +21,10 @@ import {
 } from '#proxy-shared/utils/proxyHost'
 import { PhPlus as Plus, PhTrash as Trash } from '@phosphor-icons/vue'
 
-const { certEntries = [], accessLists = [], saving = false } = defineProps<{
+const { certEntries = [], accessLists = [], bearerKeys = [], saving = false } = defineProps<{
   certEntries?: ProxyCertCandidate[]
   accessLists?: Array<{ id: string, name: string }>
+  bearerKeys?: Array<{ id: string, name: string }>
   saving?: boolean
 }>()
 
@@ -465,6 +466,32 @@ watch(open, (value) => {
                 :value="list.id"
               >
                 {{ list.name }}
+              </option>
+            </select>
+          </template>
+        </UiField>
+
+        <UiField
+          label="Bearer Key"
+          hint="Require Authorization: Bearer — manage keys under Bearer Keys. Without a key, GET / shows upstream live status only."
+        >
+          <template #default="{ id }">
+            <select
+              :id
+              class="ui-input w-full border border-rule bg-paper px-3 py-2 text-sm"
+              style="border-radius: var(--radius-input)"
+              :value="draft.bearerKeyId || ''"
+              @change="draft.bearerKeyId = ($event.target as HTMLSelectElement).value || null"
+            >
+              <option value="">
+                None
+              </option>
+              <option
+                v-for="key in bearerKeys"
+                :key="key.id"
+                :value="key.id"
+              >
+                {{ key.name }}
               </option>
             </select>
           </template>
