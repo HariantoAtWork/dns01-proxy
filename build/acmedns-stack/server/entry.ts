@@ -16,6 +16,7 @@ import { reloadAccessLists, reloadProxySettings } from './proxy/accessListState'
 import { reloadBearerLists } from './proxy/bearerKeyState'
 import { reloadRouteTable } from './proxy/routeTable'
 import { buildEdgeTlsOptions, shouldBindEdgeHttps } from './proxy/tls'
+import { registerEdgeHttpsRuntime } from './proxy/edgeHttps'
 import { proxyWebsocketHandlers } from './proxy/websocket'
 
 loadAcmeConfigSync()
@@ -152,29 +153,43 @@ function startEdgeBinding(binding: ListenBinding, tlsBodies?: ReturnType<typeof 
 const httpServer = startEdgeBinding(listen.http)
 console.log(`[acmedns] Edge HTTP on ${httpServer.url}`)
 
-if (shouldBindEdgeHttps()) {
-  const edgeTls = buildEdgeTlsOptions()
-  if (edgeTls) {
-    const httpsPort = listen.https?.port ?? 443
-    const httpsBinding: ListenBinding = {
-      host: listen.http.host,
-      port: httpsPort,
-      role: 'edge',
-      tls: listen.https?.tls ?? { certPath: '', keyPath: '' },
+{
+  const httpsPort = listen.https?.port ?? 443
+  const httpsBinding: ListenBinding = {
+    host: listen.http.host,
+    port: httpsPort,
+    role: 'edge',
+    tls: listen.https?.tls ?? { certPath: '', keyPath: '' },
+  }
+  const edgeFetch = (req: Request, server: unknown) => handleFetch(req, server, httpsBinding)
+
+  let httpsServer: ReturnType<typeof Bun.serve> | null = null
+  if (shouldBindEdgeHttps()) {
+    const edgeTls = buildEdgeTlsOptions()
+    if (edgeTls) {
+      httpsServer = startEdgeBinding(httpsBinding, edgeTls)
+      console.log(`[acmedns] Edge HTTPS on ${httpsServer.url} (SNI)`)
     }
-    const httpsServer = startEdgeBinding(httpsBinding, edgeTls)
-    console.log(`[acmedns] Edge HTTPS on ${httpsServer.url} (SNI)`)
+    else {
+      console.log('[acmedns] Edge HTTPS skipped — no readable PEMs')
+    }
+  }
+  else if (listen.https) {
+    httpsServer = startEdgeBinding(listen.https)
+    console.log(`[acmedns] Edge HTTPS on ${httpsServer.url}`)
   }
   else {
-    console.log('[acmedns] Edge HTTPS skipped — no readable PEMs')
+    console.log('[acmedns] Edge HTTPS disabled')
   }
-}
-else if (listen.https) {
-  const httpsServer = startEdgeBinding(listen.https)
-  console.log(`[acmedns] Edge HTTPS on ${httpsServer.url}`)
-}
-else {
-  console.log('[acmedns] Edge HTTPS disabled')
+
+  registerEdgeHttpsRuntime(
+    {
+      binding: httpsBinding,
+      fetch: edgeFetch,
+      websocket: proxyWebsocketHandlers,
+    },
+    httpsServer,
+  )
 }
 
 const controlHttp = startControlBinding(listen.controlHttp)

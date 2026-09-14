@@ -123,4 +123,40 @@ describe('probeProxyHostHealth', () => {
     expect(result.online).toBe(false)
     expect(result.error).toBeTruthy()
   })
+
+  test('fails fast when forward host is empty', async () => {
+    const result = await probeProxyHostHealth({
+      forwardScheme: 'http',
+      forwardHost: '  ',
+      forwardPort: 80,
+    })
+    expect(result.online).toBe(false)
+    expect(result.error).toContain('empty')
+  })
+
+  test('releases HTTP response body so sockets can be reused', async () => {
+    let open = 0
+    const server = Bun.serve({
+      port: 0,
+      async fetch() {
+        open += 1
+        // Large-ish body that would pin the connection if left unread.
+        return new Response('x'.repeat(64_000), { status: 200 })
+      },
+    })
+    try {
+      const results = await Promise.all(
+        Array.from({ length: 12 }, () => probeProxyHostHealth({
+          forwardScheme: 'http',
+          forwardHost: '127.0.0.1',
+          forwardPort: server.port,
+        }, 1000)),
+      )
+      expect(results.every(r => r.online)).toBe(true)
+      expect(open).toBe(12)
+    }
+    finally {
+      server.stop(true)
+    }
+  })
 })
