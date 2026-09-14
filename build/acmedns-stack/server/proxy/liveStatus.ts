@@ -154,13 +154,18 @@ export async function respondPublicLiveStatus(
       async start(controller) {
         const encoder = new TextEncoder()
         let closed = false
+        let probing = false
 
         const send = async () => {
-          if (closed) {
+          if (closed || probing) {
             return
           }
+          probing = true
           try {
             const status = await probePublicLiveStatus(host)
+            if (closed) {
+              return
+            }
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify(status)}\n\n`),
             )
@@ -175,6 +180,9 @@ export async function respondPublicLiveStatus(
                 encoder.encode(`data: ${JSON.stringify(fallback)}\n\n`),
               )
             }
+          }
+          finally {
+            probing = false
           }
         }
 

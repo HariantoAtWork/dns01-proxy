@@ -286,7 +286,11 @@ export async function forwardHttpRequest(
   const timeoutMs = proxyUpstreamTimeoutMs()
   const signal = timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined
 
-  const init: RequestInit & { duplex?: 'half'; decompress?: boolean } = {
+  const init: RequestInit & {
+    duplex?: 'half'
+    decompress?: boolean
+    tls?: { rejectUnauthorized: boolean }
+  } = {
     method: req.method,
     headers,
     redirect: 'manual',
@@ -294,6 +298,11 @@ export async function forwardHttpRequest(
     // Bun fetch decompresses by default but keeps Content-Encoding — browsers then
     // fail with blank pages / ERR_CONTENT_DECODING_FAILED. Pass bytes through as-is.
     decompress: false,
+  }
+
+  // Match health probes: docker upstreams often use self-signed / private CA certs.
+  if (target.scheme === 'https') {
+    init.tls = { rejectUnauthorized: false }
   }
 
   // Stream the request body when present — avoid buffering whole uploads in RAM.

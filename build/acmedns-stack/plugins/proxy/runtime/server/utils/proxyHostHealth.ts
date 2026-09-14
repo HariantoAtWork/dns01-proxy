@@ -35,6 +35,16 @@ function fetchInit(method: 'HEAD' | 'GET', signal: AbortSignal): BunFetchInit {
   }
 }
 
+/** Release the socket — unread bodies pin Bun/undici connections and starve other hosts. */
+async function releaseResponse(res: Response): Promise<void> {
+  try {
+    await res.body?.cancel()
+  }
+  catch {
+    // Already closed or consumed.
+  }
+}
+
 async function fetchOnce(
   url: string,
   method: 'HEAD' | 'GET',
@@ -58,12 +68,16 @@ async function probeHttp(
   // before we fall back to TCP.
   try {
     const res = await fetchOnce(url, 'GET', timeoutMs)
-    return { status: res.status }
+    const status = res.status
+    await releaseResponse(res)
+    return { status }
   }
   catch (getError) {
     try {
       const head = await fetchOnce(url, 'HEAD', Math.min(1000, timeoutMs))
-      return { status: head.status }
+      const status = head.status
+      await releaseResponse(head)
+      return { status }
     }
     catch (headError) {
       const message = getError instanceof Error
@@ -103,6 +117,20 @@ async function probeTcp(
   })
 }
 
+function validateProbeTarget(target: ProbeTarget): string | null {
+  const host = typeof target.forwardHost === 'string' ? target.forwardHost.trim() : ''
+  if (!host) {
+    return 'forward host is empty'
+  }
+  if (!Number.isFinite(target.forwardPort) || target.forwardPort <= 0 || target.forwardPort > 65535) {
+    return `forward port is invalid (${String(target.forwardPort)})`
+  }
+  if (target.forwardScheme !== 'http' && target.forwardScheme !== 'https') {
+    return `forward scheme is invalid (${String(target.forwardScheme)})`
+  }
+  return null
+}
+
 /**
  * Reachability for Proxy Host status column.
  * Any HTTP response counts as online; HTTPS skips cert verify; TCP connect is fallback
@@ -112,6 +140,19 @@ export async function probeProxyHostHealth(
   target: ProbeTarget,
   timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<ProxyHostHealthProbe> {
+  const invalid = validateProbeTarget(target)
+  if (invalid) {
+    return {
+      online: false,
+      latencyMs: 0,
+      target: probeUrl({
+        ...target,
+        forwardHost: target.forwardHost?.trim() || '(empty)',
+      }),
+      error: invalid,
+    }
+  }
+
   const url = probeUrl(target)
   const started = Date.now()
   const http = await probeHttp(url, timeoutMs)
@@ -125,7 +166,7 @@ export async function probeProxyHostHealth(
     }
   }
 
-  const tcp = await probeTcp(target.forwardHost, target.forwardPort, timeoutMs)
+  const tcp = await probeTcp(target.forwardHost.trim(), target.forwardPort, timeoutMs)
   if ('ok' in tcp) {
     return {
       online: true,

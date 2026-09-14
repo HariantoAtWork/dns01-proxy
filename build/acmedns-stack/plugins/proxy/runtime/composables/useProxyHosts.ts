@@ -110,7 +110,12 @@ export function useProxyHosts() {
   }
 
   async function loadAllHealth() {
-    await Promise.all(hosts.value.map(host => loadHealth(host.id)))
+    // Bound concurrency so slow/offline upstreams do not stampede the edge fetch pool.
+    const concurrency = 4
+    const list = hosts.value
+    for (let i = 0; i < list.length; i += concurrency) {
+      await Promise.all(list.slice(i, i + concurrency).map(host => loadHealth(host.id)))
+    }
   }
 
   async function saveHost(input: ProxyHostInput) {

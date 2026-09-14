@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs'
 import type { ListenTlsOptions } from '../utils/listen'
 import { resolveTlsMaterial } from '../utils/listen'
+import {
+  domainPatternMatchesHostname,
+  isWildcardDomainName,
+} from '../../plugins/proxy/runtime/shared/utils/proxyHost'
 import { pickBestCertificateForDomain } from '../../plugins/proxy/runtime/shared/utils/proxyCertMatch'
 import { listLiveCertCandidatesSync } from './liveCerts'
 import { listEnabledProxyHosts, resolveCertPemPaths } from './routeTable'
@@ -41,6 +45,28 @@ function readPemPair(certificateName: string): { cert: string, key: string } | n
 }
 
 /**
+ * Hostnames to register for Bun SNI for one proxy domain pattern.
+ * Bun matches `serverName` exactly — a literal `*.example.com` never matches clients.
+ * For wildcards, expand to exact SANs on the covering cert that the pattern matches.
+ */
+export function sniHostnamesForDomain(
+  domain: string,
+  certSans: string[],
+): string[] {
+  const name = domain.replace(/\.$/, '').toLowerCase()
+  if (!name) {
+    return []
+  }
+  if (!isWildcardDomainName(name)) {
+    return [name]
+  }
+  const exact = certSans
+    .map(san => san.replace(/\.$/, '').toLowerCase())
+    .filter(san => san && !isWildcardDomainName(san) && domainPatternMatchesHostname(name, san))
+  return [...new Set(exact)]
+}
+
+/**
  * Build Bun `tls` option for edge HTTPS: default auth cert plus one SNI entry
  * per proxy domain, each bound to the best covering live/ certificate.
  */
@@ -61,15 +87,15 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
       continue
     }
     for (const name of host.domainNames) {
-      const serverName = name.replace(/\.$/, '').toLowerCase()
-      if (!serverName || seen.has(serverName)) {
+      const pattern = name.replace(/\.$/, '').toLowerCase()
+      if (!pattern) {
         continue
       }
 
-      const best = pickBestCertificateForDomain(liveCerts, serverName)
+      const best = pickBestCertificateForDomain(liveCerts, pattern)
       const certName = best?.certName
       if (!certName) {
-        console.warn(`[proxy] no live cert covers SNI ${serverName} (host ${host.id})`)
+        console.warn(`[proxy] no live cert covers SNI ${pattern} (host ${host.id})`)
         continue
       }
 
@@ -77,15 +103,29 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
       if (!pem) {
         const loaded = readPemPair(certName)
         if (!loaded) {
-          console.warn(`[proxy] PEMs missing for live cert ${certName} (SNI ${serverName})`)
+          console.warn(`[proxy] PEMs missing for live cert ${certName} (SNI ${pattern})`)
           continue
         }
         pemCache.set(certName, loaded)
         pem = loaded
       }
 
-      seen.add(serverName)
-      entries.push({ cert: pem.cert, key: pem.key, serverName })
+      const hostnames = sniHostnamesForDomain(pattern, best?.sans ?? [])
+      if (!hostnames.length) {
+        console.warn(
+          `[proxy] wildcard ${pattern} has no exact SANs for SNI `
+          + `(cert ${certName}); add exact domainNames or SANs`,
+        )
+        continue
+      }
+
+      for (const serverName of hostnames) {
+        if (seen.has(serverName)) {
+          continue
+        }
+        seen.add(serverName)
+        entries.push({ cert: pem.cert, key: pem.key, serverName })
+      }
     }
   }
 
