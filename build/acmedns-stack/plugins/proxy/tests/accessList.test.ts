@@ -101,6 +101,24 @@ describe('evaluateAccessList', () => {
     expect(bothFail).toMatchObject({ ok: false, status: 401 })
   })
 
+  test('skipBasicAuth ignores users after inbound Bearer', async () => {
+    const hash = await Bun.password.hash('secret')
+    const access = list({
+      name: 'users',
+      users: [{ username: 'alice', passwordHash: hash }],
+      rules: [{ directive: 'allow', address: '10.0.0.0/8' }],
+    })
+    const denied = await evaluateAccessList(access, '10.0.0.5', 'Bearer sk_test')
+    expect(denied.ok).toBe(false)
+    const allowed = await evaluateAccessList(
+      access,
+      '10.0.0.5',
+      'Bearer sk_test',
+      { skipBasicAuth: true },
+    )
+    expect(allowed.ok).toBe(true)
+  })
+
   test('public shape never includes passwordHash', async () => {
     const hash = await Bun.password.hash('x')
     const access = await normalizeAccessListInput({

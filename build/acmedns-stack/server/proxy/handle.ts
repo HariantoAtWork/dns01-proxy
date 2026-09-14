@@ -3,6 +3,7 @@ import type { ListenBinding } from '../utils/listen'
 import { isControlBinding, isEdgeBinding } from '../utils/listen'
 import { recordAccessDeny } from './accessDenies'
 import { getAccessListById, getProxySettingsCached } from './accessListState'
+import { verifyInboundBearer } from './bearerKeyState'
 import { logProxyAccess } from './accessLog'
 import { resolveProxyClientIp } from './clientIp'
 import { isReservedHostname } from './reserved'
@@ -10,6 +11,7 @@ import { forwardHttpRequest, forceSslRedirect } from './forward'
 import { matchProxyRoute } from './routeTable'
 import { tryUpgradeProxyWebSocket } from './websocket'
 import { evaluateAccessList } from './accessEvaluate'
+import { respondPublicLiveStatus } from './liveStatus'
 
 function hostnameOf(req: Request, url: URL): string {
   const header = req.headers.get('host')
@@ -26,6 +28,55 @@ function hostnameOf(req: Request, url: URL): string {
     return raw
   }
   return url.hostname.toLowerCase()
+}
+
+async function enforceBearerKey(
+  req: Request,
+  match: NonNullable<ReturnType<typeof matchProxyRoute>>,
+  inbound: string,
+  path: string,
+  pathname: string,
+): Promise<Response | null> {
+  const keyId = match.host.bearerKeyId
+  if (!keyId) {
+    return null
+  }
+
+  if (verifyInboundBearer(keyId, req.headers.get('authorization'))) {
+    // Never forward the gateway token to upstream.
+    match.stripAuthorization = true
+    return null
+  }
+
+  const isPublicRoot = req.method === 'GET' && pathname === '/'
+  if (isPublicRoot) {
+    logProxyAccess({
+      status: 200,
+      method: req.method,
+      inbound,
+      path,
+      upstream: '(live-status)',
+      id: match.host.id,
+      note: 'bearer-missing live-status',
+    })
+    return respondPublicLiveStatus(req, match.host)
+  }
+
+  logProxyAccess({
+    status: 401,
+    method: req.method,
+    inbound,
+    path,
+    upstream: '(bearer)',
+    id: match.host.id,
+    note: `bearer-denied key=${keyId}`,
+  })
+  return new Response('Unauthorized', {
+    status: 401,
+    headers: {
+      'WWW-Authenticate': 'Bearer realm="Proxy"',
+    },
+  })
 }
 
 async function enforceAccessList(
@@ -53,6 +104,7 @@ async function enforceAccessList(
     list,
     resolved.address,
     req.headers.get('authorization'),
+    { skipBasicAuth: Boolean(match.stripAuthorization) },
   )
 
   if (result.ok) {
@@ -145,6 +197,17 @@ export async function tryHandleProxy(
       })
       return redirect
     }
+  }
+
+  const bearerDenied = await enforceBearerKey(
+    req,
+    match,
+    inbound,
+    path,
+    reqUrl.pathname,
+  )
+  if (bearerDenied) {
+    return bearerDenied
   }
 
   const denied = await enforceAccessList(req, server, match, inbound, path)

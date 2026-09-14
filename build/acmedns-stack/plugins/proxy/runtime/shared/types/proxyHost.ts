@@ -15,6 +15,8 @@ export interface ProxyHost {
   forwardPort: number
   allowWebsocketUpgrade: boolean
   accessListId?: string | null
+  /** When set, clients must send Authorization: Bearer matching this key. */
+  bearerKeyId?: string | null
   locations: ProxyLocation[]
   certificateName?: string | null
   sslForced: boolean

@@ -66,14 +66,16 @@ export type AccessEvalResult =
 /**
  * Evaluate an Access List for an edge request.
  * Empty rules + empty users → allow-all.
+ * `skipBasicAuth` — inbound Bearer already validated; only IP rules still apply.
  */
 export async function evaluateAccessList(
   list: AccessList,
   clientIp: string | null,
   authorizationHeader: string | null,
+  options?: { skipBasicAuth?: boolean },
 ): Promise<AccessEvalResult> {
   const hasRules = list.rules.length > 0
-  const hasUsers = list.users.length > 0
+  const hasUsers = list.users.length > 0 && !options?.skipBasicAuth
   if (!hasRules && !hasUsers) {
     return { ok: true, stripAuthorization: !list.passAuthUpstream }
   }

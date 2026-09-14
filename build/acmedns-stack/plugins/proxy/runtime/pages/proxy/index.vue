@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   PhArrowRight as ArrowRight,
+  PhKey as Key,
   PhListChecks as ListChecks,
   PhSwap as Swap,
 } from '@phosphor-icons/vue'
@@ -19,18 +20,28 @@ const {
   loadSettings,
   loadDenies,
 } = useAccessLists()
+const {
+  keys: bearerKeys,
+  pending: keysPending,
+  error: keysError,
+  loadKeys,
+} = useBearerKeys()
 
-const pending = computed(() => hostsPending.value || listsPending.value)
+const pending = computed(() => hostsPending.value || listsPending.value || keysPending.value)
 
 const enabledHosts = computed(() => hosts.value.filter(host => host.enabled).length)
 const boundHosts = computed(() => hosts.value.filter(host => Boolean(host.accessListId)).length)
+const bearerBoundHosts = computed(() => hosts.value.filter(host => Boolean(host.bearerKeyId)).length)
 
 async function refresh() {
   try {
-    await Promise.all([loadHosts(), loadLists(), loadSettings(), loadDenies()])
+    await Promise.all([loadHosts(), loadLists(), loadSettings(), loadDenies(), loadKeys()])
   }
   catch {
-    toasts.error(hostsError.value || listsError.value || 'Failed to load proxy overview', 'Proxy')
+    toasts.error(
+      hostsError.value || listsError.value || keysError.value || 'Failed to load proxy overview',
+      'Proxy',
+    )
   }
 }
 
@@ -53,7 +64,7 @@ onMounted(() => {
     </div>
 
     <div
-      class="grid gap-3 sm:grid-cols-3"
+      class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
       :aria-busy="pending"
     >
       <div class="rounded-[var(--radius-panel)] border border-rule bg-panel px-4 py-3">
@@ -80,6 +91,17 @@ onMounted(() => {
       </div>
       <div class="rounded-[var(--radius-panel)] border border-rule bg-panel px-4 py-3">
         <p class="text-xs uppercase tracking-wide text-muted">
+          Bearer keys
+        </p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums text-ink">
+          {{ bearerKeys.length }}
+        </p>
+        <p class="mt-1 text-xs text-muted">
+          {{ bearerBoundHosts }} hosts bound
+        </p>
+      </div>
+      <div class="rounded-[var(--radius-panel)] border border-rule bg-panel px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-muted">
           Client IP trust
         </p>
         <p class="mt-1 text-2xl font-semibold text-ink">
@@ -91,7 +113,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <NuxtLink
         to="/proxy/hosts"
         class="group flex items-start gap-3 rounded-[var(--radius-panel)] border border-rule bg-panel px-4 py-4 text-ink no-underline transition-colors hover:border-signal"
@@ -134,6 +156,32 @@ onMounted(() => {
           </p>
           <p class="mt-1 text-sm text-muted">
             IP allow/deny and Basic Auth for bound hosts.
+          </p>
+        </div>
+        <ArrowRight
+          :size="16"
+          weight="bold"
+          class="mt-1 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
+          aria-hidden="true"
+        />
+      </NuxtLink>
+
+      <NuxtLink
+        to="/proxy/bearer-keys"
+        class="group flex items-start gap-3 rounded-[var(--radius-panel)] border border-rule bg-panel px-4 py-4 text-ink no-underline transition-colors hover:border-signal"
+      >
+        <Key
+          :size="20"
+          weight="duotone"
+          class="mt-0.5 shrink-0 text-signal"
+          aria-hidden="true"
+        />
+        <div class="min-w-0 flex-1">
+          <p class="font-medium">
+            Bearer Keys
+          </p>
+          <p class="mt-1 text-sm text-muted">
+            Inbound gateway tokens for bound hosts.
           </p>
         </div>
         <ArrowRight

@@ -12,6 +12,7 @@ import {
   PhX as Close,
   PhSwap as Swap,
   PhListChecks as ListChecks,
+  PhKey as Key,
   PhSquaresFour as SquaresFour,
 } from '@phosphor-icons/vue'
 
@@ -62,6 +63,7 @@ const links = computed<NavLink[]>(() => {
         { to: '/proxy', label: 'Overview', icon: SquaresFour, exact: true },
         { to: '/proxy/hosts', label: 'Hosts', icon: Swap, exact: true },
         { to: '/proxy/access-lists', label: 'Access Lists', icon: ListChecks, exact: true },
+        { to: '/proxy/bearer-keys', label: 'Bearer Keys', icon: Key, exact: true },
       ],
     },
     { to: '/settings', label: 'Settings', icon: Gear, exact: true, registerAction: false },

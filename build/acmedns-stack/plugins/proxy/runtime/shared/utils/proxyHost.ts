@@ -20,6 +20,7 @@ export function emptyProxyHost(): ProxyHostInput {
     forwardPort: 80,
     allowWebsocketUpgrade: false,
     accessListId: null,
+    bearerKeyId: null,
     locations: [],
     certificateName: null,
     sslForced: false,
@@ -257,6 +258,9 @@ export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost
     accessListId: row.accessListId == null || row.accessListId === ''
       ? null
       : String(row.accessListId),
+    bearerKeyId: row.bearerKeyId == null || row.bearerKeyId === ''
+      ? null
+      : String(row.bearerKeyId),
     locations,
     certificateName: row.certificateName == null || row.certificateName === ''
       ? null
