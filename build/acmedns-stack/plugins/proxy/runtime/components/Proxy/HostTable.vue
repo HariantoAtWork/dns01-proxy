@@ -173,6 +173,11 @@ function onEnabledChange(host: ProxyHost, event: Event) {
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
               >WS</span>
               <span
+                v-if="host.accessListId"
+                class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
+                title="Bound Access List (IP / Basic Auth)"
+              >Access</span>
+              <span
                 v-if="host.bearerListId"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
                 title="Requires Authorization: Bearer"
