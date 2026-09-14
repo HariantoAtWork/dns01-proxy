@@ -75,6 +75,20 @@ export function useBreadcrumbs() {
       return crumbs
     }
 
+    if (path.startsWith('/proxy')) {
+      crumbs.push({ label: 'Proxy', to: '/proxy' })
+      if (path === '/proxy/hosts') {
+        crumbs.push({ label: 'Hosts' })
+      }
+      else if (path === '/proxy/access-lists') {
+        crumbs.push({ label: 'Access Lists' })
+      }
+      else if (path === '/proxy/bearer-lists') {
+        crumbs.push({ label: 'Bearer Lists' })
+      }
+      return crumbs
+    }
+
     return crumbs
   })
 

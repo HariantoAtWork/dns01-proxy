@@ -21,25 +21,25 @@ const {
   loadDenies,
 } = useAccessLists()
 const {
-  keys: bearerKeys,
-  pending: keysPending,
-  error: keysError,
-  loadKeys,
-} = useBearerKeys()
+  lists: bearerLists,
+  pending: bearerPending,
+  error: bearerError,
+  loadLists: loadBearerLists,
+} = useBearerLists()
 
-const pending = computed(() => hostsPending.value || listsPending.value || keysPending.value)
+const pending = computed(() => hostsPending.value || listsPending.value || bearerPending.value)
 
 const enabledHosts = computed(() => hosts.value.filter(host => host.enabled).length)
 const boundHosts = computed(() => hosts.value.filter(host => Boolean(host.accessListId)).length)
-const bearerBoundHosts = computed(() => hosts.value.filter(host => Boolean(host.bearerKeyId)).length)
+const bearerBoundHosts = computed(() => hosts.value.filter(host => Boolean(host.bearerListId)).length)
 
 async function refresh() {
   try {
-    await Promise.all([loadHosts(), loadLists(), loadSettings(), loadDenies(), loadKeys()])
+    await Promise.all([loadHosts(), loadLists(), loadSettings(), loadDenies(), loadBearerLists()])
   }
   catch {
     toasts.error(
-      hostsError.value || listsError.value || keysError.value || 'Failed to load proxy overview',
+      hostsError.value || listsError.value || bearerError.value || 'Failed to load proxy overview',
       'Proxy',
     )
   }
@@ -91,10 +91,10 @@ onMounted(() => {
       </div>
       <div class="rounded-[var(--radius-panel)] border border-rule bg-panel px-4 py-3">
         <p class="text-xs uppercase tracking-wide text-muted">
-          Bearer keys
+          Bearer lists
         </p>
         <p class="mt-1 text-2xl font-semibold tabular-nums text-ink">
-          {{ bearerKeys.length }}
+          {{ bearerLists.length }}
         </p>
         <p class="mt-1 text-xs text-muted">
           {{ bearerBoundHosts }} hosts bound
@@ -167,7 +167,7 @@ onMounted(() => {
       </NuxtLink>
 
       <NuxtLink
-        to="/proxy/bearer-keys"
+        to="/proxy/bearer-lists"
         class="group flex items-start gap-3 rounded-[var(--radius-panel)] border border-rule bg-panel px-4 py-4 text-ink no-underline transition-colors hover:border-signal"
       >
         <Key
@@ -178,10 +178,10 @@ onMounted(() => {
         />
         <div class="min-w-0 flex-1">
           <p class="font-medium">
-            Bearer Keys
+            Bearer Lists
           </p>
           <p class="mt-1 text-sm text-muted">
-            Inbound gateway tokens for bound hosts.
+            Named groups of inbound gateway tokens.
           </p>
         </div>
         <ArrowRight

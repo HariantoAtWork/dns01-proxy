@@ -1,47 +1,21 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { v7 as uuid } from 'uuid'
 import type {
-  BearerKey,
-  BearerKeyInput,
-  BearerKeyPublic,
-  BearerKeysFile,
+  BearerGeneratedToken,
+  BearerList,
+  BearerListInput,
+  BearerListKey,
+  BearerListKeyInput,
+  BearerListKeyPublic,
+  BearerListPublic,
+  BearerListsFile,
 } from '../types/bearerKey'
 
-const TOKEN_BYTES = 32
-const PREFIX_VISIBLE = 8
-
-export function emptyBearerKey(): BearerKeyInput {
-  return { name: '' }
-}
-
-/** URL-safe token with `sk_` prefix. */
-export function generateBearerToken(): string {
-  const raw = randomBytes(TOKEN_BYTES).toString('base64url')
-  return `sk_${raw}`
-}
-
-export function hashBearerToken(token: string): string {
-  return createHash('sha256').update(token, 'utf8').digest('hex')
-}
-
-export function bearerTokenPrefix(token: string): string {
-  const visible = token.slice(0, PREFIX_VISIBLE)
-  return `${visible}…`
-}
-
-/**
- * Constant-time compare of a plaintext token against a stored SHA-256 hex hash.
- */
-export function verifyBearerToken(token: string, tokenHash: string): boolean {
-  if (!token || !tokenHash) {
-    return false
+/** Browser-safe empty draft for the operator UI. */
+export function emptyBearerList(): BearerListInput {
+  return {
+    name: '',
+    keys: [{ token: '' }],
   }
-  const actual = Buffer.from(hashBearerToken(token), 'utf8')
-  const expected = Buffer.from(tokenHash, 'utf8')
-  if (actual.length !== expected.length) {
-    return false
-  }
-  return timingSafeEqual(actual, expected)
 }
 
 export function parseBearerAuthHeader(header: string | null): string | null {
@@ -59,83 +33,99 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
-/** Load from disk — tokenHash kept as-is. */
-export function normalizeBearerKeyFromDisk(raw: unknown, idFallback?: string): BearerKey {
+export function normalizeBearerListKeyFromDisk(raw: unknown, idFallback?: string): BearerListKey {
   const row = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const id = String(row.id || idFallback || uuid())
   const createdAt = String(row.createdAt || nowIso())
+  const token = String(row.token || '').trim()
+  const tokenHash = String(row.tokenHash || '').trim()
   return {
     id,
-    name: String(row.name || '').trim(),
-    tokenHash: String(row.tokenHash || '').trim(),
-    prefix: String(row.prefix || '').trim() || 'sk_…',
+    tokenHash,
+    token,
+    prefix: String(row.prefix || '').trim() || (token ? `${token.slice(0, 8)}…` : 'sk_…'),
     createdAt,
     updatedAt: String(row.updatedAt || createdAt),
   }
 }
 
-export function normalizeBearerKeysFile(raw: unknown): BearerKeysFile {
+export function normalizeBearerListFromDisk(raw: unknown, idFallback?: string): BearerList {
   const row = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const id = String(row.id || idFallback || uuid())
   const keys = Array.isArray(row.keys)
-    ? row.keys.map(item => normalizeBearerKeyFromDisk(item))
+    ? row.keys.map(item => normalizeBearerListKeyFromDisk(item))
     : []
-  return { version: 1, keys }
+  return {
+    id,
+    name: String(row.name || '').trim(),
+    keys,
+  }
 }
 
 /**
- * Create or update metadata. When `token` is provided, replaces hash/prefix.
- * Callers must pass a freshly generated token on create and rotate.
+ * Normalize on-disk JSON. Also accepts the legacy flat shape
+ * `{ version: 1, keys: [...] }` by wrapping each key as its own list.
  */
-export function normalizeBearerKeyInput(
-  input: BearerKeyInput,
-  previous: BearerKey | null | undefined,
-  token?: string,
-): BearerKey {
-  const id = String(input.id || previous?.id || uuid())
-  const stamp = nowIso()
-  const name = String(input.name || '').trim()
+export function normalizeBearerListsFile(raw: unknown): BearerListsFile {
+  const row = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
 
-  if (token) {
+  if (Array.isArray(row.lists)) {
     return {
-      id,
-      name,
-      tokenHash: hashBearerToken(token),
-      prefix: bearerTokenPrefix(token),
-      createdAt: previous?.createdAt || stamp,
-      updatedAt: stamp,
+      version: 1,
+      lists: row.lists.map(item => normalizeBearerListFromDisk(item)),
     }
   }
 
-  if (!previous?.tokenHash) {
-    throw new Error('Bearer token is required when creating a key')
+  // Legacy proxy-bearer-keys.json: top-level keys → one list per key.
+  if (Array.isArray(row.keys)) {
+    const lists = row.keys.map((item) => {
+      const key = normalizeBearerListKeyFromDisk(item)
+      const legacy = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>
+      const name = String(legacy.name || legacy.label || '').trim() || 'Bearer list'
+      return {
+        id: key.id,
+        name,
+        keys: [key],
+      } satisfies BearerList
+    })
+    return { version: 1, lists }
   }
 
-  return {
-    id,
-    name,
-    tokenHash: previous.tokenHash,
-    prefix: previous.prefix,
-    createdAt: previous.createdAt,
-    updatedAt: stamp,
-  }
+  return { version: 1, lists: [] }
 }
 
-export function validateBearerKey(key: BearerKey): string | null {
-  if (!key.name.trim()) {
-    return 'Bearer key name is required'
+export function validateBearerList(list: BearerList): string | null {
+  if (!list.name.trim()) {
+    return 'Bearer list name is required'
   }
-  if (!key.tokenHash || key.tokenHash.length !== 64) {
-    return 'Bearer token hash is invalid'
+  if (list.keys.length === 0) {
+    return 'Add at least one bearer key'
+  }
+  for (const key of list.keys) {
+    if (!key.tokenHash || key.tokenHash.length !== 64) {
+      return 'Each key needs a token (custom or auto-generated)'
+    }
   }
   return null
 }
 
-export function toBearerKeyPublic(key: BearerKey): BearerKeyPublic {
+export function toBearerListKeyPublic(key: BearerListKey): BearerListKeyPublic {
   return {
     id: key.id,
-    name: key.name,
     prefix: key.prefix,
+    token: key.token || '',
+    tokenSet: Boolean(key.tokenHash),
     createdAt: key.createdAt,
     updatedAt: key.updatedAt,
   }
 }
+
+export function toBearerListPublic(list: BearerList): BearerListPublic {
+  return {
+    id: list.id,
+    name: list.name,
+    keys: list.keys.map(toBearerListKeyPublic),
+  }
+}
+
+export type { BearerListKeyInput, BearerGeneratedToken }

@@ -37,12 +37,12 @@ async function enforceBearerKey(
   path: string,
   pathname: string,
 ): Promise<Response | null> {
-  const keyId = match.host.bearerKeyId
-  if (!keyId) {
+  const listId = match.host.bearerListId || match.host.bearerKeyId
+  if (!listId) {
     return null
   }
 
-  if (verifyInboundBearer(keyId, req.headers.get('authorization'))) {
+  if (verifyInboundBearer(listId, req.headers.get('authorization'))) {
     // Never forward the gateway token to upstream.
     match.stripAuthorization = true
     return null
@@ -69,7 +69,7 @@ async function enforceBearerKey(
     path,
     upstream: '(bearer)',
     id: match.host.id,
-    note: `bearer-denied key=${keyId}`,
+    note: `bearer-denied list=${listId}`,
   })
   return new Response('Unauthorized', {
     status: 401,

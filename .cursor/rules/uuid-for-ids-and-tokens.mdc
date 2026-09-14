@@ -1,0 +1,21 @@
+---
+description: Keep crypto server-only; use uuid in shared/client code to avoid non-HTTPS browser breakage
+alwaysApply: true
+---
+
+# Crypto vs browser (secure context)
+
+`node:crypto` and Web Crypto are fine **on the server**.
+
+They are **not** fine in shared or client code that may run in a browser over plain HTTP. Non-HTTPS pages are not a secure context — `crypto` / Web Crypto often fails or is missing, and pulling `node:crypto` into a client bundle breaks the page. This has bitten this project repeatedly.
+
+## Rules
+
+1. **Server-only** (`server/`, `**/runtime/server/**`, Nitro API routes, Bun edge): `node:crypto`, `Bun.CryptoHasher`, etc. are OK.
+2. **Shared / client / `.vue` / composables**: never import `node:crypto`. Prefer the **`uuid` package** (`import { v7 as uuid } from 'uuid'`) for IDs and opaque client-visible tokens.
+3. If a util needs hashing or `randomBytes`, put it in a **server** module. Do not re-export it from `#*-shared` files that the UI imports.
+4. Browser-safe shared helpers may live next to types; crypto helpers must not share that entrypoint.
+
+## Smell test
+
+If a `.vue` or composable imports a module, that module’s whole import graph must stay free of `node:crypto`.

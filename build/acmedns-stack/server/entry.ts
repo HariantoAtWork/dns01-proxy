@@ -13,7 +13,7 @@ import {
 import { resolveIdleTimeoutSeconds } from './utils/idleTimeout'
 import { tryHandleProxy } from './proxy/handle'
 import { reloadAccessLists, reloadProxySettings } from './proxy/accessListState'
-import { reloadBearerKeys } from './proxy/bearerKeyState'
+import { reloadBearerLists } from './proxy/bearerKeyState'
 import { reloadRouteTable } from './proxy/routeTable'
 import { buildEdgeTlsOptions, shouldBindEdgeHttps } from './proxy/tls'
 import { proxyWebsocketHandlers } from './proxy/websocket'
@@ -22,7 +22,7 @@ loadAcmeConfigSync()
 reloadRouteTable()
 reloadAccessLists()
 reloadProxySettings()
-reloadBearerKeys()
+reloadBearerLists()
 
 const nitroApp = useNitroApp()
 const websocketEnabled = Boolean((import.meta as ImportMeta & { _websocket?: boolean })._websocket)

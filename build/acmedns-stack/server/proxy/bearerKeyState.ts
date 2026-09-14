@@ -1,61 +1,83 @@
 import { existsSync, readFileSync } from 'node:fs'
-import type { BearerKey, BearerKeysFile } from '../../plugins/proxy/runtime/shared/types/bearerKey'
+import type { BearerList, BearerListsFile } from '../../plugins/proxy/runtime/shared/types/bearerKey'
 import {
-  normalizeBearerKeysFile,
+  normalizeBearerListsFile,
   parseBearerAuthHeader,
-  verifyBearerToken,
 } from '../../plugins/proxy/runtime/shared/utils/bearerKey'
-import { getProxyBearerKeysFilePath } from '../../core/paths'
+import { verifyBearerToken } from '../../plugins/proxy/runtime/server/utils/bearerKeyCrypto'
+import {
+  getProxyBearerKeysFilePath,
+  getProxyBearerListsFilePath,
+} from '../../core/paths'
 
-let keysById = new Map<string, BearerKey>()
+let listsById = new Map<string, BearerList>()
 
-export function loadBearerKeysFromDisk(): BearerKey[] {
-  const filePath = getProxyBearerKeysFilePath()
+function readListsFile(filePath: string): BearerList[] {
   if (!existsSync(filePath)) {
     return []
   }
   try {
     const text = readFileSync(filePath, 'utf8')
-    const file = normalizeBearerKeysFile(JSON.parse(text) as BearerKeysFile)
-    return file.keys
+    const file = normalizeBearerListsFile(JSON.parse(text) as BearerListsFile)
+    return file.lists
   }
   catch (error) {
-    console.warn('[proxy] failed to read proxy-bearer-keys.json:', error)
+    console.warn(`[proxy] failed to read ${filePath}:`, error)
     return []
   }
 }
 
-export function reloadBearerKeys(keys?: BearerKey[]): void {
-  const next = new Map<string, BearerKey>()
-  for (const key of keys ?? loadBearerKeysFromDisk()) {
-    next.set(key.id, key)
+export function loadBearerListsFromDisk(): BearerList[] {
+  const primary = getProxyBearerListsFilePath()
+  const lists = readListsFile(primary)
+  if (lists.length || existsSync(primary)) {
+    return lists
   }
-  keysById = next
+  // Fall back to legacy flat keys file until migrated on next write.
+  return readListsFile(getProxyBearerKeysFilePath())
 }
 
-export function getBearerKeyById(id: string | null | undefined): BearerKey | null {
+export function reloadBearerLists(lists?: BearerList[]): void {
+  const next = new Map<string, BearerList>()
+  for (const list of lists ?? loadBearerListsFromDisk()) {
+    next.set(list.id, list)
+  }
+  listsById = next
+}
+
+/** @deprecated Use reloadBearerLists */
+export function reloadBearerKeys(lists?: BearerList[]): void {
+  reloadBearerLists(lists)
+}
+
+export function getBearerListById(id: string | null | undefined): BearerList | null {
   if (!id) {
     return null
   }
-  return keysById.get(id) ?? null
+  return listsById.get(id) ?? null
 }
 
-export function listBearerKeysCached(): BearerKey[] {
-  return [...keysById.values()]
+export function listBearerListsCached(): BearerList[] {
+  return [...listsById.values()]
 }
 
-/** Verify Authorization header against the key bound by id. */
+/** Verify Authorization against any key in the bound Bearer List. */
 export function verifyInboundBearer(
-  keyId: string | null | undefined,
+  listId: string | null | undefined,
   authorization: string | null,
 ): boolean {
-  const key = getBearerKeyById(keyId)
-  if (!key) {
+  const list = getBearerListById(listId)
+  if (!list || list.keys.length === 0) {
     return false
   }
   const token = parseBearerAuthHeader(authorization)
   if (!token) {
     return false
   }
-  return verifyBearerToken(token, key.tokenHash)
+  for (const key of list.keys) {
+    if (verifyBearerToken(token, key.tokenHash)) {
+      return true
+    }
+  }
+  return false
 }

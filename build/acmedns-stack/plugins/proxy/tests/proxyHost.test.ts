@@ -37,7 +37,7 @@ describe('proxyHost normalize', () => {
       advancedConfig: 'return 444;',
     })
     expect(httpHost.forwardPort).toBe(80)
-    expect(httpHost.bearerKeyId).toBeNull()
+    expect(httpHost.bearerListId).toBeNull()
     expect(httpHost).not.toHaveProperty('cachingEnabled')
     expect(httpHost).not.toHaveProperty('blockExploits')
     expect(httpHost).not.toHaveProperty('advancedConfig')
@@ -46,10 +46,10 @@ describe('proxyHost normalize', () => {
       domainNames: ['a.example.com'],
       forwardHost: 'app',
       forwardScheme: 'https',
-      bearerKeyId: 'key-1',
+      bearerListId: 'list-1',
     })
     expect(httpsHost.forwardPort).toBe(443)
-    expect(httpsHost.bearerKeyId).toBe('key-1')
+    expect(httpsHost.bearerListId).toBe('list-1')
     expect(defaultForwardPort('https')).toBe(443)
     expect(asForwardPort(0, 'http')).toBe(80)
   })

@@ -1,36 +1,57 @@
-/** Stored key — token is hashed on disk; plaintext shown once on create/rotate. */
-export interface BearerKey {
+/** One token entry inside a Bearer List. */
+export interface BearerListKey {
   id: string
-  name: string
-  /** SHA-256 hex of the plaintext token. */
+  /** SHA-256 hex of the plaintext token (edge verify). */
   tokenHash: string
-  /** Short display prefix of the plaintext token (e.g. sk_ab12…). */
+  /** Plaintext for operator UI redisplay (control plane only). */
+  token: string
+  /** Short display prefix (e.g. sk_ab12…). */
   prefix: string
   createdAt: string
   updatedAt: string
 }
 
-export interface BearerKeysFile {
-  version: 1
-  keys: BearerKey[]
+export interface BearerList {
+  id: string
+  name: string
+  keys: BearerListKey[]
 }
 
-/** API / UI input — name only; token is always generated server-side. */
-export interface BearerKeyInput {
+export interface BearerListsFile {
+  version: 1
+  lists: BearerList[]
+}
+
+/** API / UI key row — empty token on create = auto-generate; empty on update = keep. */
+export interface BearerListKeyInput {
+  id?: string
+  token?: string
+}
+
+export interface BearerListInput {
   id?: string
   name: string
+  keys: BearerListKeyInput[]
 }
 
-/** Safe for UI — never includes tokenHash. */
-export interface BearerKeyPublic {
+export interface BearerListKeyPublic {
   id: string
-  name: string
   prefix: string
+  /** Full token for operator edit UI (plain text). */
+  token: string
+  tokenSet: boolean
   createdAt: string
   updatedAt: string
 }
 
-/** Create / rotate response — includes plaintext token once. */
-export interface BearerKeyCreated extends BearerKeyPublic {
+export interface BearerListPublic {
+  id: string
+  name: string
+  keys: BearerListKeyPublic[]
+}
+
+/** Newly minted plaintext tokens returned once after save. */
+export interface BearerGeneratedToken {
+  keyId: string
   token: string
 }
