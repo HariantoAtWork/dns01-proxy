@@ -172,6 +172,11 @@ function onEnabledChange(host: ProxyHost, event: Event) {
                 v-if="host.allowWebsocketUpgrade"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
               >WS</span>
+              <span
+                v-if="host.bearerListId"
+                class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
+                title="Requires Authorization: Bearer"
+              >Bearer</span>
             </div>
           </td>
           <td class="px-3 py-2">
