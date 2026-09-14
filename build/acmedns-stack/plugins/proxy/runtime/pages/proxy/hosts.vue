@@ -22,7 +22,7 @@ const {
 } = useProxyHosts()
 
 const { lists: accessLists, loadLists: loadAccessLists } = useAccessLists()
-const { keys: bearerKeys, loadKeys: loadBearerKeys } = useBearerKeys()
+const { lists: bearerLists, loadLists: loadBearerLists } = useBearerLists()
 
 const modalOpen = ref(false)
 const editingId = ref<string | null>(null)
@@ -34,7 +34,7 @@ const modalRef = useTemplateRef<{ load: (host?: ProxyHost | null) => void }>('mo
 
 async function refresh() {
   try {
-    await Promise.all([loadHosts(), loadCertNames(), loadAccessLists(), loadBearerKeys()])
+    await Promise.all([loadHosts(), loadCertNames(), loadAccessLists(), loadBearerLists()])
     await loadAllHealth()
   }
   catch {
@@ -197,7 +197,7 @@ onMounted(() => {
       v-model:open="modalOpen"
       :cert-entries="certEntries"
       :access-lists="accessLists"
-      :bearer-keys="bearerKeys"
+      :bearer-lists="bearerLists"
       :saving
       @save="onSave"
     />

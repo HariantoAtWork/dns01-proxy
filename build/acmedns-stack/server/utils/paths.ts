@@ -13,6 +13,7 @@ import {
   getProxyHostsFilePath as getCoreProxyHostsFilePath,
   getProxyAccessListsFilePath as getCoreProxyAccessListsFilePath,
   getProxyBearerKeysFilePath as getCoreProxyBearerKeysFilePath,
+  getProxyBearerListsFilePath as getCoreProxyBearerListsFilePath,
   getProxySettingsFilePath as getCoreProxySettingsFilePath,
   getBackupDir as getCoreBackupDir,
   type DataRootOptions,
@@ -81,6 +82,10 @@ export function getProxyAccessListsFilePath(): string {
 
 export function getProxyBearerKeysFilePath(): string {
   return getCoreProxyBearerKeysFilePath(runtimeOptions())
+}
+
+export function getProxyBearerListsFilePath(): string {
+  return getCoreProxyBearerListsFilePath(runtimeOptions())
 }
 
 export function getProxySettingsFilePath(): string {

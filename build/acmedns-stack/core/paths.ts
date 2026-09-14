@@ -96,6 +96,10 @@ export function getProxyBearerKeysFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'proxy-bearer-keys.json')
 }
 
+export function getProxyBearerListsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-bearer-lists.json')
+}
+
 export function getProxySettingsFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'proxy-settings.json')
 }
