@@ -1,3 +1,5 @@
+import { v7 as uuid } from 'uuid'
+
 export type ToastTone = 'ok' | 'error' | 'info'
 
 export interface ToastItem {
@@ -40,7 +42,7 @@ export function useToasts() {
   }
 
   function push(tone: ToastTone, title: string, detail: string, life = 4000) {
-    const id = crypto.randomUUID()
+    const id = uuid()
     items.value = [...items.value, { id, tone, title, detail }]
     scheduleDismiss(id, life)
     return id

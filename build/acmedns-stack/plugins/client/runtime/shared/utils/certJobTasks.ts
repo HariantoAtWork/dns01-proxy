@@ -1,11 +1,14 @@
-import type { AcmeRequestItem, CertJobTask } from '#shared/types/certs'
+import type { CertJobTask } from '#shared/types/certs'
+import { v7 as uuid } from 'uuid'
 import {
   advanceAcmeRequestPlan,
+  applyAcmeOrderTokens,
   closeAcmeRequestPlan,
   createAcmeRequestPlan,
   finishAcmeRequestPlan,
-  seedAcmeChallengePlan,
+  sortAcmeRequestItems,
   ACME_REQUEST_STEPS,
+  type AcmeOrderToken,
 } from './acmeIssueSteps'
 
 export function createCertJobTaskPlan(
@@ -13,7 +16,7 @@ export function createCertJobTaskPlan(
   completed = new Set<string>(),
 ): CertJobTask[] {
   return certNames.map(certName => ({
-    id: crypto.randomUUID(),
+    id: uuid(),
     certName,
     status: completed.has(certName) ? 'done' : 'pending',
   }))
@@ -34,7 +37,7 @@ export function startCertJobTask(tasks: CertJobTask[], certName: string): CertJo
   const idx = findTaskIndex(next, certName)
   if (idx < 0) {
     next.push({
-      id: crypto.randomUUID(),
+      id: uuid(),
       certName,
       status: 'running',
       requests: createAcmeRequestPlan(),
@@ -82,6 +85,7 @@ export function trackCertJobTaskRequest(
   certName: string,
   stepIndex: number,
   stepLabel?: string,
+  orderTokens?: AcmeOrderToken[],
 ): CertJobTask[] {
   const idx = findTaskIndex(tasks, certName)
   if (idx < 0) {
@@ -91,10 +95,17 @@ export function trackCertJobTaskRequest(
   const next = tasks.map(task => ({ ...task }))
   const task = next[idx]!
   const base = task.requests?.length ? task.requests : createAcmeRequestPlan()
-  let requests = advanceAcmeRequestPlan(base, stepIndex, stepLabel)
-  if (stepIndex === ACME_REQUEST_STEPS.ACME_ORDER) {
-    requests = seedAcmeChallengePlan(requests, certName)
+  let requests = base
+
+  if (stepIndex === ACME_REQUEST_STEPS.ACME_ORDER && orderTokens?.length) {
+    requests = advanceAcmeRequestPlan(requests, stepIndex, stepLabel)
+    requests = applyAcmeOrderTokens(requests, certName, orderTokens)
   }
+  else {
+    requests = advanceAcmeRequestPlan(requests, stepIndex, stepLabel)
+    requests = sortAcmeRequestItems(requests, certName)
+  }
+
   next[idx] = {
     ...task,
     requests,

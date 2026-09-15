@@ -4,10 +4,12 @@ services:
     container_name: acmedns-stack
     restart: unless-stopped
     ports:
-      - "53:53"
-      - "53:53/udp"
-      - "8080:80"
-      - "8443:443"
+      - "53:53"       # DNS TCP — ACME DNS-01 / authoritative
+      - "53:53/udp"   # DNS UDP — same
+      - "80:80"       # edge HTTP — Bun reverse proxy (public apps)
+      - "443:443"     # edge HTTPS — Bun reverse proxy (SNI)
+      - "1080:1080"   # control HTTP — operator UI + /register /update /health /api
+      - "1443:1443"   # control HTTPS — same when tls=cert
     volumes:
       - ./data/acmedns-stack:/var/lib/acmedns-stack  # server/, client/, backup/ (or host /var/lib/acmedns-stack:…)
       - ./data/letsencrypt:/etc/letsencrypt  # live/, staging/, trash/, accounts/
@@ -28,10 +30,26 @@ services:
       - RENEW_INTERVAL=${RENEW_INTERVAL:-12}
       - CERTS_ACME_DISABLED=${CERTS_ACME_DISABLED:-false}
       - CERTS_RENEW_DISABLED=${CERTS_RENEW_DISABLED:-false}
+      # TXT online → wait before LE validate; store lifetime = settle + hold (both ms)
+      - ACME_TXT_SETTLE_MS=${ACME_TXT_SETTLE_MS:-5000}
+      - ACME_TXT_HOLD_MS=${ACME_TXT_HOLD_MS:-300000}
+      # TXT online probes are UDP-only by default; set true to fall back to TCP after UDP timeout
+      - ACME_TXT_ONLINE_TCP_FALLBACK=${ACME_TXT_ONLINE_TCP_FALLBACK:-false}
+      # Proxy log threshold: silent|error|warn|info|debug (also accepts LOG_LEVEL). Default info.
+      - PROXY_LOG_LEVEL=${PROXY_LOG_LEVEL:-${LOG_LEVEL:-info}}
+      # Access lines use this level (default info). Set debug to only log access when PROXY_LOG_LEVEL=debug.
+      - PROXY_ACCESS_LOG_LEVEL=${PROXY_ACCESS_LOG_LEVEL:-info}
+      # Force-disable access lines only (0/false). Prefer PROXY_LOG_LEVEL=warn to keep errors.
+      - PROXY_ACCESS_LOG=${PROXY_ACCESS_LOG:-true}
+      # Upstream fetch deadline for edge proxy (ms; 0 disables). Default 60000.
+      - PROXY_UPSTREAM_TIMEOUT_MS=${PROXY_UPSTREAM_TIMEOUT_MS:-60000}
+      # Bun.serve idleTimeout seconds on edge (max 255). Default 120; 0 = Bun default (10s).
+      - NITRO_BUN_IDLE_TIMEOUT=${NITRO_BUN_IDLE_TIMEOUT:-120}
       # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
       - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}
-      - ACMEDNS_SHARED_MODE=${ACMEDNS_SHARED_MODE:-}
-      - ACMEDNS_SHARED_KEY=${ACMEDNS_SHARED_KEY:-}
+      - ACMEDNS_TINY_ACCEPT_ZONES=${ACMEDNS_TINY_ACCEPT_ZONES:-}
+      - ACMEDNS_TINY_MODE=${ACMEDNS_TINY_MODE:-}
+      - ACMEDNS_TINY_SHARED_KEY=${ACMEDNS_TINY_SHARED_KEY:-}
       - ACMEDNS_PUBLIC_IP=${ACMEDNS_PUBLIC_IP:-}
       - ACMEDNS_PUBLIC_IPV6=${ACMEDNS_PUBLIC_IPV6:-}
       - NUXT_ACME_DNS_DEFAULT_CONFIG=${NUXT_ACME_DNS_DEFAULT_CONFIG:-}
@@ -40,3 +58,8 @@ services:
     # NET_BIND_SERVICE only needed when not running as root; omit cap_add if the process runs as root.
     cap_add:
       - NET_BIND_SERVICE
+
+# Named volume — only needed if you switch the service mount to `letsencrypt:/etc/letsencrypt`
+# volumes:
+#   letsencrypt:
+#     name: letsencrypt

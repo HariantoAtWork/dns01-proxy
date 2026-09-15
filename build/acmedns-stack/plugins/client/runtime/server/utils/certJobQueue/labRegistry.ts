@@ -1,4 +1,5 @@
 import type { CertApplyResult, CertJobTask, DomainsParseResult } from '#shared/types/certs'
+import type { AcmeOrderToken } from '../../../shared/utils/acmeIssueSteps'
 
 export interface LabExecutorOptions {
   certNames?: string[]
@@ -29,6 +30,7 @@ export interface LabJobTaskHooks {
     stepIndex: number,
     stepLabel?: string,
     seedAltNames?: string[],
+    orderTokens?: AcmeOrderToken[],
   ) => CertJobTask[]
   completeRequests: (tasks: CertJobTask[], certName: string) => CertJobTask[]
 }

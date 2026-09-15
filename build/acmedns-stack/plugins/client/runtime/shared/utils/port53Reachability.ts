@@ -19,7 +19,7 @@ export type Port53ReachabilitySummary = 'ok' | 'partial' | 'failed' | 'unknown'
 export interface Port53Reachability {
   authZone: string
   local: Port53Probe | null
-  /** Echo-detected host public IP(s) — primary signal for overall status. */
+  /** Echo-detected host public IP(s) — each probe is UDP then TCP fallback. */
   hostPublic: Port53Probe[]
   /** Glue A/AAAA and env-pinned addresses — informational only. */
   configured: Port53Probe[]
@@ -32,13 +32,16 @@ export function port53ProbeFromLookup(
   lookup: 'ok' | 'nxdomain' | 'nodata' | 'timeout',
   target: string,
   label: string,
+  transport: 'udp' | 'tcp' = 'udp',
 ): Port53Probe {
+  const port = transport === 'tcp' ? 'TCP 53' : 'UDP 53'
+
   if (lookup === 'ok') {
     return {
       target,
       label,
       status: 'ok',
-      message: 'UDP 53 answered for the auth zone',
+      message: `${port} answered for the auth zone`,
     }
   }
 
@@ -47,7 +50,7 @@ export function port53ProbeFromLookup(
       target,
       label,
       status: 'wrong_zone',
-      message: 'NXDOMAIN — another DNS server may own this address on port 53',
+      message: `NXDOMAIN over ${port} — another DNS server may own this address`,
     }
   }
 
@@ -56,7 +59,7 @@ export function port53ProbeFromLookup(
       target,
       label,
       status: 'no_data',
-      message: 'Port 53 answered but not for the auth zone',
+      message: `${port} answered but not for the auth zone`,
     }
   }
 
@@ -64,12 +67,18 @@ export function port53ProbeFromLookup(
     target,
     label,
     status: 'timeout',
-    message: 'No UDP 53 response (timeout, filtered, or NAT hairpin blocked)',
+    message: transport === 'tcp'
+      ? 'No TCP 53 response (timeout, filtered, or Docker hairpin blocked)'
+      : 'No UDP 53 response (timeout, filtered, or NAT hairpin blocked)',
   }
 }
 
 function anyOk(probes: Port53Probe[]) {
   return probes.some(probe => probe.status === 'ok')
+}
+
+function allTimeouts(probes: Port53Probe[]) {
+  return probes.length > 0 && probes.every(probe => probe.status === 'timeout')
 }
 
 export function summarizePort53Reachability(input: {
@@ -83,11 +92,15 @@ export function summarizePort53Reachability(input: {
   const configuredOk = anyOk(input.configured)
   const delegationOk = input.delegation ? anyOk(input.delegation.probes) : false
   const localOk = input.local?.status === 'ok'
+  const hostPublicTimedOut = allTimeouts(input.hostPublic)
+  const delegationTimedOut = Boolean(
+    input.delegation?.probes.length && allTimeouts(input.delegation.probes),
+  )
 
   let summary: Port53ReachabilitySummary = 'unknown'
   let hint: string | undefined
 
-  // Green only when a detected public IP answers on port 53 for the auth zone.
+  // Green when a public/self IP answers on port 53 for the auth zone (UDP, or TCP after UDP timeout).
   if (hostPublicOk) {
     summary = 'ok'
   }
@@ -102,31 +115,43 @@ export function summarizePort53Reachability(input: {
       : 'Detect a public IP first, then confirm port 53 is forwarded to this host.'
   }
   else if (input.hostPublic.length) {
-    summary = 'failed'
-    hint = 'UDP 53 on your detected public IP did not answer from here. Check router DMZ/NAT and that port 53 is forwarded to this host.'
+    // From inside the container, probing the WAN IP often times out (Docker hairpin)
+    // even when Let's Encrypt and external dig succeed. Do not paint that red.
+    const likelyHairpin = localOk && hostPublicTimedOut && (
+      !input.delegation?.probes.length
+      || delegationOk
+      || delegationTimedOut
+    )
 
-    if (delegationOk && input.delegation && !input.delegation.matchesHostIp) {
-      hint = [
-        hint,
-        `Public delegation NS resolves to ${input.delegation.addresses.join(', ')} — not your echo IP. DNS may be served elsewhere; fix glue or run this stack on the delegated host.`,
-      ].join(' ')
+    if (likelyHairpin) {
+      summary = 'partial'
+      hint = 'DNS answers locally, but probes to your public IP timed out from this container — Docker/NAT hairpin is common. Confirm from outside with dig; Let\'s Encrypt checks from the internet.'
+
+      if (delegationOk && input.delegation && !input.delegation.matchesHostIp) {
+        hint = [
+          hint,
+          `Public delegation NS resolves to ${input.delegation.addresses.join(', ')} — not your echo IP; worth checking glue.`,
+        ].join(' ')
+      }
     }
-    else if (delegationOk && localOk) {
-      hint = [
-        hint,
-        'DNS listens locally and delegated NS answer on port 53, but your echo IP did not — NAT hairpin from inside is common; verify from outside with dig.',
-      ].join(' ')
-    }
-    else if (localOk) {
-      hint = [
-        hint,
-        'DNS listens on this container but the public IP does not answer port 53 from here.',
-      ].join(' ')
+    else {
+      summary = 'failed'
+      hint = 'Port 53 on your detected public IP did not answer from here. Check router DMZ/NAT and that port 53 is forwarded to this host.'
+
+      if (input.hostPublic.some(probe => probe.status === 'wrong_zone')) {
+        hint = 'Port 53 answered on the public IP, but not with this auth zone — another DNS server may own that address.'
+      }
+      else if (localOk) {
+        hint = [
+          hint,
+          'DNS listens on this container but the public IP check failed for a reason other than a plain timeout.',
+        ].join(' ')
+      }
     }
   }
   else {
     summary = localOk ? 'partial' : 'failed'
-    hint = 'Port 53 is not answering on the glue or delegated address(es). Let\'s Encrypt DNS-01 needs UDP and TCP 53 on the published glue IP.'
+    hint = 'Port 53 is not answering on the glue or delegated address(es). Let\'s Encrypt DNS-01 needs UDP (and ideally TCP) 53 on the published glue IP.'
   }
 
   if (
@@ -171,11 +196,11 @@ export function port53StatusLabel(status: Port53ProbeStatus) {
 export function port53SummaryLabel(summary: Port53ReachabilitySummary) {
   switch (summary) {
     case 'ok':
-      return 'Port 53 reachable on public IP'
+      return 'Port 53 reachable for DNS-01'
     case 'partial':
-      return 'Port 53 unknown'
+      return 'Port 53 unconfirmed from this host'
     case 'failed':
-      return 'Port 53 not reachable on public IP'
+      return 'Port 53 not reachable for DNS-01'
     default:
       return 'Port 53 unknown'
   }

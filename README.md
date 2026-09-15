@@ -58,7 +58,7 @@ Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt se
 
 ### Tiny stack (no Register)
 
-For a slim setup — no Register UI; CNAME `_acme-challenge.<apex>` → `_encoded-apex_.<auth zone>` — see [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). Minimal env: `ACMEDNS_TINY_DOMAIN` + `LETSENCRYPT_EMAIL`. **`ACMEDNS_SHARED_KEY` is optional** (internal `/update` password; auto-generated for the all-in-one UI).
+For a slim setup — no Register UI; CNAME `_acme-challenge.<apex>` → `_encoded-apex_.<auth zone>` — see [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). Minimal env: `ACMEDNS_TINY_DOMAIN` + `LETSENCRYPT_EMAIL`. **`ACMEDNS_TINY_SHARED_KEY` is optional** (internal `/update` password; auto-generated for the all-in-one UI).
 
 ## Ports
 
@@ -66,10 +66,12 @@ For a slim setup — no Register UI; CNAME `_acme-challenge.<apex>` → `_encode
 | --- | --- | --- |
 | `53/tcp` | `53` | DNS. Let's Encrypt hits this. |
 | `53/udp` | `53` | Same. |
-| `80/tcp` | `8080` | UI + register/update API (always). |
-| `443/tcp` | `8443` | Same API over HTTPS when `api.tls = "cert"`. |
+| `80/tcp` | `80` | **Edge** — Bun reverse proxy (public apps). |
+| `443/tcp` | `443` | **Edge** HTTPS — Bun proxy with SNI when PEMs exist. |
+| `1080/tcp` | `1080` | **Control** — operator UI + `/register` `/update` `/health` `/api/*`. |
+| `1443/tcp` | `1443` | **Control** HTTPS when `api.tls = "cert"` (default auth PEMs). |
 
-DNS has to be public; keep the UI behind your LAN / tunnel.
+Point public app hostnames at **80/443**. Point Synology / cloudflared / Certbot for the **auth** zone at **1080** (or 1443). Do not share edge ports with the dashboard — that avoids `/health` and `/api` colliding with proxied apps.
 
 This house’s router DMZ is the Synology, so public `:53` never reaches a Mac. **Test real Let's Encrypt issuance on the NAS**, not on a laptop. See [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md). Working NAS runbook: [`.wiki/Working-Synology-setup.md`](.wiki/Working-Synology-setup.md).
 
@@ -132,7 +134,7 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 | --- | --- | --- |
 | `ACMEDNS_URL` | `https://auth.example.org` | Public identity for register/update. Loopback or a host matching `config.cfg` `domain` still runs in-process. |
 | `ACMEDNS_TINY_DOMAIN` | `auth.uti.email` | **Tiny only.** Auth zone; enables shared mode. See [`.wiki/Tiny-stack.md`](.wiki/Tiny-stack.md). |
-| `ACMEDNS_SHARED_KEY` | _(omit)_ | **Tiny advanced.** Internal `/update` API password — not DNS. Auto-generated if unset. |
+| `ACMEDNS_TINY_SHARED_KEY` | _(omit)_ | **Tiny advanced.** Internal `/update` API password — not DNS. Auto-generated if unset. |
 | `ACMEDNS_PUBLIC_IP` | _(auto)_ | **Tiny.** Glue A record for auth zone. |
 | `ACMEDNS_PUBLIC_IPV6` | _(auto)_ | **Tiny.** Glue AAAA when IPv6 is available. |
 | `LETSENCRYPT_EMAIL` | `admin@example.com` | ACME account contact. |
@@ -143,9 +145,9 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 
 ## Networks
 
-Single `acmedns-stack` service. HTTP on `:80` is always on; set `api.tls = "cert"` in `config.cfg` to also serve HTTPS on `:443` (host `8443`).
+Single `acmedns-stack` service. Edge HTTP on `:80` and control on `:1080` are always on; edge/control HTTPS bind when TLS PEMs are available. Production compose publishes `80:80`, `443:443`, `1080:1080`, `1443:1443`.
 
-`cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel.
+`cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel. On a single-IP VPS where `0.0.0.0:53` collides with systemd-resolved, use [`vps.yml`](vps.yml) via `bun run docker:vps` (see [`.wiki/VPS-port-53.md`](.wiki/VPS-port-53.md)). At home, router DMZ (or port-forward 53) to the Synology is enough — see [`.wiki/DMZ-Synology-and-Mac.md`](.wiki/DMZ-Synology-and-Mac.md).
 
 More on DNS-01 and DMZ: [`.wiki/Home.md`](.wiki/Home.md).
 
@@ -155,6 +157,7 @@ More on DNS-01 and DMZ: [`.wiki/Home.md`](.wiki/Home.md).
 docker-compose.yml.example
 docker-compose.build.yml      # local image build
 docker-compose.push.yml       # multi-arch Hub push
+vps.yml                       # optional :53 bound to PUBLIC_IP (single-IP VPS)
 .env.example
 .wiki/
 build/acmedns-stack/           # DNS + API + UI plugin + seed/

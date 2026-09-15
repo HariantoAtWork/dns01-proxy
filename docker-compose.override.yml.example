@@ -13,6 +13,6 @@ services:
     labels:
       tsdproxy.enable: "true"
       tsdproxy.name: "acmedns-stack"
-      tsdproxy.container_port: "80"
+      tsdproxy.container_port: "1080"  # control plane (UI + acme-dns), not edge :80
     extra_hosts:
       - "host.docker.internal:host-gateway"
