@@ -15,14 +15,23 @@ import {
   applyForwardTargetInput,
   defaultForwardPort,
   emptyProxyHost,
+  findDuplicateDomainConflicts,
+  formatDuplicateDomainWarning,
   normalizeDomainNames,
   parseForwardTargetInput,
   validateDomainName,
 } from '#proxy-shared/utils/proxyHost'
 import { PhPlus as Plus, PhTrash as Trash } from '@phosphor-icons/vue'
 
-const { certEntries = [], accessLists = [], bearerLists = [], saving = false } = defineProps<{
+const {
+  certEntries = [],
+  existingHosts = [],
+  accessLists = [],
+  bearerLists = [],
+  saving = false,
+} = defineProps<{
   certEntries?: ProxyCertCandidate[]
+  existingHosts?: Array<Pick<ProxyHost, 'id' | 'domainNames'>>
   accessLists?: Array<{ id: string, name: string }>
   bearerLists?: Array<{ id: string, name: string }>
   saving?: boolean
@@ -80,6 +89,12 @@ const modalTitle = computed(() =>
 )
 
 const draftDomains = computed(() => normalizeDomainNames(domainsText.value))
+
+const duplicateConflicts = computed(() =>
+  findDuplicateDomainConflicts(draftDomains.value, existingHosts, draft.value.id),
+)
+
+const duplicateWarning = computed(() => formatDuplicateDomainWarning(duplicateConflicts.value))
 
 const sslBinding = computed(() => resolveCertificatesForDomains(draftDomains.value, certEntries))
 
@@ -208,6 +223,9 @@ function enableSslFeature(feature: 'sslForced' | 'http2Support' | 'hstsEnabled',
 
 /** Keep SSL only while the live pool fully covers every domain. */
 watch(draftDomains, () => {
+  if (formError.value && /already used by another proxy host/i.test(formError.value)) {
+    formError.value = duplicateWarning.value || null
+  }
   if (!draft.value.certificateName) {
     return
   }
@@ -281,6 +299,12 @@ function onSave() {
       return
     }
   }
+  const duplicates = findDuplicateDomainConflicts(payload.domainNames, existingHosts, payload.id)
+  if (duplicates.length) {
+    formError.value = formatDuplicateDomainWarning(duplicates)
+    tab.value = 'details'
+    return
+  }
   if (!payload.forwardHost.trim()) {
     formError.value = 'Forward hostname / IP is required'
     tab.value = 'details'
@@ -336,6 +360,13 @@ watch(open, (value) => {
       >
         {{ formError }}
       </p>
+      <p
+        v-else-if="duplicateWarning"
+        class="text-sm text-danger"
+        role="status"
+      >
+        {{ duplicateWarning }}
+      </p>
 
       <div
         v-show="tab === 'details'"
@@ -345,7 +376,7 @@ watch(open, (value) => {
         <UiField
           v-model:info-open="detailsInfoOpen.domains"
           label="Domain Names"
-          info="One per line or comma-separated. Wildcards like *.example.com match one label."
+          info="One per line or comma-separated. Wildcards like *.example.com match one label. Each domain can only belong to one proxy host."
         >
           <template #default="{ id }">
             <textarea
@@ -354,6 +385,7 @@ watch(open, (value) => {
               rows="3"
               class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
               style="border-radius: var(--radius-input)"
+              :aria-invalid="Boolean(duplicateWarning)"
             />
           </template>
         </UiField>

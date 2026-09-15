@@ -2,6 +2,8 @@ import { dirname } from 'node:path'
 import { promises as fs } from 'node:fs'
 import type { ProxyHost, ProxyHostInput, ProxyHostsFile } from '../../shared/types/proxyHost'
 import {
+  findDuplicateDomainConflicts,
+  formatDuplicateDomainWarning,
   normalizeProxyHost,
   normalizeProxyHostsFile,
   validateProxyHost,
@@ -80,6 +82,14 @@ export async function upsertProxyHost(input: ProxyHostInput): Promise<ProxyHost>
     throw createError({
       statusCode: 400,
       statusMessage: `Domain(s) reserved for auth zone / control plane: ${reserved.join(', ')}`,
+    })
+  }
+
+  const duplicates = findDuplicateDomainConflicts(host.domainNames, file.hosts, host.id)
+  if (duplicates.length) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: formatDuplicateDomainWarning(duplicates),
     })
   }
 

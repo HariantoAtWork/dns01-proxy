@@ -118,6 +118,66 @@ export function normalizeDomainNames(raw: string | string[]): string[] {
   )].sort()
 }
 
+export type DomainConflict = {
+  domain: string
+  hostId: string
+  /** Display label for the other host (first domain, or id). */
+  hostLabel: string
+}
+
+/**
+ * Domains that already appear on another proxy host (exact normalized match).
+ * Pass `excludeHostId` when editing so the current host is ignored.
+ */
+export function findDuplicateDomainConflicts(
+  domainNames: string[],
+  existingHosts: Array<Pick<ProxyHost, 'id' | 'domainNames'>>,
+  excludeHostId?: string | null,
+): DomainConflict[] {
+  const claimed = new Map<string, { hostId: string, hostLabel: string }>()
+  for (const host of existingHosts) {
+    if (excludeHostId && host.id === excludeHostId) {
+      continue
+    }
+    const label = host.domainNames[0] || host.id
+    for (const name of host.domainNames) {
+      const key = normalizeDomainName(name)
+      if (!key || claimed.has(key)) {
+        continue
+      }
+      claimed.set(key, { hostId: host.id, hostLabel: label })
+    }
+  }
+
+  const conflicts: DomainConflict[] = []
+  const seen = new Set<string>()
+  for (const raw of domainNames) {
+    const domain = normalizeDomainName(raw)
+    if (!domain || seen.has(domain)) {
+      continue
+    }
+    seen.add(domain)
+    const owner = claimed.get(domain)
+    if (owner) {
+      conflicts.push({ domain, hostId: owner.hostId, hostLabel: owner.hostLabel })
+    }
+  }
+  return conflicts
+}
+
+/** Short alert copy for duplicate domain conflicts. */
+export function formatDuplicateDomainWarning(conflicts: DomainConflict[]): string {
+  if (!conflicts.length) {
+    return ''
+  }
+  if (conflicts.length === 1) {
+    const [item] = conflicts
+    return `Domain already used by another proxy host (${item.hostLabel}): ${item.domain}`
+  }
+  const domains = conflicts.map(item => item.domain).join(', ')
+  return `Domain(s) already used by another proxy host: ${domains}`
+}
+
 function asScheme(value: unknown): ForwardScheme {
   return value === 'https' ? 'https' : 'http'
 }

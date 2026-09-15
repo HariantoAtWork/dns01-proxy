@@ -3,6 +3,8 @@ import {
   asForwardPort,
   defaultForwardPort,
   domainPatternMatchesHostname,
+  findDuplicateDomainConflicts,
+  formatDuplicateDomainWarning,
   hstsHeaderValue,
   normalizeProxyHost,
   parseForwardTargetInput,
@@ -83,6 +85,27 @@ describe('proxyHost normalize', () => {
       .toBe('max-age=31536000')
     expect(hstsHeaderValue({ hstsEnabled: true, hstsSubdomains: true }))
       .toBe('max-age=31536000; includeSubDomains')
+  })
+
+  test('findDuplicateDomainConflicts flags domains already on another host', () => {
+    const existing = [
+      { id: 'host-a', domainNames: ['app.example.com', 'www.example.com'] },
+      { id: 'host-b', domainNames: ['*.apps.example.com'] },
+    ]
+    expect(findDuplicateDomainConflicts(['App.Example.com'], existing)).toEqual([{
+      domain: 'app.example.com',
+      hostId: 'host-a',
+      hostLabel: 'app.example.com',
+    }])
+    expect(findDuplicateDomainConflicts(['app.example.com'], existing, 'host-a')).toEqual([])
+    expect(findDuplicateDomainConflicts(['*.apps.example.com', 'new.example.com'], existing)).toEqual([{
+      domain: '*.apps.example.com',
+      hostId: 'host-b',
+      hostLabel: '*.apps.example.com',
+    }])
+    expect(formatDuplicateDomainWarning([
+      { domain: 'app.example.com', hostId: 'host-a', hostLabel: 'app.example.com' },
+    ])).toMatch(/already used/i)
   })
 
   test('parseForwardTargetInput splits URLs and host:port', () => {

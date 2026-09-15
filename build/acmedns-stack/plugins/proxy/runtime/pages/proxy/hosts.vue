@@ -196,6 +196,7 @@ onMounted(() => {
       ref="modal"
       v-model:open="modalOpen"
       :cert-entries="certEntries"
+      :existing-hosts="hosts"
       :access-lists="accessLists"
       :bearer-lists="bearerLists"
       :saving
