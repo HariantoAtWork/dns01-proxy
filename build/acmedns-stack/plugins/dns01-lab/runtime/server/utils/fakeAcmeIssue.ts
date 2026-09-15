@@ -3,7 +3,6 @@ import { canonicalSans } from '#shared/utils/domains'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
 import { readStorage } from '../../../../client/runtime/server/utils/storage'
 import {
-  clearDns01ChallengeTxt,
   createChallengeSerialGate,
   resolveAcmeDnsBase,
   runDns01Challenge,
@@ -24,11 +23,16 @@ export async function runLabDns01(options: {
 }) {
   throwIfAborted(options.signal, 'Lab DNS-01 aborted')
 
-  const reportStep = (index: number, label?: string) => {
+  const reportStep = (
+    index: number,
+    label?: string,
+    orderTokens?: LabRequestStepProgress['orderTokens'],
+  ) => {
     options.onRequestStep?.({
       index,
       total: LAB_REQUEST_STEP_TOTAL,
       label: label ?? labRequestStepLabel(index),
+      ...(orderTokens?.length ? { orderTokens } : {}),
     })
   }
 
@@ -40,14 +44,22 @@ export async function runLabDns01(options: {
   reportStep(LAB_REQUEST_STEPS.ACME_ORDER, 'FAKE ACME order')
 
   const { challenges } = await fakeAcmeOrder(sans)
+  reportStep(
+    LAB_REQUEST_STEPS.ACME_ORDER,
+    'FAKE ACME order',
+    challenges.map(item => ({
+      domain: item.domain,
+      token: item.keyAuthorization,
+    })),
+  )
+
   const challengeSerial = createChallengeSerialGate()
 
   for (const challenge of challenges) {
     throwIfAborted(options.signal, 'Lab DNS-01 aborted')
     const turn = await challengeSerial.enter()
-    let publishTarget: Awaited<ReturnType<typeof runDns01Challenge>> | undefined
     try {
-      publishTarget = await runDns01Challenge({
+      await runDns01Challenge({
         authzIdentifier: challenge.domain,
         keyAuthorization: challenge.keyAuthorization,
         certName: options.certName,
@@ -68,9 +80,7 @@ export async function runLabDns01(options: {
       throw error
     }
     finally {
-      if (publishTarget) {
-        await clearDns01ChallengeTxt(publishTarget, 'lab')
-      }
+      // TXT slots expire via txt-ttl; only release the serial gate here.
       turn.markRemove()
     }
   }

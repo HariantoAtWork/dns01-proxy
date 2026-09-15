@@ -17,6 +17,13 @@ describe('port53ProbeFromLookup', () => {
     const probe = port53ProbeFromLookup('ok', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP}`)
     expect(probe.status).toBe('ok')
     expect(probe.message).toContain('auth zone')
+    expect(probe.message).toContain('UDP')
+  })
+
+  test('maps ok TCP lookup after fallback', () => {
+    const probe = port53ProbeFromLookup('ok', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP}`, 'tcp')
+    expect(probe.status).toBe('ok')
+    expect(probe.message).toContain('TCP')
   })
 
   test('maps timeout to unreachable probe', () => {
@@ -40,7 +47,19 @@ describe('summarizePort53Reachability', () => {
     expect(result.summary).toBe('ok')
   })
 
-  test('reports failed when public IP exists but port 53 does not answer', () => {
+  test('reports ok when public probe answered via TCP fallback', () => {
+    const result = summarizePort53Reachability({
+      authZone,
+      local: port53ProbeFromLookup('ok', '127.0.0.1', 'this container'),
+      hostPublic: [port53ProbeFromLookup('ok', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP}`, 'tcp')],
+      configured: [],
+      delegation: null,
+    })
+
+    expect(result.summary).toBe('ok')
+  })
+
+  test('reports partial (not failed) when local DNS works but public self-check times out', () => {
     const result = summarizePort53Reachability({
       authZone,
       local: port53ProbeFromLookup('ok', '127.0.0.1', 'this container'),
@@ -49,8 +68,8 @@ describe('summarizePort53Reachability', () => {
       delegation: null,
     })
 
-    expect(result.summary).toBe('failed')
-    expect(result.hint).toContain('detected public IP')
+    expect(result.summary).toBe('partial')
+    expect(result.hint).toContain('hairpin')
   })
 
   test('reports failed when nothing answers', () => {
@@ -65,7 +84,7 @@ describe('summarizePort53Reachability', () => {
     expect(result.summary).toBe('failed')
   })
 
-  test('does not mark ok when delegation answers but echo public IP does not', () => {
+  test('reports partial when delegation answers but echo public IP times out (hairpin)', () => {
     const result = summarizePort53Reachability({
       authZone,
       local: port53ProbeFromLookup('ok', '127.0.0.1', 'this container'),
@@ -79,20 +98,36 @@ describe('summarizePort53Reachability', () => {
       },
     })
 
-    expect(result.summary).toBe('failed')
+    expect(result.summary).toBe('partial')
+    expect(result.hint).toContain('hairpin')
     expect(result.hint).toContain(DELEGATED_NS_IP)
+  })
+
+  test('reports failed when public IP answers for the wrong zone', () => {
+    const result = summarizePort53Reachability({
+      authZone,
+      local: port53ProbeFromLookup('ok', '127.0.0.1', 'this container'),
+      hostPublic: [port53ProbeFromLookup('nxdomain', ECHO_PUBLIC_IP, `public ${ECHO_PUBLIC_IP}`)],
+      configured: [],
+      delegation: null,
+    })
+
+    expect(result.summary).toBe('failed')
+    expect(result.hint).toContain('not with this auth zone')
   })
 })
 
 describe('port53 labels', () => {
   test('formats status and summary labels', () => {
     expect(port53StatusLabel('ok')).toBe('Reachable')
-    expect(port53SummaryLabel('ok')).toBe('Port 53 reachable on public IP')
-    expect(port53SummaryLabel('failed')).toBe('Port 53 not reachable on public IP')
+    expect(port53SummaryLabel('ok')).toBe('Port 53 reachable for DNS-01')
+    expect(port53SummaryLabel('partial')).toBe('Port 53 unconfirmed from this host')
+    expect(port53SummaryLabel('failed')).toBe('Port 53 not reachable for DNS-01')
   })
 
   test('maps summary to traffic-light tone', () => {
     expect(port53SummaryTone('ok')).toBe('ok')
+    expect(port53SummaryTone('partial')).toBe('warn')
     expect(port53SummaryTone('failed')).toBe('bad')
     expect(port53SummaryTone('unknown')).toBe('muted')
   })

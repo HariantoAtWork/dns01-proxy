@@ -33,6 +33,7 @@ export default defineNuxtConfig({
     './plugins/txt-ttl',
     './plugins/client',
     './plugins/dns01-lab',
+    './plugins/proxy',
   ],
   nitro: {
     preset: 'bun',
@@ -73,6 +74,15 @@ export default defineNuxtConfig({
           name: 'description',
           content: 'acme-dns server plus operator UI, clientstorage, and Let\'s Encrypt issuance.',
         },
+        { name: 'theme-color', content: '#1a2320' },
+      ],
+      link: [
+        { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+        { rel: 'icon', href: '/favicon.ico', sizes: '32x32' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.svg', type: 'image/svg+xml' },
+        // iOS home-screen still expects a raster; same mark as the SVG.
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
+        { rel: 'mask-icon', href: '/safari-pinned-tab.svg', color: '#c45c12' },
       ],
     },
   },

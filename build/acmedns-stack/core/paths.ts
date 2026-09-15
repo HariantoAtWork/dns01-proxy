@@ -84,6 +84,26 @@ export function getLabDomainsFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'lab-domains.txt')
 }
 
+export function getProxyHostsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-hosts.json')
+}
+
+export function getProxyAccessListsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-access-lists.json')
+}
+
+export function getProxyBearerKeysFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-bearer-keys.json')
+}
+
+export function getProxyBearerListsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-bearer-lists.json')
+}
+
+export function getProxySettingsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'proxy-settings.json')
+}
+
 export function getBackupDir(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'backup')
 }

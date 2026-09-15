@@ -50,11 +50,37 @@ export interface DnsResolverOutcome {
 export interface CnameMatchOptions {
   /** Tiny mode: accept any CNAME target under this auth zone (not only the exact expected label). */
   acceptUnderZone?: string
+  /** Extra / multiple auth zones (this server + other Tiny Mode servers). */
+  acceptUnderZones?: string[]
+  /**
+   * Accept when the CNAME’s first label matches the expected target’s first label
+   * on another zone (e.g. `_mdstn-com_.auth.other` vs `_mdstn-com_.auth.local`).
+   */
+  acceptSameTinyLabel?: boolean
 }
 
-function cnameTargetsUnderZone(outcomes: DnsResolverOutcome[], name: string, zone: string) {
+function resolvedAcceptZones(options?: CnameMatchOptions): string[] {
+  const zones = [
+    ...(options?.acceptUnderZones ?? []),
+    ...(options?.acceptUnderZone ? [options.acceptUnderZone] : []),
+  ]
+    .map(normaliseDnsName)
+    .filter(Boolean)
+  return [...new Set(zones)]
+}
+
+function firstDnsLabel(fqdn: string): string {
+  const host = normaliseDnsName(fqdn)
+  if (!host) {
+    return ''
+  }
+  return host.split('.')[0] || ''
+}
+
+function cnameTargetsUnderZones(outcomes: DnsResolverOutcome[], name: string, zones: string[]) {
   const wantedName = normaliseDnsName(name)
   const matches: string[] = []
+  const zoneSet = zones.map(normaliseDnsName).filter(Boolean)
 
   for (const outcome of outcomes) {
     if (outcome.lookup !== 'ok') {
@@ -66,7 +92,7 @@ function cnameTargetsUnderZone(outcomes: DnsResolverOutcome[], name: string, zon
       }
       for (const entry of group.data) {
         const target = String(entry)
-        if (isNameUnderZone(target, zone)) {
+        if (zoneSet.some(zone => isNameUnderZone(target, zone))) {
           matches.push(target)
         }
       }
@@ -74,6 +100,38 @@ function cnameTargetsUnderZone(outcomes: DnsResolverOutcome[], name: string, zon
   }
 
   return [...new Set(matches.map(normaliseDnsName))]
+}
+
+function cnameTargetsWithSameLabel(
+  outcomes: DnsResolverOutcome[],
+  name: string,
+  expectedLabel: string,
+) {
+  const wantedName = normaliseDnsName(name)
+  const label = normaliseDnsName(expectedLabel)
+  if (!label) {
+    return [] as string[]
+  }
+  const matches: string[] = []
+
+  for (const outcome of outcomes) {
+    if (outcome.lookup !== 'ok') {
+      continue
+    }
+    for (const group of outcome.records) {
+      if (normaliseDnsName(group.name) !== wantedName) {
+        continue
+      }
+      for (const entry of group.data) {
+        const target = normaliseDnsName(String(entry))
+        if (target && firstDnsLabel(target) === label) {
+          matches.push(target)
+        }
+      }
+    }
+  }
+
+  return [...new Set(matches)]
 }
 
 type ResolverSource = 'Authoritative' | 'Public'
@@ -111,23 +169,51 @@ function evaluateCnameGroup(
     }
   }
 
-  if (options?.acceptUnderZone) {
-    const zoneTargets = cnameTargetsUnderZone(outcomes, name, options.acceptUnderZone)
+  const acceptZones = resolvedAcceptZones(options)
+  if (acceptZones.length > 0) {
+    const zoneTargets = cnameTargetsUnderZones(outcomes, name, acceptZones)
     if (zoneTargets.length > 0) {
-      const matching = outcomes.filter(
+      const matchingZones = outcomes.filter(
         outcome => outcome.lookup === 'ok'
           && outcome.records.some(group =>
-            group.data.some(entry => isNameUnderZone(String(entry), options.acceptUnderZone!)),
+            group.data.some(entry =>
+              acceptZones.some(zone => isNameUnderZone(String(entry), zone)),
+            ),
           ),
       )
-      const pick = matching[0] ?? outcomes.find(outcome => outcome.lookup === 'ok')!
+      const pick = matchingZones[0] ?? outcomes.find(outcome => outcome.lookup === 'ok')!
       const label = pick.server.replace(/^auth:/, '')
+      const zoneHint = acceptZones.length === 1
+        ? acceptZones[0]
+        : `${acceptZones.length} trusted auth zones`
       return {
         status: 'ok',
         actual: zoneTargets.join(', '),
         message: source === 'Authoritative'
-          ? `Authoritative CNAME points to auth zone ${options.acceptUnderZone} (${label})`
-          : `CNAME points to auth zone ${options.acceptUnderZone}`,
+          ? `Authoritative CNAME points to ${zoneHint} (${label})`
+          : `CNAME points to ${zoneHint}`,
+        matchedResolver: pick.server,
+      }
+    }
+  }
+
+  if (options?.acceptSameTinyLabel) {
+    const expectedLabel = firstDnsLabel(expected)
+    const sameLabelTargets = cnameTargetsWithSameLabel(outcomes, name, expectedLabel)
+    if (sameLabelTargets.length > 0) {
+      const pick = outcomes.find(outcome =>
+        outcome.lookup === 'ok'
+        && outcome.records.some(group =>
+          group.data.some(entry => firstDnsLabel(String(entry)) === expectedLabel),
+        ),
+      ) ?? outcomes.find(outcome => outcome.lookup === 'ok')!
+      const label = pick.server.replace(/^auth:/, '')
+      return {
+        status: 'ok',
+        actual: sameLabelTargets.join(', '),
+        message: source === 'Authoritative'
+          ? `Authoritative CNAME shares Tiny label ${expectedLabel} on another auth zone (${label})`
+          : `CNAME shares Tiny label ${expectedLabel} on another auth zone`,
         matchedResolver: pick.server,
       }
     }
@@ -198,6 +284,7 @@ export function evaluateCnameResolverOutcomes(
   name: string,
   expected: string,
   publicResolverCount = outcomes.length,
+  options?: CnameMatchOptions,
 ): DnsCnameMatchResult {
   const { authoritative, public: publicOutcomes } = splitResolverOutcomes(outcomes)
 
@@ -208,6 +295,7 @@ export function evaluateCnameResolverOutcomes(
       expected,
       'Authoritative',
       authoritative.length,
+      options,
     )
     if (authoritativeResult && authoritativeResult.status !== 'error') {
       return authoritativeResult
@@ -220,6 +308,7 @@ export function evaluateCnameResolverOutcomes(
     expected,
     'Public',
     publicOutcomes.length ? publicResolverCount : outcomes.length,
+    options,
   )
 
   return publicResult ?? {

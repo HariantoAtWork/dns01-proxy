@@ -5,9 +5,25 @@ import { useNitroApp } from 'nitropack/runtime'
 import { startScheduleRunner } from 'nitropack/runtime/internal'
 import wsAdapter from 'crossws/adapters/bun'
 import { loadAcmeConfigSync } from './utils/config'
-import { resolveListenOptions, type ListenBinding } from './utils/listen'
+import {
+  resolveListenOptions,
+  type ListenBinding,
+  type ListenTlsOptions,
+} from './utils/listen'
+import { resolveIdleTimeoutSeconds } from './utils/idleTimeout'
+import { tryHandleProxy } from './proxy/handle'
+import { reloadAccessLists, reloadProxySettings } from './proxy/accessListState'
+import { reloadBearerLists } from './proxy/bearerKeyState'
+import { reloadRouteTable } from './proxy/routeTable'
+import { buildEdgeTlsOptions, shouldBindEdgeHttps } from './proxy/tls'
+import { registerEdgeHttpsRuntime } from './proxy/edgeHttps'
+import { proxyWebsocketHandlers } from './proxy/websocket'
 
 loadAcmeConfigSync()
+reloadRouteTable()
+reloadAccessLists()
+reloadProxySettings()
+reloadBearerLists()
 
 const nitroApp = useNitroApp()
 const websocketEnabled = Boolean((import.meta as ImportMeta & { _websocket?: boolean })._websocket)
@@ -31,17 +47,54 @@ function resolveRequestUrl(req: Request, binding: ListenBinding): URL {
   return new URL(req.url, `${protocol}://${host}`)
 }
 
-async function handleFetch(req: Request, serverRef: unknown, binding: ListenBinding) {
-  if (websocketEnabled && req.headers.get('upgrade') === 'websocket') {
-    return ws!.handleUpgrade(req, serverRef)
+function tlsServeOption(tls: ListenTlsOptions | ListenTlsOptions[] | null) {
+  if (!tls) {
+    return {}
   }
+  // Edge may pass pre-loaded PEM bodies via a side channel — see startEdgeHttps.
+  if (Array.isArray(tls)) {
+    return {
+      tls: tls.map(item => ({
+        cert: readFileSync(item.certPath, 'utf8'),
+        key: readFileSync(item.keyPath, 'utf8'),
+        ...(item.serverName ? { serverName: item.serverName } : {}),
+      })),
+    }
+  }
+  if (!tls.certPath || !tls.keyPath) {
+    return {}
+  }
+  return {
+    tls: {
+      cert: readFileSync(tls.certPath, 'utf8'),
+      key: readFileSync(tls.keyPath, 'utf8'),
+      ...(tls.serverName ? { serverName: tls.serverName } : {}),
+    },
+  }
+}
 
+async function handleFetch(req: Request, serverRef: unknown, binding: ListenBinding) {
   let url: URL
   try {
     url = resolveRequestUrl(req, binding)
   }
   catch {
     return new Response('Bad Request', { status: 400 })
+  }
+
+  if (binding.role === 'edge') {
+    const result = await tryHandleProxy(req, binding, serverRef as import('bun').Server, url)
+    if (result && typeof result === 'object' && 'upgraded' in result) {
+      return undefined as unknown as Response
+    }
+    if (result instanceof Response) {
+      return result
+    }
+    // Reserved auth host → Nitro below
+  }
+
+  if (websocketEnabled && req.headers.get('upgrade') === 'websocket') {
+    return ws!.handleUpgrade(req, serverRef)
   }
 
   let body: ArrayBuffer | undefined
@@ -58,19 +111,12 @@ async function handleFetch(req: Request, serverRef: unknown, binding: ListenBind
   })
 }
 
-function startBinding(binding: ListenBinding) {
+function startControlBinding(binding: ListenBinding) {
   const base = {
     port: binding.port,
     hostname: binding.host,
-    idleTimeout: Number.parseInt(process.env.NITRO_BUN_IDLE_TIMEOUT || '') || undefined,
-    ...(binding.tls
-      ? {
-          tls: {
-            cert: readFileSync(binding.tls.certPath, 'utf8'),
-            key: readFileSync(binding.tls.keyPath, 'utf8'),
-          },
-        }
-      : {}),
+    idleTimeout: resolveIdleTimeoutSeconds('control'),
+    ...tlsServeOption(binding.tls),
     fetch: (req: Request, server: unknown) => handleFetch(req, server, binding),
   }
 
@@ -84,15 +130,77 @@ function startBinding(binding: ListenBinding) {
   return Bun.serve(base as Parameters<typeof Bun.serve>[0])
 }
 
-const httpServer = startBinding(listen.http)
-console.log(`[acmedns] Listening HTTP on ${httpServer.url}`)
+function startEdgeBinding(binding: ListenBinding, tlsBodies?: ReturnType<typeof buildEdgeTlsOptions>) {
+  const tlsOpt = tlsBodies
+    ? { tls: tlsBodies }
+    : tlsServeOption(binding.tls)
 
-if (listen.https) {
-  const httpsServer = startBinding(listen.https)
-  console.log(`[acmedns] Listening HTTPS on ${httpsServer.url} (api.tls=cert)`)
+  // Prefer HTTP/2 beside h1 on edge HTTPS (ALPN). Per-host http2Support is stored for
+  // UI/future; the listener is process-wide so we enable h2 whenever TLS is present.
+  const http2 = Boolean(tlsBodies || binding.tls)
+
+  return Bun.serve({
+    port: binding.port,
+    hostname: binding.host,
+    idleTimeout: resolveIdleTimeoutSeconds('edge'),
+    ...tlsOpt,
+    ...(http2 ? { http2: true } : {}),
+    fetch: (req: Request, server: unknown) => handleFetch(req, server, binding),
+    websocket: proxyWebsocketHandlers,
+  } as Parameters<typeof Bun.serve>[0])
+}
+
+const httpServer = startEdgeBinding(listen.http)
+console.log(`[acmedns] Edge HTTP on ${httpServer.url}`)
+
+{
+  const httpsPort = listen.https?.port ?? 443
+  const httpsBinding: ListenBinding = {
+    host: listen.http.host,
+    port: httpsPort,
+    role: 'edge',
+    tls: listen.https?.tls ?? { certPath: '', keyPath: '' },
+  }
+  const edgeFetch = (req: Request, server: unknown) => handleFetch(req, server, httpsBinding)
+
+  let httpsServer: ReturnType<typeof Bun.serve> | null = null
+  if (shouldBindEdgeHttps()) {
+    const edgeTls = buildEdgeTlsOptions()
+    if (edgeTls) {
+      httpsServer = startEdgeBinding(httpsBinding, edgeTls)
+      console.log(`[acmedns] Edge HTTPS on ${httpsServer.url} (SNI)`)
+    }
+    else {
+      console.log('[acmedns] Edge HTTPS skipped — no readable PEMs')
+    }
+  }
+  else if (listen.https) {
+    httpsServer = startEdgeBinding(listen.https)
+    console.log(`[acmedns] Edge HTTPS on ${httpsServer.url}`)
+  }
+  else {
+    console.log('[acmedns] Edge HTTPS disabled')
+  }
+
+  registerEdgeHttpsRuntime(
+    {
+      binding: httpsBinding,
+      fetch: edgeFetch,
+      websocket: proxyWebsocketHandlers,
+    },
+    httpsServer,
+  )
+}
+
+const controlHttp = startControlBinding(listen.controlHttp)
+console.log(`[acmedns] Control HTTP on ${controlHttp.url}`)
+
+if (listen.controlHttps) {
+  const controlHttps = startControlBinding(listen.controlHttps)
+  console.log(`[acmedns] Control HTTPS on ${controlHttps.url}`)
 }
 else {
-  console.log('[acmedns] HTTPS disabled (api.tls=none)')
+  console.log('[acmedns] Control HTTPS disabled (no default cert)')
 }
 
 if ((import.meta as ImportMeta & { _tasks?: boolean })._tasks) {

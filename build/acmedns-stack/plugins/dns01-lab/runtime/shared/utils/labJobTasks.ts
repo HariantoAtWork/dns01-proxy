@@ -1,6 +1,9 @@
-import type { AcmeRequestItem, CertJobTask } from '../../../../client/runtime/shared/types/certs'
+import type { CertJobTask } from '../../../../client/runtime/shared/types/certs'
+import type { AcmeOrderToken } from '../../../../client/runtime/shared/utils/acmeIssueSteps'
+import { v7 as uuid } from 'uuid'
 import {
   advanceLabRequestPlan,
+  applyLabOrderTokens,
   closeLabRequestPlan,
   createLabRequestPlan,
   finishLabRequestPlan,
@@ -14,7 +17,7 @@ export function createLabJobTaskPlan(
   completed = new Set<string>(),
 ): CertJobTask[] {
   return certNames.map(certName => ({
-    id: crypto.randomUUID(),
+    id: uuid(),
     certName,
     status: completed.has(certName) ? 'done' : 'pending',
   }))
@@ -35,7 +38,7 @@ export function startLabJobTask(tasks: CertJobTask[], certName: string): CertJob
   const idx = findTaskIndex(next, certName)
   if (idx < 0) {
     next.push({
-      id: crypto.randomUUID(),
+      id: uuid(),
       certName,
       status: 'running',
       requests: createLabRequestPlan(),
@@ -84,6 +87,7 @@ export function trackLabJobTaskRequest(
   stepIndex: number,
   stepLabel?: string,
   seedAltNames?: string[],
+  orderTokens?: AcmeOrderToken[],
 ): CertJobTask[] {
   const idx = findTaskIndex(tasks, certName)
   if (idx < 0) {
@@ -94,11 +98,21 @@ export function trackLabJobTaskRequest(
   const task = next[idx]!
   const base = task.requests?.length ? task.requests : createLabRequestPlan()
   let requests = base
-  if (stepIndex === LAB_REQUEST_STEPS.ACME_ORDER) {
-    requests = seedLabChallengePlan(requests, certName, seedAltNames)
+
+  if (stepIndex === LAB_REQUEST_STEPS.ACME_ORDER && orderTokens?.length) {
+    requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
+    requests = applyLabOrderTokens(requests, certName, orderTokens)
   }
-  requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
-  requests = sortLabRequestItems(requests, certName)
+  else if (stepIndex === LAB_REQUEST_STEPS.ACME_ORDER) {
+    requests = seedLabChallengePlan(requests, certName, seedAltNames)
+    requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
+    requests = sortLabRequestItems(requests, certName)
+  }
+  else {
+    requests = advanceLabRequestPlan(requests, stepIndex, stepLabel)
+    requests = sortLabRequestItems(requests, certName)
+  }
+
   next[idx] = {
     ...task,
     requests,

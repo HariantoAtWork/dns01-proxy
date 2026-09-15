@@ -27,6 +27,24 @@ describe('InMemoryTxtStore', () => {
     expect(store.getValues('sub-a').sort()).toEqual([TXT, TXT2].sort())
   })
 
+  test('returns newest TXT first and oldest last', () => {
+    let now = 1_000_000
+    const store = new InMemoryTxtStore({
+      ttlSeconds: 3600,
+      now: () => now,
+      slotCount: 4,
+    })
+
+    store.update('sub-a', TXT)
+    now += 1_000
+    store.update('sub-a', TXT2)
+    now += 1_000
+    const newest = 'cdefghijklmnopqrstuvwxyz0123456789abcdefi'
+    store.update('sub-a', newest)
+
+    expect(store.getValues('sub-a')).toEqual([newest, TXT2, TXT])
+  })
+
   test('clearByValue and clearAll remove stored digests', () => {
     const store = new InMemoryTxtStore({ ttlSeconds: 3600, slotCount: 4 })
     store.update('sub-a', TXT)

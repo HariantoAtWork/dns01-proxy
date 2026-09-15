@@ -10,12 +10,12 @@ Full stack docs: [Certificate checklist](Certificate-checklist) (UUID + Register
 
 | You (once per apex) | Server (automatic) |
 | --- | --- |
-| CNAME `_acme-challenge.mdstn.com` → `_mdstn-com_.auth.uti.email` | Publishes dns-01 TXT under `_mdstn-com_` during Apply |
+| CNAME `_acme-challenge.mdstn.com` → `_mdstn-com_.auth.uti.email` (or any `<label>.auth.uti.email`) | Publishes dns-01 TXT under `_mdstn-com_` **and** the live CNAME label during Apply |
 | Lines in `domains.txt` (Certs UI) | Renews production certs on a timer |
 | Delegate NS for the auth zone at your registrar (e.g. Cloudflare) | Fills glue **A** (+ **AAAA** if IPv6 is detected) + **NS** at boot |
 | Open port **53** on the host running this stack | Answers Let's Encrypt DNS queries for any `<uuid\|_label_>.auth.zone` |
 
-**You do not add** `ACMEDNS_SHARED_KEY`, API passwords, or challenge TXT records in Cloudflare for your real domains.
+**You do not add** `ACMEDNS_TINY_SHARED_KEY`, API passwords, or challenge TXT records in Cloudflare for your real domains.
 
 ## DNS at Cloudflare (example)
 
@@ -45,7 +45,7 @@ _acme-challenge.sylo.space. CNAME  _sylo-space_.auth.uti.email.
 
 Nested wildcards on the same cert line still use the **full stack** CNAME chain (`_acme-challenge.oib.mdstn.com` → `_acme-challenge.mdstn.com`). See [Public DNS and port 53](Public-DNS-and-port-53).
 
-**Migration:** Older tiny installs that CNAME’d to the auth zone apex (`auth.uti.email`) must update each site to the encoded label. Shared apex TXT caused collisions across domains.
+**Migration:** Prefer the encoded label (`_mdstn-com_.…`). Legacy CNAMEs to a Register UUID (or any other label under the auth zone) still work: Apply dual-publishes the token to the encoded key **and** the live CNAME label. Older installs that CNAME’d to the auth zone apex (`auth.uti.email`) should update — shared apex TXT caused collisions across domains.
 
 ## Minimal `.env`
 
@@ -67,17 +67,18 @@ When `ACMEDNS_TINY_DOMAIN` is set and `ACMEDNS_URL` is omitted, the public URL d
 | Variable | Required? | Purpose |
 | --- | --- | --- |
 | `ACMEDNS_TINY_DOMAIN` | **Yes** (recommended) | Auth zone hostname. Overrides `config.cfg` `domain` + `nsname`; turns on shared mode. |
+| `ACMEDNS_TINY_ACCEPT_ZONES` | No | Extra Tiny auth zones (comma-separated) for DNS preflight/UI and remote Publish. Optional URL: `auth.vps\|https://auth.vps:1443`. Peers need the same `ACMEDNS_TINY_SHARED_KEY` for remote `/update`. |
 | `LETSENCRYPT_EMAIL` | **Yes** | ACME account contact. |
 | `ACMEDNS_URL` | No | Public HTTP identity. Defaults to `https://<ACMEDNS_TINY_DOMAIN>`. |
-| `ACMEDNS_SHARED_KEY` | No | See [Shared API key](#shared-api-key-acmedns_shared_key) below. |
-| `ACMEDNS_SHARED_MODE` | No | Force shared mode without `ACMEDNS_TINY_DOMAIN` (uses `domain` from `config.cfg`). |
+| `ACMEDNS_TINY_SHARED_KEY` | No | See [Shared API key](#shared-api-key-acmedns_tiny_shared_key) below. |
+| `ACMEDNS_TINY_MODE` | No | Force Tiny/shared mode without `ACMEDNS_TINY_DOMAIN` (uses `domain` from `config.cfg`). |
 | `ACMEDNS_PUBLIC_IP` | No | Pin glue **A** record. Auto-detected when omitted. |
 | `ACMEDNS_PUBLIC_IPV6` | No | Pin glue **AAAA** record. Added when detected or set. |
 | `NUXT_ACME_DNS_DEFAULT_CONFIG` | No | Use `seed/server/config.tiny.cfg` on first boot. |
 
 Everything else (`ACMEDNS_DATA_ROOT`, `RENEW_INTERVAL`, `ADMINISTRATOR_PASSWORD`, …) is the same as the full stack. See root [README](../README.md).
 
-## Shared API key (`ACMEDNS_SHARED_KEY`)
+## Shared API key (`ACMEDNS_TINY_SHARED_KEY`)
 
 ### What it is
 
@@ -100,7 +101,7 @@ Classic [acme-dns](https://github.com/acme-dns/acme-dns) separates:
 
 Tiny mode keeps `/update` but drops **Register** (no UI passwords / `clientstorage`).
 
-### All-in-one flow (omit `ACMEDNS_SHARED_KEY`)
+### All-in-one flow (omit `ACMEDNS_TINY_SHARED_KEY`)
 
 ```mermaid
 flowchart LR
@@ -110,9 +111,9 @@ flowchart LR
   LE[Let's Encrypt] -->|dns-01 query| DNS
 ```
 
-On first boot the server generates a random 40-char key and stores it in SQLite (`shared_password` in the `acmedns` table). Issuance uses it internally. **You can leave `ACMEDNS_SHARED_KEY` unset.**
+On first boot the server generates a random 40-char key and stores it in SQLite (`shared_password` in the `acmedns` table). Issuance uses it internally. **You can leave `ACMEDNS_TINY_SHARED_KEY` unset.**
 
-### When to set `ACMEDNS_SHARED_KEY`
+### When to set `ACMEDNS_TINY_SHARED_KEY`
 
 | Situation | Set it? |
 | --- | --- |
@@ -125,7 +126,7 @@ Example (advanced):
 
 ```bash
 # Exactly 40 chars: A–Z a–z 0–9 - _
-ACMEDNS_SHARED_KEY=AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_
+ACMEDNS_TINY_SHARED_KEY=AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_
 ```
 
 Manual `/update` (only if you set or know the key). Use the encoded apex label (not the auth zone first label):
@@ -140,7 +141,7 @@ curl -sS -X POST "https://auth.uti.email/update" \
 
 ### Priority at boot
 
-1. `ACMEDNS_SHARED_KEY` (env)
+1. `ACMEDNS_TINY_SHARED_KEY` (env)
 2. `shared_password` in `config.cfg`
 3. Value already stored in SQLite
 4. Generate new random key
@@ -152,7 +153,7 @@ curl -sS -X POST "https://auth.uti.email/update" \
 | Register in UI | Yes | No |
 | CNAME target | `{uuid}.auth.zone` (from Register) | `_encoded-apex_.auth.zone` (deterministic) |
 | `clientstorage.json` | Per-apex credentials | Not needed |
-| `ACMEDNS_SHARED_KEY` | N/A (per-domain passwords) | Optional (one shared key) |
+| `ACMEDNS_TINY_SHARED_KEY` | N/A (per-domain passwords) | Optional (one shared key) |
 | Many SANs / nested wildcards | 100 TXT slots per UUID | 100 TXT slots per apex label |
 
 Each apex has its own TXT namespace, so parallel issuance across domains is fine.

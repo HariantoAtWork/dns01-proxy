@@ -52,6 +52,19 @@ function useInProcessUpdate(base: string, username: string): boolean {
   return shouldUseInProcessUpdate(base, username, routingContext(), user => Boolean(getByUsername(user)))
 }
 
+/** True when Publish TXT uses this stack's in-process store (not HTTP /update to a remote host). */
+export function isInProcessAcmeDnsPublish(serverUrl: string, username: string): boolean {
+  const base = resolveAcmeDnsBase(serverUrl)
+  if (useInProcessUpdate(base, username)) {
+    return true
+  }
+  // Tiny/shared: only treat as local when the URL is this stack’s identity.
+  if (isSharedMode()) {
+    return isLocalAcmeDnsBase(base, routingContext())
+  }
+  return false
+}
+
 export function resolveAcmeDnsBase(requestedUrl?: string) {
   const fallback = resolveAcmednsUrl().value || defaultLocalAcmeDnsBase()
   return resolveAcmeDnsBaseUrl(requestedUrl, fallback)
@@ -133,8 +146,10 @@ export async function updateAcmeDnsTxt(options: {
   txt: string
 }) {
   const base = resolveAcmeDnsBase(options.serverUrl)
+  const preferLocal = useInProcessUpdate(base, options.username)
+    || (isSharedMode() && isLocalAcmeDnsBase(base, routingContext()))
 
-  if (useInProcessUpdate(base, options.username) || isSharedMode()) {
+  if (preferLocal) {
     const user = getByUsername(options.username)
     if (!user) {
       throw createError({

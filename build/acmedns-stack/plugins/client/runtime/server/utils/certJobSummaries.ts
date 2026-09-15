@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { promises as fs } from 'node:fs'
+import { v7 as uuid } from 'uuid'
 import type { CertBatchSummary } from '#shared/types/certs'
 import {
   CERT_BATCH_SUMMARY_FILE_RE,
@@ -171,7 +171,7 @@ export async function persistCertJobSummary(job: InternalJob, cancelled: boolean
   }
 
   const executedAt = job.finishedAt || new Date().toISOString()
-  const id = randomUUID()
+  const id = uuid()
   const summary: CertBatchSummary = {
     id,
     filename: certBatchSummaryFilename(executedAt, id),

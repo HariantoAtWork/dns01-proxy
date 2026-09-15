@@ -2,9 +2,11 @@ import { describe, expect, test } from 'bun:test'
 import {
   ACME_REQUEST_STEP_TOTAL,
   ACME_REQUEST_STEPS,
+  acmeRequestDomain,
   acmeRequestStepLabel,
   acmeRequestStepProgress,
   advanceAcmeRequestPlan,
+  applyAcmeOrderTokens,
   createAcmeRequestPlan,
   currentAcmeRequestLabel,
   currentAcmeRequestProgress,
@@ -53,6 +55,39 @@ describe('acmeIssueSteps', () => {
     expect(plan.slice(2).every(item => item.status === 'pending')).toBe(true)
   })
 
+  test('lists domain → token rows from the ACME order before Publish TXT', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
+    plan = applyAcmeOrderTokens(plan, 'mdstn.com', [
+      { domain: 'www.mdstn.com', token: 'tok-www' },
+      { domain: 'mdstn.com', token: 'tok-apex' },
+      { domain: '*.mdstn.com', token: 'tok-wild' },
+    ])
+
+    expect(plan.map(item => item.label)).toEqual([
+      'DNS preflight',
+      'ACME order',
+      'mdstn.com → tok-apex',
+      '*.mdstn.com → tok-wild',
+      'www.mdstn.com → tok-www',
+      'Publish TXT mdstn.com',
+      'TXT online mdstn.com',
+      'DNS settle mdstn.com',
+      'LE validate mdstn.com',
+      'Publish TXT *.mdstn.com',
+      'TXT online *.mdstn.com',
+      'DNS settle *.mdstn.com',
+      'LE validate *.mdstn.com',
+      'Publish TXT www.mdstn.com',
+      'TXT online www.mdstn.com',
+      'DNS settle www.mdstn.com',
+      'LE validate www.mdstn.com',
+    ])
+    expect(plan.find(item => item.label === 'ACME order')?.status).toBe('done')
+    expect(plan.filter(item => item.label.includes(' → ')).every(item => item.status === 'done')).toBe(true)
+  })
+
   test('advances the plan through running and done states', () => {
     let plan = createAcmeRequestPlan()
     const firstId = plan[0]!.id
@@ -65,7 +100,7 @@ describe('acmeIssueSteps', () => {
     expect(plan[1]?.status).toBe('running')
 
     plan = finishAcmeRequestPlan(plan)
-    expect(plan[1]?.status).toBe('done')
+    expect(plan[1]?.status).toBe('failed')
   })
 
   test('appends per-domain challenge rounds', () => {
@@ -152,6 +187,73 @@ describe('acmeIssueSteps', () => {
       index: 5,
       total: 6,
       label: 'DNS settle',
+    })
+  })
+
+  test('updates DNS settle countdown label in place without duplicating steps', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
+    plan = seedAcmeChallengePlan(plan, 'sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_SETTLE, 'DNS settle sylo.space (5s)')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_SETTLE, 'DNS settle sylo.space (0s)')
+
+    const settleRows = plan.filter(item => item.step === ACME_REQUEST_STEPS.DNS_SETTLE)
+    expect(settleRows).toHaveLength(1)
+    expect(settleRows[0]).toMatchObject({
+      label: 'DNS settle sylo.space (0s)',
+      status: 'running',
+    })
+    expect(currentAcmeRequestProgress(plan)).toEqual({
+      index: 5,
+      total: 6,
+      label: 'DNS settle 0s',
+    })
+  })
+
+  test('updates TXT online attempt countdown label in place without duplicating steps', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.DNS_PREFLIGHT)
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER)
+    plan = seedAcmeChallengePlan(plan, 'sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT sylo.space')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space (attempt 1 · timeout 180s)')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space (attempt 2 · 5s · timeout 175s)')
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.TXT_ONLINE, 'TXT online sylo.space (attempt 2 · 0s · timeout 170s)')
+
+    const onlineRows = plan.filter(item => item.step === ACME_REQUEST_STEPS.TXT_ONLINE)
+    expect(onlineRows).toHaveLength(1)
+    expect(onlineRows[0]).toMatchObject({
+      label: 'TXT online sylo.space (attempt 2 · 0s · timeout 170s)',
+      status: 'running',
+    })
+    expect(acmeRequestDomain('TXT online sylo.space (attempt 2 · 0s · timeout 170s)')).toBe('sylo.space')
+    expect(acmeRequestDomain('Publish TXT sylo.space (remote)')).toBe('sylo.space')
+    expect(acmeRequestDomain('Publish TXT sylo.space (local)')).toBe('sylo.space')
+    expect(currentAcmeRequestProgress(plan)).toEqual({
+      index: 4,
+      total: 6,
+      label: 'TXT online attempt 2 · 0s · timeout 170s',
+    })
+  })
+
+  test('advances seeded Publish TXT with local/remote annotation', () => {
+    let plan = createAcmeRequestPlan()
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.ACME_ORDER, 'ACME order')
+    plan = applyAcmeOrderTokens(plan, 'sylo.space', [{ domain: 'sylo.space', token: 'tok' }])
+    plan = advanceAcmeRequestPlan(plan, ACME_REQUEST_STEPS.PUBLISH_TXT, 'Publish TXT sylo.space (remote)')
+
+    const publish = plan.find(item => item.step === ACME_REQUEST_STEPS.PUBLISH_TXT)
+    expect(publish).toMatchObject({
+      label: 'Publish TXT sylo.space (remote)',
+      status: 'running',
+    })
+    expect(currentAcmeRequestProgress(plan)).toEqual({
+      index: expect.any(Number),
+      total: expect.any(Number),
+      label: 'Publish TXT remote',
     })
   })
 

@@ -37,6 +37,14 @@ const serverError = computed(() => {
   }
   return ''
 })
+
+/** Enter in Domain moves to Server URL — avoids accidental submit / modal race. */
+function onDomainEnter() {
+  const el = document.getElementById('server')
+  if (el instanceof HTMLElement) {
+    el.focus()
+  }
+}
 </script>
 
 <template>
@@ -49,6 +57,7 @@ const serverError = computed(() => {
         placeholder="example.com"
         autocomplete="off"
         spellcheck="false"
+        @keydown.enter.prevent="onDomainEnter"
       />
     </UiField>
     <UiField label="Server URL" for="server" :error="serverError">
