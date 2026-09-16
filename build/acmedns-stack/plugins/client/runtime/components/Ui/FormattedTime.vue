@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { formatTime } from '#shared/utils/certsUi'
+import { ensureDayjsUiLocale, formatTime } from '#shared/utils/certsUi'
 
 const { value } = defineProps<{
   /** ISO-8601 timestamp */
   value: string
 }>()
+
+ensureDayjsUiLocale()
 </script>
 
 <template>

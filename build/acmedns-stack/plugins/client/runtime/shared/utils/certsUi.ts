@@ -7,6 +7,27 @@ import type {
   LetsEncryptDirectoryMode,
 } from '#shared/types/certs'
 import { certActivitySourceLabel } from '#shared/utils/certLog'
+import dayjs from 'dayjs'
+import localizedFormat from 'dayjs/plugin/localizedFormat'
+import 'dayjs/locale/en'
+import 'dayjs/locale/nl'
+
+dayjs.extend(localizedFormat)
+
+const DAYJS_UI_LOCALES = new Set(['en', 'nl'])
+let dayjsLocaleApplied = false
+
+/** Align dayjs with the browser language (en/nl); call from client-only UI paths. */
+export function ensureDayjsUiLocale() {
+  if (dayjsLocaleApplied || import.meta.server) {
+    return
+  }
+  const tag = (typeof navigator !== 'undefined' ? navigator.language : 'en')
+    .slice(0, 2)
+    .toLowerCase()
+  dayjs.locale(DAYJS_UI_LOCALES.has(tag) ? tag : 'en')
+  dayjsLocaleApplied = true
+}
 
 export type CertLiveTransport = 'off' | 'connecting' | 'live' | 'polling' | 'paused'
 
@@ -144,9 +165,11 @@ export function transportClass(mode: CertLiveTransport) {
   }
 }
 
-/** Browser locale + timezone. Prefer `<UiFormattedTime>` in templates to avoid SSR hydration mismatches. */
+/** Browser locale + timezone via dayjs. Prefer `<UiFormattedTime>` in templates to avoid SSR hydration mismatches. */
 export function formatTime(iso: string) {
-  return new Date(iso).toLocaleString()
+  ensureDayjsUiLocale()
+  const d = dayjs(iso)
+  return d.isValid() ? d.format('L LTS') : iso
 }
 
 export function formatRemaining(untilIso: string, nowMs: number) {
