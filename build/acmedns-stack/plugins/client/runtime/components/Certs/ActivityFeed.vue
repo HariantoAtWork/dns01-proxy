@@ -4,7 +4,6 @@ import {
   activityLevelClass,
   activitySourceClass,
   activitySourceLabel,
-  formatTime,
 } from '#shared/utils/certsUi'
 
 export type ActivityLogFilter = 'all' | 'acme' | 'live' | 'staging'
@@ -104,7 +103,7 @@ function toggleLogOrder() {
         :key="entry.id"
         :class="activityLevelClass(entry.level)"
       >
-        <span class="text-muted">{{ formatTime(entry.at) }}</span>
+        <span class="text-muted"><UiFormattedTime :value="entry.at" /></span>
         <span class="mx-1" :class="activitySourceClass(entry)">[{{ activitySourceLabel(entry) }}]</span>
         <span v-if="entry.certName" class="text-ink">{{ entry.certName }}:</span>
         {{ entry.message }}

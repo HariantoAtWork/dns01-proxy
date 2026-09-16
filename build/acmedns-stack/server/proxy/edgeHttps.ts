@@ -15,6 +15,7 @@ type EdgeHttpsRuntime = {
 let runtime: EdgeHttpsRuntime | null = null
 let httpsServer: Server | null = null
 let reloadQueue: Promise<void> = Promise.resolve()
+let scheduledReload: ReturnType<typeof setTimeout> | null = null
 
 /**
  * Remember how to (re)bind edge HTTPS after Proxy Host / cert changes.
@@ -43,6 +44,23 @@ function startHttps(tlsBodies: NonNullable<ReturnType<typeof buildEdgeTlsOptions
   } as Parameters<typeof Bun.serve>[0])
 }
 
+async function startHttpsWithRetry(
+  tlsBodies: NonNullable<ReturnType<typeof buildEdgeTlsOptions>>,
+): Promise<Server> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      return startHttps(tlsBodies)
+    }
+    catch (error) {
+      lastError = error
+      // Port may still be releasing after a graceful stop.
+      await Bun.sleep(25 * (attempt + 1))
+    }
+  }
+  throw lastError
+}
+
 async function reloadEdgeHttpsUnlocked(): Promise<void> {
   if (!runtime) {
     return
@@ -52,7 +70,10 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
   const tlsBodies = want ? buildEdgeTlsOptions() : null
 
   if (httpsServer) {
-    await httpsServer.stop(true)
+    // Graceful stop: drain in-flight requests (incl. reserved auth host → Nitro on
+    // edge :443). stop(true) force-RST'd those and surfaced as net::ERR_EMPTY_RESPONSE
+    // on Proxy Host PUT while SNI was rebound.
+    await httpsServer.stop(false)
     httpsServer = null
   }
 
@@ -61,7 +82,7 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
     return
   }
 
-  httpsServer = startHttps(tlsBodies)
+  httpsServer = await startHttpsWithRetry(tlsBodies)
   proxyLog('info', `[acmedns] Edge HTTPS reloaded on ${httpsServer.url} (SNI)`)
 }
 
@@ -73,4 +94,18 @@ export function reloadEdgeHttps(): Promise<void> {
       proxyLog('warn', `[acmedns] Edge HTTPS reload failed: ${error instanceof Error ? error.message : error}`)
     })
   return reloadQueue
+}
+
+/**
+ * Debounce + defer SNI rebind so the current API response can flush before :443
+ * stops accepting. Prefer this from Proxy Host write paths.
+ */
+export function scheduleEdgeHttpsReload(delayMs = 50): void {
+  if (scheduledReload) {
+    clearTimeout(scheduledReload)
+  }
+  scheduledReload = setTimeout(() => {
+    scheduledReload = null
+    void reloadEdgeHttps()
+  }, delayMs)
 }

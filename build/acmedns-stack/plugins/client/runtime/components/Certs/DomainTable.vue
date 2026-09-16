@@ -9,7 +9,6 @@ import {
   canIssueCert,
   certInFlightOrQueued,
   formatRemaining,
-  formatTime,
   issueDisabled,
   statusLabel,
 } from '#shared/utils/certsUi'
@@ -166,7 +165,7 @@ function isCertInFlightOrQueued(certName: string) {
             </span>
           </p>
           <p v-if="entry.notAfter" class="mt-0.5 text-xs text-muted">
-            Expires {{ formatTime(entry.notAfter) }}
+            Expires <UiFormattedTime :value="entry.notAfter" />
           </p>
           <p v-if="entry.sansOnDisk?.length" class="mt-0.5 font-mono text-[11px] text-muted">
             On disk: {{ entry.sansOnDisk.join(', ') }}
@@ -176,7 +175,7 @@ function isCertInFlightOrQueued(certName: string) {
           </p>
           <p v-if="entry.rateLimitedUntil && Date.parse(entry.rateLimitedUntil) > nowMs" class="mt-0.5 text-xs text-danger">
             Rate limited · {{ formatRemaining(entry.rateLimitedUntil, nowMs) }} left
-            <span class="text-muted"> (until {{ formatTime(entry.rateLimitedUntil) }})</span>
+            <span class="text-muted"> (until <UiFormattedTime :value="entry.rateLimitedUntil" />)</span>
           </p>
         </div>
         <div class="ml-auto flex shrink-0 items-center gap-2">

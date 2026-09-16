@@ -43,7 +43,7 @@ services:
       - PROXY_ACCESS_LOG=${PROXY_ACCESS_LOG:-true}
       # Upstream fetch deadline for edge proxy (ms; 0 disables). Default 60000.
       - PROXY_UPSTREAM_TIMEOUT_MS=${PROXY_UPSTREAM_TIMEOUT_MS:-60000}
-      # Bun.serve idleTimeout seconds on edge (max 255). Default 120; 0 = Bun default (10s).
+      # Bun.serve idleTimeout seconds for edge + control (max 255). Default 120; 0 = Bun default (10s).
       - NITRO_BUN_IDLE_TIMEOUT=${NITRO_BUN_IDLE_TIMEOUT:-120}
       # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
       - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}

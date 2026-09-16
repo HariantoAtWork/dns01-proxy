@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CertJobQueueSnapshot, CertJobStatus } from '#shared/types/certs'
 import type { LabStatusEntry } from '#lab-shared/types/lab'
-import { certInFlightOrQueued, formatTime } from '#shared/utils/certsUi'
+import { certInFlightOrQueued } from '#shared/utils/certsUi'
 import { PhLightning as Lightning } from '@phosphor-icons/vue'
 
 const {
@@ -94,7 +94,7 @@ function runButtonLabel(entry: LabStatusEntry) {
             </span>
           </p>
           <p v-if="entry.lastRunAt" class="mt-0.5 text-xs text-muted">
-            Last run {{ formatTime(entry.lastRunAt) }}
+            Last run <UiFormattedTime :value="entry.lastRunAt" />
           </p>
           <p v-if="entry.message" class="mt-0.5 text-xs" :class="entry.ok === false ? 'text-danger' : 'text-muted'">
             {{ entry.message }}

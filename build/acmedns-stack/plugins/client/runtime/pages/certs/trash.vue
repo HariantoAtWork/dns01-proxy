@@ -77,7 +77,7 @@ async function onPerma(name: string) {
               {{ item.certName }}
             </p>
             <p class="text-xs text-muted">
-              From {{ item.fromTree }}/ · trashed {{ new Date(item.trashedAt).toLocaleString() }}
+              From {{ item.fromTree }}/ · trashed <UiFormattedTime :value="item.trashedAt" />
             </p>
           </div>
           <div class="flex flex-wrap gap-2">

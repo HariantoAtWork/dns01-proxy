@@ -75,13 +75,6 @@ async function onPerma() {
     toasts.error(caught instanceof Error ? caught.message : 'Delete failed')
   }
 }
-
-function treeLabel(item: LastSavedItem) {
-  const expiry = item.notAfter
-    ? ` · expires ${new Date(item.notAfter).toLocaleString()}`
-    : ''
-  return `${item.fromTree}/ · saved ${new Date(item.savedAt).toLocaleString()}${expiry}`
-}
 </script>
 
 <template>
@@ -118,7 +111,7 @@ function treeLabel(item: LastSavedItem) {
             class="flex flex-wrap items-center justify-between gap-3 pl-0 sm:pl-2"
           >
             <p class="text-xs text-muted">
-              {{ treeLabel(row.live) }}
+              {{ row.live.fromTree }}/ · saved <UiFormattedTime :value="row.live.savedAt" /><template v-if="row.live.notAfter"> · expires <UiFormattedTime :value="row.live.notAfter" /></template>
             </p>
             <div class="flex flex-wrap gap-2">
               <UiButton
@@ -144,7 +137,7 @@ function treeLabel(item: LastSavedItem) {
             class="flex flex-wrap items-center justify-between gap-3 pl-0 sm:pl-2"
           >
             <p class="text-xs text-muted">
-              {{ treeLabel(row.staging) }}
+              {{ row.staging.fromTree }}/ · saved <UiFormattedTime :value="row.staging.savedAt" /><template v-if="row.staging.notAfter"> · expires <UiFormattedTime :value="row.staging.notAfter" /></template>
             </p>
             <div class="flex flex-wrap gap-2">
               <UiButton
