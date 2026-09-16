@@ -155,8 +155,8 @@ More on DNS-01 and DMZ: [`.wiki/Home.md`](.wiki/Home.md).
 
 ```
 docker-compose.yml.example
-docker-compose.build.yml      # local image build
-docker-compose.push.yml       # multi-arch Hub push
+_build.yml                    # local image build
+_push.yml                     # multi-arch Hub push
 vps.yml                       # optional :53 bound to PUBLIC_IP (single-IP VPS)
 .env.example
 .wiki/

@@ -67,4 +67,4 @@ Mounts (see repo `docker-compose.yml.example`):
 - `./data/acmedns-stack` (or host `/var/lib/acmedns-stack`) → `/var/lib/acmedns-stack`
 - `./data/letsencrypt` or named `letsencrypt` → `/etc/letsencrypt`
 
-`Dockerfile` is for local/native builds; `Dockerfile.platform` keeps `--platform=$BUILDPLATFORM` for multi-arch Hub pushes (`docker compose -f docker-compose.push.yml`).
+`Dockerfile` is for local/native builds; `Dockerfile.platform` keeps `--platform=$BUILDPLATFORM` for multi-arch Hub pushes (`docker compose -f _push.yml`).
