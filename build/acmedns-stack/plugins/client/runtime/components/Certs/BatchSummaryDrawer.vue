@@ -5,7 +5,6 @@ import {
   certBatchSummaryStatusLabel,
   certBatchSummaryTitle,
 } from '#shared/utils/certBatchSummary'
-import { formatTime } from '#shared/utils/certsUi'
 import { PhCaretDown as CaretDown, PhTrash as Trash } from '@phosphor-icons/vue'
 
 const { summary, open = false } = defineProps<{
@@ -34,7 +33,7 @@ const emit = defineEmits<{
       />
       <div class="min-w-0 flex-1">
         <p class="font-medium text-ink">
-          {{ formatTime(summary.executedAt) }}
+          <UiFormattedTime :value="summary.executedAt" />
         </p>
         <p class="truncate text-muted">
           {{ certBatchSummaryTitle(summary) }}

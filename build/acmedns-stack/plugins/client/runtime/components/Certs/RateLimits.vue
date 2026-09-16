@@ -22,7 +22,12 @@ const { limits, nowMs } = defineProps<{
         :key="limit.id"
         class="rounded-[6px] border border-danger/30 px-3 py-2 text-danger"
       >
-        <p>{{ rateLimitLabel(limit, nowMs) }}</p>
+        <ClientOnly>
+          <p>{{ rateLimitLabel(limit, nowMs) }}</p>
+          <template #fallback>
+            <p>…</p>
+          </template>
+        </ClientOnly>
         <p v-if="limit.detail" class="mt-1 text-[11px] text-muted">
           {{ limit.detail }}
           <span v-if="limit.endpoint"> · {{ limit.endpoint }}</span>

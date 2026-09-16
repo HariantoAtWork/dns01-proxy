@@ -9,7 +9,7 @@ import {
   validateProxyHost,
 } from '../../shared/utils/proxyHost'
 import { getProxyHostsFilePath } from '../../../../../server/utils/paths'
-import { reloadEdgeHttps } from '../../../../../server/proxy/edgeHttps'
+import { scheduleEdgeHttpsReload } from '../../../../../server/proxy/edgeHttps'
 import { findReservedDomainOverlap } from '../../../../../server/proxy/reserved'
 import { reloadRouteTable } from '../../../../../server/proxy/routeTable'
 
@@ -54,8 +54,9 @@ async function writeProxyHostsFile(file: ProxyHostsFile): Promise<ProxyHostsFile
   const normalized = normalizeProxyHostsFile(file)
   await fs.writeFile(filePath, `${JSON.stringify(normalized, null, 2)}\n`, 'utf-8')
   reloadRouteTable(normalized.hosts)
-  // Routes update in-memory; edge SNI PEMs are bound at listen time — rebind :443.
-  void reloadEdgeHttps()
+  // Routes update in-memory; edge SNI PEMs are bound at listen time — rebind :443
+  // after this response can flush (avoids killing reserved-host Nitro on edge HTTPS).
+  scheduleEdgeHttpsReload()
   return normalized
 }
 

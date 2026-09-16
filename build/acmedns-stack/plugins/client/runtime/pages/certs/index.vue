@@ -2,7 +2,6 @@
 import type { CertActivityEntry, DomainsDnsCheck, LetsEncryptDirectoryMode, CertBatchUploadPreview } from '#shared/types/certs'
 import {
   certInFlightOrQueued,
-  formatTime,
   jobLabel,
   transportClass,
   transportDotClass,
@@ -563,7 +562,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
             <Circle :size="8" weight="fill" aria-hidden="true" :class="transportDotClass(transport)" />
             <span>{{ transportLabel }}</span>
           </span>
-          <span v-if="lastRefreshedAt">Last refreshed {{ formatTime(lastRefreshedAt) }}</span>
+          <span v-if="lastRefreshedAt">Last refreshed <UiFormattedTime :value="lastRefreshedAt" /></span>
           <span v-if="certJob.running" class="text-signal">
             · Job {{ jobLabel(certJob.id!, certJob.source!, certJob.mode!) }}
             <CertsJobProgress :job="certJob" />

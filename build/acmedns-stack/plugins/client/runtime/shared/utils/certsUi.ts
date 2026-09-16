@@ -144,6 +144,7 @@ export function transportClass(mode: CertLiveTransport) {
   }
 }
 
+/** Browser locale + timezone. Prefer `<UiFormattedTime>` in templates to avoid SSR hydration mismatches. */
 export function formatTime(iso: string) {
   return new Date(iso).toLocaleString()
 }
