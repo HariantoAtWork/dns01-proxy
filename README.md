@@ -85,18 +85,18 @@ bun run docker:up
 # or: docker compose up -d --build
 ```
 
-Useful root scripts (`package.json`): `docker:build`, `docker:push`, `docker:up` / `docker:dev` / `docker:down` / `docker:logs`.
+Useful root scripts (`package.json`): `docker:build`, `docker:push`, `docker:up` / `docker:restart` / `docker:dev` / `docker:down` / `docker:logs`.
 
 Local Nuxt dev (no Docker): `bun install --cwd build/acmedns-stack` then `bun run --cwd build/acmedns-stack dev` (UI on `:3000`).
 
-Docker Nuxt hot-reload (compose profile `dev`, UI on `:3000`, DNS on `:15353`):
+Docker Nuxt hot-reload (`_dev.yml`, UI on `:3000`, DNS on `:15353`):
 
 ```bash
 bun run docker:dev
-# or: docker compose --profile dev up acmedns-stack-dev
+# or: docker compose -f _dev.yml up -d --build
 ```
 
-Requires a local `docker-compose.yml` copied from the `.example` (same as production). Does not start the production `acmedns-stack` image.
+Does not start the production `acmedns-stack` image.
 
 On first start the image seeds under `$ACMEDNS_DATA_ROOT` (`server/`, `client/`, `backup/`) and uses `$ACMEDNS_LETSENCRYPT_DIR` for PEMs.
 
@@ -157,6 +157,7 @@ More on DNS-01 and DMZ: [`.wiki/Home.md`](.wiki/Home.md).
 docker-compose.yml.example
 _build.yml                    # local image build
 _push.yml                     # multi-arch Hub push
+_dev.yml                      # Nuxt hot-reload (UI :3000, DNS :15353)
 vps.yml                       # optional :53 bound to PUBLIC_IP (single-IP VPS)
 .env.example
 .wiki/

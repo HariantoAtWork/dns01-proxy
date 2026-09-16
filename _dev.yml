@@ -1,6 +1,6 @@
 services:
-  # Hot-reload Nuxt: docker compose --profile dev up acmedns-stack-dev
-  # (or: bun run docker:dev). Does not start with plain `docker compose up`.
+  # Hot-reload Nuxt: bun run docker:dev  (or: docker compose -f _dev.yml up -d --build)
+  # Does not start with plain `docker compose up`.
   acmedns-stack-dev:
     image: oven/bun:canary-alpine
     container_name: acmedns-stack-dev
