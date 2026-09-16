@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "docker:build": "docker compose -f docker-compose.build.yml build",
-    "docker:push": "docker compose -f docker-compose.push.yml build --no-cache --push",
+    "docker:build": "docker compose -f _build.yml build",
+    "docker:push": "docker compose -f _push.yml build --no-cache --push",
     "docker:up": "docker compose up -d",
     "docker:vps": "PUBLIC_IP=${PUBLIC_IP:-$(ip -4 route get 1.1.1.1 | sed -n 's/.* src \\([0-9.]*\\).*/\\1/p')} docker compose -f docker-compose.yml $([ -f docker-compose.override.yml ] && echo -f docker-compose.override.yml) -f vps.yml up -d",
     "docker:vps:down": "PUBLIC_IP=${PUBLIC_IP:-$(ip -4 route get 1.1.1.1 | sed -n 's/.* src \\([0-9.]*\\).*/\\1/p')} docker compose -f docker-compose.yml $([ -f docker-compose.override.yml ] && echo -f docker-compose.override.yml) -f vps.yml down",
