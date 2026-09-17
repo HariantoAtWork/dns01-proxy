@@ -58,8 +58,9 @@ export async function runLabDns01(options: {
   for (const challenge of challenges) {
     throwIfAborted(options.signal, 'Lab DNS-01 aborted')
     const turn = await challengeSerial.enter()
+    let publish: Awaited<ReturnType<typeof runDns01Challenge>> | undefined
     try {
-      await runDns01Challenge({
+      publish = await runDns01Challenge({
         authzIdentifier: challenge.domain,
         keyAuthorization: challenge.keyAuthorization,
         certName: options.certName,
@@ -80,6 +81,7 @@ export async function runLabDns01(options: {
       throw error
     }
     finally {
+      publish?.authHopCleanup?.()
       // TXT slots expire via txt-ttl; only release the serial gate here.
       turn.markRemove()
     }

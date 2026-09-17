@@ -11,7 +11,9 @@ import {
   updateTXT,
 } from '../utils/db'
 import { registerTxtStore, resetTxtStore } from '../utils/txtStoreRegistry'
+import { registerAliasStore, resetAliasStore, requireAliasStore } from '../utils/aliasStoreRegistry'
 import { InMemoryTxtStore } from '../../plugins/txt-ttl/runtime/server/store/inMemoryTxtStore'
+import { InMemoryAliasStore } from '../store/inMemoryAliasStore'
 
 const { Packet, UDPClient } = dns2
 
@@ -40,6 +42,7 @@ const TEST_CONFIG: AcmeDnsConfig = {
     shared_mode: false,
     shared_username: '00000000-0000-4000-8000-000000000001',
     shared_password: '',
+    auth_hop: false,
     tls: 'none',
     corsorigins: ['*'],
     use_header: false,
@@ -92,7 +95,9 @@ let txtSubdomain = ''
 beforeEach(async () => {
   closeAcmeDb()
   resetTxtStore()
+  resetAliasStore()
   registerTxtStore(new InMemoryTxtStore({ ttlSeconds: 86_400 }))
+  registerAliasStore(new InMemoryAliasStore({ ttlSeconds: 86_400 }))
   tempDir = mkdtempSync(join(tmpdir(), 'acmedns-dns-test-'))
   TEST_CONFIG.database.connection = join(tempDir, 'acme-dns.db')
   await initAcmeDb(TEST_CONFIG)
@@ -116,6 +121,7 @@ afterEach(async () => {
   dnsServer = null
   closeAcmeDb()
   resetTxtStore()
+  resetAliasStore()
   if (tempDir) {
     rmSync(tempDir, { recursive: true, force: true })
     tempDir = ''
@@ -175,5 +181,34 @@ describe('dnsServer', () => {
   test('refuses queries outside the auth zone', async () => {
     const response = await query(port, 'example.org', 'A')
     expect(response.header.rcode).toBe(Packet.RCODE.REFUSED)
+  })
+
+  test('auth hop: entry label answers CNAME only while alias active', async () => {
+    const hop = '018f3a2b-7c4d-7000-8000-0000000000ab'
+    updateTXT({
+      subdomain: '_harianto-dev_',
+      txt: 'abcdefghijklmnopqrstuvwxyz0123456789abcdefg',
+    })
+    updateTXT({
+      subdomain: hop,
+      txt: 'zyxwvutsrqponmlkjihgfedcba9876543210zyxwvut',
+    })
+    requireAliasStore().mint('_harianto-dev_', hop)
+
+    const cname = await query(port, '_harianto-dev_.auth.example.test', 'CNAME')
+    expect(cname.header.rcode).toBe(Packet.RCODE.NOERROR)
+    expect(cname.answers.filter(a => a.type === Packet.TYPE.CNAME).map(a => a.domain))
+      .toContain(`${hop}.auth.example.test`)
+
+    const entryTxt = await query(port, '_harianto-dev_.auth.example.test', 'TXT')
+    expect(entryTxt.answers.filter(a => a.type === Packet.TYPE.TXT)).toHaveLength(0)
+
+    const hopTxt = await query(port, `${hop}.auth.example.test`, 'TXT')
+    expect(hopTxt.answers.flatMap(a => a.data as string[])).toContain(
+      'zyxwvutsrqponmlkjihgfedcba9876543210zyxwvut',
+    )
+
+    const hopCname = await query(port, `${hop}.auth.example.test`, 'CNAME')
+    expect(hopCname.answers.filter(a => a.type === Packet.TYPE.CNAME)).toHaveLength(0)
   })
 })

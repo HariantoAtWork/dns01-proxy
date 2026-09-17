@@ -37,6 +37,7 @@ import {
   resolveAcmeTxtHoldMsSource,
   resolveAcmeTxtSettleMsSource,
 } from '../../../../txt-ttl/runtime/shared/txtTtlConstants'
+import { resolveAuthHopEnabledSource } from '#shared/utils/authHopEnv'
 
 function parseRecordsText(raw: string): string[] {
   return raw
@@ -73,6 +74,15 @@ function buildOperatorView(): OperatorSettingsView {
   const tz = resolveTimezone()
   const acmeTxtSettleMs = resolveAcmeTxtSettleMsSource()
   const acmeTxtHoldMs = resolveAcmeTxtHoldMsSource()
+  const authHopShared = resolveAuthHopEnabledSource()
+  // Mirror server isAuthHopEnabled: config.cfg when app-settings/env unset.
+  let authHop = authHopShared
+  if (authHopShared.source === 'default') {
+    const cfgHop = Boolean(getAcmeConfig().api.auth_hop)
+    if (cfgHop) {
+      authHop = { value: true, source: 'config.cfg' }
+    }
+  }
 
   return {
     acmednsUrl: acmednsUrl.value,
@@ -86,6 +96,7 @@ function buildOperatorView(): OperatorSettingsView {
     tz: tz.value,
     acmeTxtSettleMs: acmeTxtSettleMs.value,
     acmeTxtHoldMs: acmeTxtHoldMs.value,
+    authHop: authHop.value,
     sources: {
       acmednsUrl: acmednsUrl.source,
       defaultAcmednsUrl: defaultAcmednsUrl.source,
@@ -97,6 +108,7 @@ function buildOperatorView(): OperatorSettingsView {
       tz: tz.source,
       acmeTxtSettleMs: acmeTxtSettleMs.source,
       acmeTxtHoldMs: acmeTxtHoldMs.source,
+      authHop: authHop.source,
     },
   }
 }
@@ -126,6 +138,7 @@ function configToViews(config: AcmeDnsConfig) {
       config.api.shared_password
       || envAcmednsSharedKey(),
     ),
+    auth_hop: Boolean(config.api.auth_hop),
     tls: config.api.tls,
     tls_cert_fullchain: config.api.tls_cert_fullchain || '',
     tls_cert_privkey: config.api.tls_cert_privkey || '',
@@ -221,6 +234,9 @@ function applyApi(config: AcmeDnsConfig, patch: Partial<ConfigApiView>) {
     if (config.api.shared_mode) {
       config.api.disable_registration = true
     }
+  }
+  if (patch.auth_hop !== undefined) {
+    config.api.auth_hop = Boolean(patch.auth_hop)
   }
   if (patch.shared_username !== undefined) {
     config.api.shared_username = String(patch.shared_username).trim() || config.api.shared_username
@@ -375,6 +391,9 @@ async function applyOperator(patch: NonNullable<AppSettingsPutBody['operator']>,
       })
     }
     next.acmeTxtHoldMs = Math.floor(n)
+  }
+  if (patch.authHop !== undefined) {
+    next.authHop = Boolean(patch.authHop)
   }
 
   await writeAppSettingsFile(next)

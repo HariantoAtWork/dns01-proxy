@@ -232,12 +232,13 @@ export async function issueCertificate(options: {
       for (const item of pending) {
         throwIfAborted(signal)
         const turn = await challengeSerial.enter()
+        let publish: Awaited<ReturnType<typeof runDns01Challenge>> | undefined
         try {
           logAcmeStep(
             options.certName,
             `Starting dns-01 authorization for ${item.domain} (serial queue)`,
           )
-          await runDns01Challenge({
+          publish = await runDns01Challenge({
             authzIdentifier: item.domain,
             keyAuthorization: item.token,
             certName: options.certName,
@@ -262,6 +263,7 @@ export async function issueCertificate(options: {
           throw error
         }
         finally {
+          publish?.authHopCleanup?.()
           // TXT slots expire via txt-ttl; only release the serial gate here.
           turn.markRemove()
         }

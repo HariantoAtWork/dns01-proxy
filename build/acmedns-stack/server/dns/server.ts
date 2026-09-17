@@ -2,6 +2,7 @@ import dns2 from 'dns2'
 import type { AcmeDnsConfig } from '../utils/types'
 import { getTXTForDomain } from '../utils/db'
 import { getAcmeConfig, parseListenAddress } from '../utils/config'
+import { getAliasTarget, isUuidLabel } from '../utils/authHop'
 import { sanitizeDomainQuestion } from '../utils/validation'
 
 const { Packet } = dns2
@@ -220,31 +221,49 @@ export function createDnsServer(config: AcmeDnsConfig) {
         }
 
         if (type === Packet.TYPE.CNAME || type === Packet.TYPE.ANY) {
-          for (const target of staticRecords.cname.get(name) ?? []) {
+          const label = sanitizeDomainQuestion(name)
+          const hopTarget = !isUuidLabel(label) ? getAliasTarget(label) : null
+          if (hopTarget) {
             pushAnswer(response.answers, {
               name,
               type: Packet.TYPE.CNAME,
               class: Packet.CLASS.IN,
-              ttl: 300,
-              domain: target,
+              ttl: 1,
+              domain: `${hopTarget}.${zone}`,
             })
           }
+          else if (!isUuidLabel(label)) {
+            for (const target of staticRecords.cname.get(name) ?? []) {
+              pushAnswer(response.answers, {
+                name,
+                type: Packet.TYPE.CNAME,
+                class: Packet.CLASS.IN,
+                ttl: 300,
+                domain: target,
+              })
+            }
+          }
+          // UUID hop labels never answer CNAME (TXT terminal).
         }
 
         if (type === Packet.TYPE.TXT || type === Packet.TYPE.ANY) {
           const subdomain = sanitizeDomainQuestion(name)
-          const values = getTXTForDomain(subdomain)
-          for (const data of values) {
-            if (!data) {
-              continue
+          const hopTarget = !isUuidLabel(subdomain) ? getAliasTarget(subdomain) : null
+          // Entry label with active alias is CNAME-only — suppress TXT (even stale slots).
+          if (!hopTarget) {
+            const values = getTXTForDomain(subdomain)
+            for (const data of values) {
+              if (!data) {
+                continue
+              }
+              pushAnswer(response.answers, {
+                name,
+                type: Packet.TYPE.TXT,
+                class: Packet.CLASS.IN,
+                ttl: 1,
+                data,
+              })
             }
-            pushAnswer(response.answers, {
-              name,
-              type: Packet.TYPE.TXT,
-              class: Packet.CLASS.IN,
-              ttl: 1,
-              data,
-            })
           }
         }
 

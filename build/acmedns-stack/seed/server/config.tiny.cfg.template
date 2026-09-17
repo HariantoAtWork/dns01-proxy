@@ -25,6 +25,8 @@ shared_mode = true
 shared_username = "00000000-0000-4000-8000-000000000001"
 # Optional fixed key (43-char base64url). Otherwise auto-generated on first boot.
 # shared_password = ""
+# Opt-in: per-authorization dynamic CNAME hop to a UUID TXT terminal (or ACMEDNS_AUTH_HOP=1).
+# auth_hop = false
 tls = "none"
 tls_cert_fullchain = "/etc/letsencrypt/live/${APEX}/fullchain.pem"
 tls_cert_privkey = "/etc/letsencrypt/live/${APEX}/privkey.pem"

@@ -25,6 +25,11 @@ export interface AppSettingsFile {
   acmeTxtSettleMs?: number
   /** Extra challenge TXT retention after settle (ms). Wins over ACME_TXT_HOLD_MS. */
   acmeTxtHoldMs?: number
+  /**
+   * Opt-in auth hop: dynamic per-authorization CNAME to a UUID TXT terminal.
+   * Wins over ACMEDNS_AUTH_HOP / config.cfg api.auth_hop.
+   */
+  authHop?: boolean
 }
 
 export interface OperatorSettingsView {
@@ -40,6 +45,8 @@ export interface OperatorSettingsView {
   tz: string
   acmeTxtSettleMs: number
   acmeTxtHoldMs: number
+  /** Opt-in per-authorization UUID CNAME hop (Tiny mode). */
+  authHop: boolean
   sources: {
     acmednsUrl: SettingSource
     defaultAcmednsUrl: SettingSource
@@ -51,6 +58,7 @@ export interface OperatorSettingsView {
     tz: SettingSource
     acmeTxtSettleMs: SettingSource
     acmeTxtHoldMs: SettingSource
+    authHop: SettingSource
   }
 }
 
@@ -79,6 +87,8 @@ export interface ConfigApiView {
   /** Never returned after save — use sharedPasswordSet. */
   shared_password: string
   sharedPasswordSet: boolean
+  /** Opt-in auth hop (also via ACMEDNS_AUTH_HOP / app-settings). */
+  auth_hop: boolean
   tls: string
   /** Required when tls = "cert" — paths inside the container. */
   tls_cert_fullchain: string
@@ -142,6 +152,8 @@ export interface AppSettingsPutBody {
     acmeTxtSettleMs?: number
     /** ACME_TXT_HOLD_MS override (ms). Must be > 0. */
     acmeTxtHoldMs?: number
+    /** Opt-in auth hop (per-authorization UUID CNAME). */
+    authHop?: boolean
   }>
   /** When true, remove all keys from app-settings.json (compose env wins). */
   clearOperatorOverrides?: boolean
