@@ -306,10 +306,21 @@ async function clearOverrides() {
 onMounted(() => {
   void load()
 })
+
+const tocItems: Array<{ id: string, label: string }> = [
+  { id: 'settings-tiny', label: 'Tiny mode' },
+  { id: 'settings-operator', label: 'Operator' },
+  { id: 'settings-txt', label: 'TXT' },
+  { id: 'settings-general', label: 'Auth DNS' },
+  { id: 'settings-api', label: 'API' },
+  { id: 'settings-database', label: 'Database' },
+  { id: 'settings-logconfig', label: 'Logging' },
+  { id: 'settings-paths', label: 'Paths' },
+]
 </script>
 
 <template>
-  <div class="mx-auto max-w-[960px] space-y-6 px-1 py-4 md:px-6 md:py-8">
+  <div class="mx-auto max-w-[1100px] px-1 py-4 md:px-6 md:py-8">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="flex items-center gap-2 text-xl font-semibold text-ink md:text-2xl">
@@ -338,13 +349,19 @@ onMounted(() => {
 
     <div
       v-if="restartBanner.length"
-      class="border border-danger bg-panel px-4 py-3 text-sm text-danger"
+      class="mt-6 border border-danger bg-panel px-4 py-3 text-sm text-danger"
       style="border-radius: var(--radius-panel)"
     >
       Restart the container for: {{ restartBanner.join('; ') }}.
     </div>
 
-    <UiPanel accent>
+    <div class="mt-6 flex flex-col gap-6 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <aside class="sticky top-3 z-[1] -mx-1 border-b border-rule bg-paper/95 px-1 py-2 backdrop-blur-sm lg:top-6 lg:mx-0 lg:border-b-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
+        <SettingsToc :items="tocItems" />
+      </aside>
+
+      <div class="min-w-0 space-y-6">
+    <UiPanel id="settings-tiny" class="scroll-mt-20 lg:scroll-mt-6" accent>
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="min-w-0">
           <h2 class="text-base font-semibold tracking-tight">Tiny mode</h2>
@@ -402,7 +419,7 @@ onMounted(() => {
       <SharedTinySummary v-if="api.shared_mode" class="mt-4" />
     </UiPanel>
 
-    <UiPanel accent>
+    <UiPanel id="settings-operator" class="scroll-mt-20 lg:scroll-mt-6" accent>
       <h2 class="text-base font-semibold tracking-tight">Operator (compose / env)</h2>
       <p class="mt-1 text-sm text-muted">
         Overrides live in <span class="font-mono text-ink">{{ paths.appSettings || 'client/app-settings.json' }}</span>.
@@ -431,28 +448,6 @@ onMounted(() => {
         </UiField>
         <UiField label="TZ" :hint="sourceLabel(operator.sources.tz)">
           <UiInput v-model="operator.tz" mono :disabled="pending" />
-        </UiField>
-        <UiField
-          label="ACME_TXT_SETTLE_MS"
-          :hint="`${sourceLabel(operator.sources.acmeTxtSettleMs)} · pause after TXT online before LE validate (0 disables)`"
-        >
-          <UiInput
-            :model-value="String(operator.acmeTxtSettleMs)"
-            mono
-            :disabled="pending"
-            @update:model-value="operator.acmeTxtSettleMs = Math.max(0, Number($event) || 0)"
-          />
-        </UiField>
-        <UiField
-          label="ACME_TXT_HOLD_MS"
-          :hint="`${sourceLabel(operator.sources.acmeTxtHoldMs)} · extra TXT retention after settle (store lifetime = settle + hold)`"
-        >
-          <UiInput
-            :model-value="String(operator.acmeTxtHoldMs)"
-            mono
-            :disabled="pending"
-            @update:model-value="operator.acmeTxtHoldMs = Math.max(1, Number($event) || 1)"
-          />
         </UiField>
         <UiField
           label="ADMINISTRATOR_PASSWORD"
@@ -486,7 +481,40 @@ onMounted(() => {
       </label>
     </UiPanel>
 
-    <UiPanel>
+    <UiPanel id="settings-txt" class="scroll-mt-20 lg:scroll-mt-6" accent>
+      <h2 class="text-base font-semibold tracking-tight">Challenge TXT timing</h2>
+      <p class="mt-1 text-sm text-muted">
+        Store lifetime = settle + hold. Dashboard overrides win over compose
+        <span class="font-mono text-ink">ACME_TXT_SETTLE_MS</span> /
+        <span class="font-mono text-ink">ACME_TXT_HOLD_MS</span>.
+      </p>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        <UiField
+          label="ACME_TXT_SETTLE_MS"
+          :hint="`${sourceLabel(operator.sources.acmeTxtSettleMs)} · pause after TXT online before LE validate (0 disables)`"
+        >
+          <UiInput
+            :model-value="String(operator.acmeTxtSettleMs)"
+            mono
+            :disabled="pending"
+            @update:model-value="operator.acmeTxtSettleMs = Math.max(0, Number($event) || 0)"
+          />
+        </UiField>
+        <UiField
+          label="ACME_TXT_HOLD_MS"
+          :hint="`${sourceLabel(operator.sources.acmeTxtHoldMs)} · extra TXT retention after settle`"
+        >
+          <UiInput
+            :model-value="String(operator.acmeTxtHoldMs)"
+            mono
+            :disabled="pending"
+            @update:model-value="operator.acmeTxtHoldMs = Math.max(1, Number($event) || 1)"
+          />
+        </UiField>
+      </div>
+    </UiPanel>
+
+    <UiPanel id="settings-general" class="scroll-mt-20 lg:scroll-mt-6">
       <h2 class="text-base font-semibold tracking-tight">Auth DNS — config.cfg [general]</h2>
       <p class="mt-1 font-mono text-xs text-muted">{{ paths.configCfg }}</p>
       <p v-if="api.shared_mode" class="mt-2 text-sm text-muted">
@@ -534,7 +562,7 @@ onMounted(() => {
       </UiField>
     </UiPanel>
 
-    <UiPanel>
+    <UiPanel id="settings-api" class="scroll-mt-20 lg:scroll-mt-6">
       <h2 class="text-base font-semibold tracking-tight">API — [api]</h2>
       <p v-if="api.shared_mode" class="mt-1 text-sm text-muted">
         Registration stays disabled while Tiny mode is on.
@@ -588,7 +616,7 @@ onMounted(() => {
       </UiField>
     </UiPanel>
 
-    <UiPanel>
+    <UiPanel id="settings-database" class="scroll-mt-20 lg:scroll-mt-6">
       <h2 class="text-base font-semibold tracking-tight">Database — [database]</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
         <UiField label="engine">
@@ -600,7 +628,7 @@ onMounted(() => {
       </div>
     </UiPanel>
 
-    <UiPanel>
+    <UiPanel id="settings-logconfig" class="scroll-mt-20 lg:scroll-mt-6">
       <h2 class="text-base font-semibold tracking-tight">Logging — [logconfig]</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-3">
         <UiField label="loglevel">
@@ -615,7 +643,7 @@ onMounted(() => {
       </div>
     </UiPanel>
 
-    <UiPanel>
+    <UiPanel id="settings-paths" class="scroll-mt-20 lg:scroll-mt-6">
       <h2 class="text-base font-semibold tracking-tight">Paths (read-only)</h2>
       <p class="mt-1 text-sm text-muted">Must match compose volumes / bind; change via compose, not here.</p>
       <dl class="mt-3 grid gap-2 font-mono text-xs md:grid-cols-[10rem_minmax(0,1fr)]">
@@ -642,5 +670,7 @@ onMounted(() => {
         <dd class="break-all text-ink">{{ paths.nitroHost || '—' }}</dd>
       </dl>
     </UiPanel>
+      </div>
+    </div>
   </div>
 </template>
