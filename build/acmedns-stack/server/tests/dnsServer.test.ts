@@ -211,4 +211,30 @@ describe('dnsServer', () => {
     const hopCname = await query(port, `${hop}.auth.example.test`, 'CNAME')
     expect(hopCname.answers.filter(a => a.type === Packet.TYPE.CNAME)).toHaveLength(0)
   })
+
+  test('auth hop: arbitrary and UUID entry labels can hold the dynamic CNAME', async () => {
+    const hopCake = '018f3a2b-7c4d-7111-8111-0000000000cd'
+    const hopFromUuid = '018f3a2b-7c4d-7222-8222-0000000000ef'
+    const entryUuid = '018f3a2b-7c4d-7333-8333-0000000000aa'
+
+    requireAliasStore().mint('i-eat-cake', hopCake)
+    requireAliasStore().mint(entryUuid, hopFromUuid)
+    updateTXT({
+      subdomain: hopCake,
+      txt: 'abcdefghijklmnopqrstuvwxyz0123456789abcdefg',
+    })
+    updateTXT({
+      subdomain: hopFromUuid,
+      txt: 'bcdefghijklmnopqrstuvwxyz0123456789abcdefgh',
+    })
+
+    const cake = await query(port, 'i-eat-cake.auth.example.test', 'CNAME')
+    expect(cake.answers.filter(a => a.type === Packet.TYPE.CNAME).map(a => a.domain))
+      .toContain(`${hopCake}.auth.example.test`)
+
+    const fromUuid = await query(port, `${entryUuid}.auth.example.test`, 'CNAME')
+    expect(fromUuid.answers.filter(a => a.type === Packet.TYPE.CNAME).map(a => a.domain))
+      .toContain(`${hopFromUuid}.auth.example.test`)
+    expect(fromUuid.answers.filter(a => a.type === Packet.TYPE.TXT)).toHaveLength(0)
+  })
 })

@@ -278,9 +278,11 @@ export async function runDns01Challenge(options: {
   if (options.shared && isAuthHopEnabled()) {
     const authZone = options.shared.authZone
     const lastLanding = cnameTargets[cnameTargets.length - 1]
-    if (lastLanding && !authZoneTxtLabel(lastLanding, authZone)) {
+    if (!lastLanding || !authZoneTxtLabel(lastLanding, authZone)) {
       throw new Error(
-        `Auth hop requires CNAME to land on local auth zone ${authZone} (got ${lastLanding})`,
+        `Auth hop requires a public CNAME to any single label under ${authZone} `
+        + `(e.g. _apex_.${authZone}, i-eat-cake.${authZone}, or <uuid>.${authZone})`
+        + (lastLanding ? ` — got ${lastLanding}` : ' — no auth-zone landing found'),
       )
     }
     const entryLabel = resolveAuthHopEntryLabel(options.certName, authZone, cnameTargets)

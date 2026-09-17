@@ -7,7 +7,8 @@ import {
 
 /**
  * Entry label for the dynamic CNAME hop: last auth-zone landing from the
- * public CNAME chain, else the encoded Tiny apex label.
+ * public CNAME chain (any single label under the zone), else the encoded
+ * Tiny apex label as a last resort when no live targets were collected.
  */
 export function resolveAuthHopEntryLabel(
   certName: string,
