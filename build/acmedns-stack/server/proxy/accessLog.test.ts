@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { formatProxyAccessLine, proxyAccessLogEnabled } from './accessLog'
+import {
+  formatProxyAccessLine,
+  isNoisyUnmatchedHost,
+  proxyAccessLogEnabled,
+} from './accessLog'
 import {
   parseProxyLogLevel,
   proxyLogEnabled,
@@ -56,6 +60,18 @@ describe('proxyAccessLogEnabled', () => {
     expect(proxyAccessLogEnabled()).toBe(false)
     process.env.PROXY_LOG_LEVEL = 'debug'
     expect(proxyAccessLogEnabled()).toBe(true)
+  })
+})
+
+describe('isNoisyUnmatchedHost', () => {
+  test('flags docker DNS, loopback, and bare IPs', () => {
+    expect(isNoisyUnmatchedHost('host.docker.internal')).toBe(true)
+    expect(isNoisyUnmatchedHost('host.docker.internal:80')).toBe(true)
+    expect(isNoisyUnmatchedHost('127.0.0.1')).toBe(true)
+    expect(isNoisyUnmatchedHost('localhost:443')).toBe(true)
+    expect(isNoisyUnmatchedHost('[::1]:80')).toBe(true)
+    expect(isNoisyUnmatchedHost('10.0.0.5')).toBe(true)
+    expect(isNoisyUnmatchedHost('blog.example.com')).toBe(false)
   })
 })
 

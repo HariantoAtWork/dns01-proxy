@@ -149,7 +149,21 @@ function remoteLedTitle(host: ProxyHost, domain: string): string {
     const ms = health.latencyMs != null ? ` (${health.latencyMs}ms)` : ''
     return `Online${ms}`
   }
-  return health.error ? `Offline — ${health.error}` : 'Offline'
+  if (!health.error) {
+    return 'Offline'
+  }
+  // Server already classifies most probe errors; keep tooltip short for Source LEDs.
+  const err = health.error
+  if (/DNS:/i.test(err)) {
+    return `Offline — ${err}`
+  }
+  if (/timeout/i.test(err)) {
+    return 'Offline — timeout (public reachability)'
+  }
+  if (/TLS probe/i.test(err)) {
+    return 'Offline — TLS probe failed (public URL)'
+  }
+  return `Offline — ${err}`
 }
 
 function isVisitFlashing(hostId: string, entryName: string): boolean {

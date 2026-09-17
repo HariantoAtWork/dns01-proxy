@@ -121,8 +121,33 @@ async function onToggleEnabled(host: ProxyHost, enabled: boolean) {
   }
 }
 
+const HEALTH_REPROBE_MS = 30_000
+let healthTimer: ReturnType<typeof setInterval> | undefined
+
+async function reprobeHealth() {
+  if (pending.value || !hosts.value.length) {
+    return
+  }
+  try {
+    await Promise.all([loadAllHealth(), loadAllRemoteHealth()])
+  }
+  catch {
+    // Interval pass is best-effort; Refresh still surfaces errors.
+  }
+}
+
 onMounted(() => {
   void refresh()
+  healthTimer = setInterval(() => {
+    void reprobeHealth()
+  }, HEALTH_REPROBE_MS)
+})
+
+onUnmounted(() => {
+  if (healthTimer) {
+    clearInterval(healthTimer)
+    healthTimer = undefined
+  }
 })
 </script>
 

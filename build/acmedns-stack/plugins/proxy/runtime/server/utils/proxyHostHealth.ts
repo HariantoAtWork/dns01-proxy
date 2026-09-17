@@ -16,6 +16,31 @@ type ProbeTarget = {
 }
 
 const DEFAULT_TIMEOUT_MS = 3000
+/** Public/hairpin probes stay short so a large Hosts list cannot pin the edge. */
+const DEFAULT_REMOTE_TIMEOUT_MS = 2500
+
+/** Process-wide cap: remote probes hairpin back into this Bun edge. */
+const REMOTE_PROBE_CONCURRENCY = 1
+
+let remoteProbeActive = 0
+const remoteProbeWaiters: Array<() => void> = []
+
+async function withRemoteProbeSlot<T>(fn: () => Promise<T>): Promise<T> {
+  while (remoteProbeActive >= REMOTE_PROBE_CONCURRENCY) {
+    await new Promise<void>((resolve) => {
+      remoteProbeWaiters.push(resolve)
+    })
+  }
+  remoteProbeActive += 1
+  try {
+    return await fn()
+  }
+  finally {
+    remoteProbeActive -= 1
+    const next = remoteProbeWaiters.shift()
+    next?.()
+  }
+}
 
 function probeUrl(target: ProbeTarget): string {
   return `${target.forwardScheme}://${target.forwardHost}:${target.forwardPort}/`
@@ -60,6 +85,24 @@ async function fetchOnce(
   }
 }
 
+/** Short, stable probe error labels for UI tooltips. */
+export function classifyProbeError(message: string): string {
+  const text = message.trim() || 'probe failed'
+  if (/ENOTFOUND|getaddrinfo|EAI_AGAIN/i.test(text)) {
+    return 'DNS: hostname not found'
+  }
+  if (/timeout|aborted|AbortError|The operation was aborted/i.test(text)) {
+    return 'timeout'
+  }
+  if (/CERTIFICATE|CERT_|UNKNOWN_CERTIFICATE|SSL|TLS/i.test(text)) {
+    return 'TLS probe failed'
+  }
+  if (/ECONNREFUSED/i.test(text)) {
+    return 'connection refused'
+  }
+  return text.length > 96 ? `${text.slice(0, 93)}…` : text
+}
+
 async function probeHttp(
   url: string,
   timeoutMs: number,
@@ -85,7 +128,7 @@ async function probeHttp(
         : headError instanceof Error
           ? headError.message
           : 'http probe failed'
-      return { error: message }
+      return { error: classifyProbeError(message) }
     }
   }
 }
@@ -180,7 +223,7 @@ export async function probeProxyHostHealth(
     online: false,
     latencyMs: Date.now() - started,
     target: url,
-    error: `${http.error}; ${tcp.error}`,
+    error: `${http.error}; ${classifyProbeError(tcp.error)}`,
   }
 }
 
@@ -196,10 +239,19 @@ export type ProxyRemoteHealthProbe = {
  * Reachability for Proxy Host Source-column LEDs.
  * Probes the public site URL (same as the Source link). HTTP(S) only — no TCP fallback.
  * Any HTTP response counts as online.
+ *
+ * Serialized process-wide so a large Hosts list cannot hairpin-DoS live :80/:443 traffic.
  */
 export async function probeProxyRemoteHealth(
   url: string,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
+  timeoutMs = DEFAULT_REMOTE_TIMEOUT_MS,
+): Promise<ProxyRemoteHealthProbe> {
+  return await withRemoteProbeSlot(() => probeProxyRemoteHealthUnlocked(url, timeoutMs))
+}
+
+async function probeProxyRemoteHealthUnlocked(
+  url: string,
+  timeoutMs: number,
 ): Promise<ProxyRemoteHealthProbe> {
   const target = typeof url === 'string' ? url.trim() : ''
   if (!target) {
