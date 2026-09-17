@@ -13,12 +13,25 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>('open', { required: true })
 const panel = useTemplateRef<HTMLElement>('panel')
+/** Stays in the Vue tree (not teleported) so we can find a parent `<dialog>`. */
+const anchor = useTemplateRef<HTMLElement>('anchor')
 const titleId = useId()
+/** `body` when standalone; nearest open dialog when nested in `UiModal`. */
+const teleportTo = ref<HTMLElement | string>('body')
+const showOverlay = ref(false)
 
 watch(open, async (value) => {
   if (!value) {
+    showOverlay.value = false
+    teleportTo.value = 'body'
     return
   }
+  await nextTick()
+  // Native showModal() uses the top layer — a body teleport with z-index sits
+  // underneath and looks like the confirm never opened (Register overwrite).
+  const dialog = anchor.value?.closest('dialog')
+  teleportTo.value = dialog instanceof HTMLElement ? dialog : 'body'
+  showOverlay.value = true
   await nextTick()
   // Focus the panel so Enter/Space hit the confirm form, not a parent dialog control.
   panel.value?.querySelector<HTMLElement>('button[type="submit"]')?.focus()
@@ -49,12 +62,14 @@ function onKeydown(event: KeyboardEvent) {
 
 <template>
   <!--
-    Overlay (not <dialog>) so Confirm can open above Register/Proxy modals.
-    A nested showModal() would close the parent dialog and look like the modal “vanished”.
+    Overlay (not nested <dialog>) so Confirm can open above Register/Proxy modals
+    without a second showModal() dismissing the parent.
+    Teleport into the open dialog when nested so we stay in the top layer.
   -->
-  <Teleport to="body">
+  <span ref="anchor" class="hidden" aria-hidden="true" />
+  <Teleport :to="teleportTo">
     <div
-      v-if="open"
+      v-if="showOverlay"
       class="fixed inset-0 z-[80] flex items-center justify-center bg-ink/40 p-4"
       role="presentation"
       @click.self="onCancel"
