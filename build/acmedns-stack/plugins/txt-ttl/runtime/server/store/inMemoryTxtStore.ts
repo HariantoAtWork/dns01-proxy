@@ -6,7 +6,8 @@ export interface TxtSlot {
 }
 
 export interface InMemoryTxtStoreOptions {
-  ttlSeconds: number
+  /** Fixed seconds, or a getter so Settings/env overrides apply to new updates. */
+  ttlSeconds: number | (() => number)
   now?: () => number
   slotCount?: number
 }
@@ -16,15 +17,20 @@ function emptySlot(): TxtSlot {
 }
 
 export class InMemoryTxtStore {
-  private readonly ttlMs: number
+  private readonly ttlSeconds: number | (() => number)
   private readonly now: () => number
   private readonly slotCount: number
   private readonly bySubdomain = new Map<string, TxtSlot[]>()
 
   constructor(options: InMemoryTxtStoreOptions) {
-    this.ttlMs = options.ttlSeconds * 1000
+    this.ttlSeconds = options.ttlSeconds
     this.now = options.now ?? (() => Date.now())
     this.slotCount = options.slotCount ?? TXT_RECORD_SLOTS
+  }
+
+  private ttlMs(): number {
+    const seconds = typeof this.ttlSeconds === 'function' ? this.ttlSeconds() : this.ttlSeconds
+    return Math.max(1, seconds) * 1000
   }
 
   private slotsFor(subdomain: string): TxtSlot[] {
@@ -73,7 +79,7 @@ export class InMemoryTxtStore {
     const slots = this.slotsFor(subdomain)
     this.purgeExpiredSlots(slots, now)
     const index = this.pickSlotIndex(slots, now)
-    slots[index] = { value: txt, expiresAt: now + this.ttlMs }
+    slots[index] = { value: txt, expiresAt: now + this.ttlMs() }
   }
 
   getValues(subdomain: string): string[] {

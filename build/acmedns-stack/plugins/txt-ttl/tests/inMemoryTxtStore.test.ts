@@ -73,4 +73,23 @@ describe('InMemoryTxtStore', () => {
     expect(store.getValues('a')).toEqual([])
     expect(store.getValues('b')).toEqual([])
   })
+
+  test('ttlSeconds getter is used for each update', () => {
+    let now = 1_000_000
+    let ttlSeconds = 10
+    const store = new InMemoryTxtStore({
+      ttlSeconds: () => ttlSeconds,
+      now: () => now,
+      slotCount: 1,
+    })
+
+    store.update('sub-a', TXT)
+    now += 5_000
+    expect(store.getValues('sub-a')).toEqual([TXT])
+
+    ttlSeconds = 1
+    store.update('sub-a', TXT2)
+    now += 1_500
+    expect(store.getValues('sub-a')).toEqual([])
+  })
 })

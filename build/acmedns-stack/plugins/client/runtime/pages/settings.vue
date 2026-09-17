@@ -34,6 +34,8 @@ const operator = reactive({
   administratorPassword: '',
   passwordSet: false,
   tz: 'UTC',
+  acmeTxtSettleMs: 5000,
+  acmeTxtHoldMs: 300000,
   sources: {} as AppSettingsResponse['operator']['sources'],
 })
 
@@ -237,6 +239,8 @@ async function save() {
         certsAcmeDisabled: operator.certsAcmeDisabled,
         certsRenewDisabled: operator.certsRenewDisabled,
         tz: operator.tz,
+        acmeTxtSettleMs: Number(operator.acmeTxtSettleMs),
+        acmeTxtHoldMs: Number(operator.acmeTxtHoldMs),
       },
       general: generalBody,
       database: { ...database },
@@ -427,6 +431,28 @@ onMounted(() => {
         </UiField>
         <UiField label="TZ" :hint="sourceLabel(operator.sources.tz)">
           <UiInput v-model="operator.tz" mono :disabled="pending" />
+        </UiField>
+        <UiField
+          label="ACME_TXT_SETTLE_MS"
+          :hint="`${sourceLabel(operator.sources.acmeTxtSettleMs)} · pause after TXT online before LE validate (0 disables)`"
+        >
+          <UiInput
+            :model-value="String(operator.acmeTxtSettleMs)"
+            mono
+            :disabled="pending"
+            @update:model-value="operator.acmeTxtSettleMs = Math.max(0, Number($event) || 0)"
+          />
+        </UiField>
+        <UiField
+          label="ACME_TXT_HOLD_MS"
+          :hint="`${sourceLabel(operator.sources.acmeTxtHoldMs)} · extra TXT retention after settle (store lifetime = settle + hold)`"
+        >
+          <UiInput
+            :model-value="String(operator.acmeTxtHoldMs)"
+            mono
+            :disabled="pending"
+            @update:model-value="operator.acmeTxtHoldMs = Math.max(1, Number($event) || 1)"
+          />
         </UiField>
         <UiField
           label="ADMINISTRATOR_PASSWORD"

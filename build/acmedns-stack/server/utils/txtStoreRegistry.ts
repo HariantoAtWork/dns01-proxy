@@ -21,9 +21,10 @@ export function resetTxtStore(): void {
 
 export function ensureTxtStoreReady(): TxtStore {
   if (!store) {
-    const ttlSeconds = resolveTxtTtlSeconds()
-    store = new InMemoryTxtStore({ ttlSeconds })
-    console.info(`[txt-ttl] in-memory TXT store ready (lifetime ${ttlSeconds}s = settle + hold)`)
+    store = new InMemoryTxtStore({ ttlSeconds: () => resolveTxtTtlSeconds() })
+    console.info(
+      `[txt-ttl] in-memory TXT store ready (lifetime ${resolveTxtTtlSeconds()}s = settle + hold; re-reads Settings/env on each update)`,
+    )
   }
   return store
 }

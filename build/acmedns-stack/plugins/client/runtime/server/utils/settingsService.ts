@@ -33,6 +33,10 @@ import {
   writeAppSettingsFile,
 } from './appSettings'
 import { envAcmeDnsListen, envAcmednsSharedKey } from '../../../../../core/env'
+import {
+  resolveAcmeTxtHoldMsSource,
+  resolveAcmeTxtSettleMsSource,
+} from '../../../../txt-ttl/runtime/shared/txtTtlConstants'
 
 function parseRecordsText(raw: string): string[] {
   return raw
@@ -67,6 +71,8 @@ function buildOperatorView(): OperatorSettingsView {
   const certsRenewDisabled = resolveCertsRenewDisabled()
   const administratorPassword = resolveAdministratorPassword()
   const tz = resolveTimezone()
+  const acmeTxtSettleMs = resolveAcmeTxtSettleMsSource()
+  const acmeTxtHoldMs = resolveAcmeTxtHoldMsSource()
 
   return {
     acmednsUrl: acmednsUrl.value,
@@ -78,6 +84,8 @@ function buildOperatorView(): OperatorSettingsView {
     administratorPassword: '',
     passwordSet: administratorPassword.value.length > 0,
     tz: tz.value,
+    acmeTxtSettleMs: acmeTxtSettleMs.value,
+    acmeTxtHoldMs: acmeTxtHoldMs.value,
     sources: {
       acmednsUrl: acmednsUrl.source,
       defaultAcmednsUrl: defaultAcmednsUrl.source,
@@ -87,6 +95,8 @@ function buildOperatorView(): OperatorSettingsView {
       certsRenewDisabled: certsRenewDisabled.source,
       administratorPassword: administratorPassword.source,
       tz: tz.source,
+      acmeTxtSettleMs: acmeTxtSettleMs.source,
+      acmeTxtHoldMs: acmeTxtHoldMs.source,
     },
   }
 }
@@ -345,6 +355,26 @@ async function applyOperator(patch: NonNullable<AppSettingsPutBody['operator']>,
     else {
       delete next.tinyDomain
     }
+  }
+  if (patch.acmeTxtSettleMs !== undefined) {
+    const n = Number(patch.acmeTxtSettleMs)
+    if (!Number.isFinite(n) || n < 0) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'ACME_TXT_SETTLE_MS must be a number ≥ 0 (0 disables settle)',
+      })
+    }
+    next.acmeTxtSettleMs = Math.floor(n)
+  }
+  if (patch.acmeTxtHoldMs !== undefined) {
+    const n = Number(patch.acmeTxtHoldMs)
+    if (!Number.isFinite(n) || n <= 0) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'ACME_TXT_HOLD_MS must be a number > 0',
+      })
+    }
+    next.acmeTxtHoldMs = Math.floor(n)
   }
 
   await writeAppSettingsFile(next)

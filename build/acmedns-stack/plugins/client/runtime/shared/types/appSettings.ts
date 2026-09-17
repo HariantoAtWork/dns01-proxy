@@ -21,6 +21,10 @@ export interface AppSettingsFile {
   tinyDomain?: string
   administratorPassword?: string
   tz?: string
+  /** Pause after TXT online before LE validate (ms). 0 disables. Wins over ACME_TXT_SETTLE_MS. */
+  acmeTxtSettleMs?: number
+  /** Extra challenge TXT retention after settle (ms). Wins over ACME_TXT_HOLD_MS. */
+  acmeTxtHoldMs?: number
 }
 
 export interface OperatorSettingsView {
@@ -34,6 +38,8 @@ export interface OperatorSettingsView {
   administratorPassword: string
   passwordSet: boolean
   tz: string
+  acmeTxtSettleMs: number
+  acmeTxtHoldMs: number
   sources: {
     acmednsUrl: SettingSource
     defaultAcmednsUrl: SettingSource
@@ -43,6 +49,8 @@ export interface OperatorSettingsView {
     certsRenewDisabled: SettingSource
     administratorPassword: SettingSource
     tz: SettingSource
+    acmeTxtSettleMs: SettingSource
+    acmeTxtHoldMs: SettingSource
   }
 }
 
@@ -130,6 +138,10 @@ export interface AppSettingsPutBody {
      * empty string = clear dashboard override (env may still apply).
      */
     tinyDomain?: string | null
+    /** ACME_TXT_SETTLE_MS override (ms). 0 disables settle pause. */
+    acmeTxtSettleMs?: number
+    /** ACME_TXT_HOLD_MS override (ms). Must be > 0. */
+    acmeTxtHoldMs?: number
   }>
   /** When true, remove all keys from app-settings.json (compose env wins). */
   clearOperatorOverrides?: boolean
