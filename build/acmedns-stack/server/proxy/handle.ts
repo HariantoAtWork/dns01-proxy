@@ -12,6 +12,7 @@ import { matchProxyRoute } from './routeTable'
 import { tryUpgradeProxyWebSocket } from './websocket'
 import { evaluateAccessList } from './accessEvaluate'
 import { respondPublicLiveStatus } from './liveStatus'
+import { publishProxyVisit } from './visitBus'
 
 function hostnameOf(req: Request, url: URL): string {
   const header = req.headers.get('host')
@@ -182,6 +183,12 @@ export async function tryHandleProxy(
     })
     return new Response('Not Found', { status: 404 })
   }
+
+  publishProxyVisit({
+    hostId: match.host.id,
+    domain: hostname,
+    at: new Date().toISOString(),
+  })
 
   if (!binding.tls) {
     const redirect = forceSslRedirect(req, reqUrl, match.host)

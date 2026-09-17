@@ -7,7 +7,7 @@ import {
   proxySslAvailabilityLabel,
   proxySslCertLabel,
 } from '#proxy-shared/utils/proxyCertMatch'
-import { forwardTarget, isWildcardDomainName } from '#proxy-shared/utils/proxyHost'
+import { forwardTarget, isWildcardDomainName, visitMatchesDomainEntry } from '#proxy-shared/utils/proxyHost'
 import {
   PhCircle as Circle,
   PhPencilSimple as Pencil,
@@ -28,18 +28,25 @@ type RemoteDomainHealth = {
   error?: string
 }
 
+type VisitFlash = {
+  hostId: string
+  domain: string
+}
+
 const {
   hosts,
   healthById = {},
   remoteHealthById = {},
   certEntries = [],
   togglingId = null,
+  visitFlashes = [],
 } = defineProps<{
   hosts: ProxyHost[]
   healthById?: Record<string, HostHealth>
   remoteHealthById?: Record<string, Record<string, RemoteDomainHealth>>
   certEntries?: ProxyCertCandidate[]
   togglingId?: string | null
+  visitFlashes?: VisitFlash[]
 }>()
 
 const emit = defineEmits<{
@@ -145,6 +152,12 @@ function remoteLedTitle(host: ProxyHost, domain: string): string {
   return health.error ? `Offline — ${health.error}` : 'Offline'
 }
 
+function isVisitFlashing(hostId: string, entryName: string): boolean {
+  return visitFlashes.some(
+    item => item.hostId === hostId && visitMatchesDomainEntry(item.domain, entryName),
+  )
+}
+
 function onEnabledChange(host: ProxyHost, event: Event) {
   const checked = (event.target as HTMLInputElement).checked
   emit('toggle-enabled', host, checked)
@@ -178,13 +191,19 @@ function onEnabledChange(host: ProxyHost, event: Event) {
                 :key="entry.name"
                 class="flex items-center gap-1.5"
               >
-                <Circle
-                  :size="8"
-                  weight="fill"
-                  aria-hidden="true"
-                  :class="remoteLedClass(host, entry.name)"
-                  :title="remoteLedTitle(host, entry.name)"
-                />
+                <span
+                  class="proxy-source-led relative inline-flex size-2 shrink-0 items-center justify-center"
+                  :class="isVisitFlashing(host.id, entry.name) && 'proxy-source-led--flash'"
+                >
+                  <Circle
+                    :size="8"
+                    weight="fill"
+                    aria-hidden="true"
+                    class="relative z-[1]"
+                    :class="remoteLedClass(host, entry.name)"
+                    :title="remoteLedTitle(host, entry.name)"
+                  />
+                </span>
                 <a
                   v-if="entry.href"
                   :href="entry.href"
@@ -294,3 +313,28 @@ function onEnabledChange(host: ProxyHost, event: Event) {
     </table>
   </div>
 </template>
+
+<style scoped>
+.proxy-source-led--flash::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--signal, #3b82f6) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--signal, #3b82f6) 35%, transparent);
+  animation: proxy-source-led-flash 400ms ease-out;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes proxy-source-led-flash {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+</style>

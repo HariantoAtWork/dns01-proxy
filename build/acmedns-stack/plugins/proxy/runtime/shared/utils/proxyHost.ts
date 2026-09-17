@@ -55,6 +55,27 @@ export function wildcardParentSuffix(name: string): string | null {
   return normalizeDomainName(name).slice(2)
 }
 
+/** Whether a visit hostname should flash a Source-row domain entry (exact or one-label wildcard). */
+export function visitMatchesDomainEntry(visitDomain: string, entryName: string): boolean {
+  const visit = normalizeDomainName(visitDomain)
+  const entry = normalizeDomainName(entryName)
+  if (!visit || !entry) {
+    return false
+  }
+  if (visit === entry) {
+    return true
+  }
+  if (!isWildcardDomainName(entry)) {
+    return false
+  }
+  const suffix = wildcardParentSuffix(entry)
+  if (!suffix || !visit.endsWith(`.${suffix}`)) {
+    return false
+  }
+  const label = visit.slice(0, -(suffix.length + 1))
+  return label.length > 0 && !label.includes('.')
+}
+
 function isPlainHostname(name: string): boolean {
   // One or more DNS labels; no wildcards, paths, or spaces.
   return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/.test(name)
