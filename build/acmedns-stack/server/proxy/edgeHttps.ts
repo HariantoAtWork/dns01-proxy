@@ -16,10 +16,12 @@ type EdgeHttpsRuntime = {
   websocket: object
 }
 
+type BunTlsBodies = NonNullable<ReturnType<typeof buildEdgeTlsOptions>>
+
 /** Max wait for graceful :443 drain before force-stop (WebSocket/SSE can hold forever). */
 export const EDGE_HTTPS_DRAIN_MS = 2_000
 
-/** Coalesce rapid Proxy Host saves into one SNI rebind. */
+/** Coalesce rapid Proxy Host saves into one SNI update. */
 export const EDGE_HTTPS_RELOAD_DEBOUNCE_MS = 750
 
 let runtime: EdgeHttpsRuntime | null = null
@@ -47,24 +49,26 @@ export function registerEdgeHttpsRuntime(
   }
 }
 
-function startHttps(tlsBodies: NonNullable<ReturnType<typeof buildEdgeTlsOptions>>): Server {
+function serveOptions(tlsBodies: BunTlsBodies) {
   if (!runtime) {
     throw new Error('edge HTTPS runtime not registered')
   }
-  return Bun.serve({
+  return {
     port: runtime.binding.port,
     hostname: runtime.binding.host,
     idleTimeout: resolveIdleTimeoutSeconds('edge'),
     tls: tlsBodies,
     http2: true,
-    fetch: (req, server) => runtime!.fetch(req, server),
+    fetch: (req: Request, server: unknown) => runtime!.fetch(req, server),
     websocket: runtime.websocket,
-  } as Parameters<typeof Bun.serve>[0])
+  } as Parameters<typeof Bun.serve>[0]
 }
 
-async function startHttpsWithRetry(
-  tlsBodies: NonNullable<ReturnType<typeof buildEdgeTlsOptions>>,
-): Promise<Server> {
+function startHttps(tlsBodies: BunTlsBodies): Server {
+  return Bun.serve(serveOptions(tlsBodies))
+}
+
+async function startHttpsWithRetry(tlsBodies: BunTlsBodies): Promise<Server> {
   let lastError: unknown
   for (let attempt = 0; attempt < 6; attempt++) {
     try {
@@ -104,6 +108,20 @@ export async function stopHttpsWithDrainCap(
   return 'forced'
 }
 
+/**
+ * Hot-update SNI/TLS on the live :443 listener (Bun.serve reload).
+ * Does not drop the socket — other Proxy Hosts keep working across host add/remove.
+ */
+export function applyEdgeHttpsTlsHot(
+  server: Server,
+  tlsBodies: BunTlsBodies,
+): Server {
+  if (!runtime) {
+    throw new Error('edge HTTPS runtime not registered')
+  }
+  return server.reload(serveOptions(tlsBodies))
+}
+
 async function reloadEdgeHttpsUnlocked(): Promise<void> {
   if (!runtime) {
     return
@@ -113,7 +131,7 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
   const tlsBodies = want ? buildEdgeTlsOptions() : null
   const nextFingerprint = fingerprintEdgeTls(tlsBodies)
 
-  // Routes already hot-swapped — skip stop/rebind when SNI PEMs are identical.
+  // Routes already hot-swapped — skip when SNI PEMs + serverNames are identical.
   if (httpsServer && nextFingerprint === lastTlsFingerprint && nextFingerprint !== '') {
     proxyLog('debug', '[acmedns] Edge HTTPS SNI unchanged — skip rebind')
     return
@@ -122,9 +140,26 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
     return
   }
 
+  // Still have a live HTTPS listener and still want TLS: hot-reload SNI in place.
+  // stop()+rebind briefly refuses :443 and kills every other host — unacceptable for NPM parity.
+  if (httpsServer && tlsBodies) {
+    try {
+      httpsServer = applyEdgeHttpsTlsHot(httpsServer, tlsBodies)
+      lastTlsFingerprint = nextFingerprint
+      proxyLog('info', `[acmedns] Edge HTTPS SNI hot-reloaded on ${httpsServer.url} (no port drop)`)
+      return
+    }
+    catch (error) {
+      proxyLog(
+        'warn',
+        `[acmedns] Edge HTTPS hot-reload failed — falling back to rebind: ${
+          error instanceof Error ? error.message : error
+        }`,
+      )
+    }
+  }
+
   if (httpsServer) {
-    // Graceful first: stop(true) alone force-RST'd reserved auth host → Nitro on
-    // edge :443 and surfaced as net::ERR_EMPTY_RESPONSE on Proxy Host PUT.
     const how = await stopHttpsWithDrainCap(httpsServer)
     if (how === 'forced') {
       proxyLog('warn', `[acmedns] Edge HTTPS drain timed out after ${EDGE_HTTPS_DRAIN_MS}ms — forced stop`)
@@ -140,10 +175,10 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
 
   httpsServer = await startHttpsWithRetry(tlsBodies)
   lastTlsFingerprint = nextFingerprint
-  proxyLog('info', `[acmedns] Edge HTTPS reloaded on ${httpsServer.url} (SNI)`)
+  proxyLog('info', `[acmedns] Edge HTTPS rebound on ${httpsServer.url} (SNI)`)
 }
 
-/** Rebuild SNI material and rebind :443 without restarting the whole process. */
+/** Rebuild SNI material without dropping live traffic when possible. */
 export function reloadEdgeHttps(): Promise<void> {
   reloadQueue = reloadQueue
     .then(() => reloadEdgeHttpsUnlocked())
@@ -154,8 +189,8 @@ export function reloadEdgeHttps(): Promise<void> {
 }
 
 /**
- * Debounce + defer SNI rebind so the current API response can flush before :443
- * stops accepting. Prefer this from Proxy Host write paths.
+ * Debounce + defer SNI update so the current API response can flush first.
+ * Prefer this from Proxy Host write paths.
  */
 export function scheduleEdgeHttpsReload(delayMs = EDGE_HTTPS_RELOAD_DEBOUNCE_MS): void {
   if (scheduledReload) {
