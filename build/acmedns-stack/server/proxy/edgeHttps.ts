@@ -115,7 +115,7 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
 
   // Routes already hot-swapped — skip stop/rebind when SNI PEMs are identical.
   if (httpsServer && nextFingerprint === lastTlsFingerprint && nextFingerprint !== '') {
-    proxyLog('info', '[acmedns] Edge HTTPS SNI unchanged — skip rebind')
+    proxyLog('debug', '[acmedns] Edge HTTPS SNI unchanged — skip rebind')
     return
   }
   if (!httpsServer && !tlsBodies && lastTlsFingerprint === '') {

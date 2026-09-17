@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { fingerprintEdgeTls, sniHostnamesForDomain, type BunTlsEntry } from './tls'
+import {
+  certHasWildcardSanForPattern,
+  fingerprintEdgeTls,
+  sniHostnamesForDomain,
+  type BunTlsEntry,
+} from './tls'
 
 describe('sniHostnamesForDomain', () => {
   test('returns exact domain as-is', () => {
@@ -19,8 +24,22 @@ describe('sniHostnamesForDomain', () => {
     ).toEqual(['app.example.com', 'www.example.com'])
   })
 
-  test('does not register literal wildcard as serverName', () => {
+  test('includes apex when present on a wildcard-only cert', () => {
+    expect(
+      sniHostnamesForDomain('*.uti.email', ['*.uti.email', 'uti.email']),
+    ).toEqual(['uti.email'])
+  })
+
+  test('wildcard-only SAN without apex yields no exact SNI names', () => {
     expect(sniHostnamesForDomain('*.example.com', ['*.example.com'])).toEqual([])
+  })
+})
+
+describe('certHasWildcardSanForPattern', () => {
+  test('detects matching wildcard SAN', () => {
+    expect(certHasWildcardSanForPattern('*.uti.email', ['*.uti.email', 'uti.email'])).toBe(true)
+    expect(certHasWildcardSanForPattern('*.uti.email', ['uti.email'])).toBe(false)
+    expect(certHasWildcardSanForPattern('derp.uti.email', ['*.uti.email'])).toBe(false)
   })
 })
 
