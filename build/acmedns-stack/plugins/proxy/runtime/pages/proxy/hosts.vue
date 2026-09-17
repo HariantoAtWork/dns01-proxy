@@ -12,11 +12,13 @@ const {
   hosts,
   certEntries,
   healthById,
+  remoteHealthById,
   pending,
   error,
   loadHosts,
   loadCertNames,
   loadAllHealth,
+  loadAllRemoteHealth,
   saveHost,
   removeHost,
 } = useProxyHosts()
@@ -35,7 +37,7 @@ const modalRef = useTemplateRef<{ load: (host?: ProxyHost | null) => void }>('mo
 async function refresh() {
   try {
     await Promise.all([loadHosts(), loadCertNames(), loadAccessLists(), loadBearerLists()])
-    await loadAllHealth()
+    await Promise.all([loadAllHealth(), loadAllRemoteHealth()])
   }
   catch {
     toasts.error(error.value || 'Failed to load proxy hosts', 'Proxy')
@@ -185,6 +187,7 @@ onMounted(() => {
       v-else
       :hosts
       :health-by-id="healthById"
+      :remote-health-by-id="remoteHealthById"
       :cert-entries="certEntries"
       :toggling-id="togglingId"
       @edit="openEdit"

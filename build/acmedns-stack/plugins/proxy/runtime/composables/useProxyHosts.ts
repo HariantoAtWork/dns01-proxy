@@ -10,6 +10,14 @@ export type ProxyHostHealth = {
   error?: string
 }
 
+export type ProxyRemoteDomainHealth = {
+  online: boolean
+  latencyMs?: number
+  status?: number
+  target?: string
+  error?: string
+}
+
 type CertStatusApiEntry = {
   certName: string
   sansOnDisk?: string[]
@@ -52,6 +60,7 @@ export function useProxyHosts() {
   const hosts = ref<ProxyHost[]>([])
   const certEntries = ref<ProxyCertCandidate[]>([])
   const healthById = ref<Record<string, ProxyHostHealth>>({})
+  const remoteHealthById = ref<Record<string, Record<string, ProxyRemoteDomainHealth>>>({})
   const pending = ref(false)
   const error = ref<string | null>(null)
 
@@ -118,6 +127,33 @@ export function useProxyHosts() {
     }
   }
 
+  async function loadRemoteHealth(id: string) {
+    // Clear so Source LEDs pulse while this host’s remote probe runs.
+    const nextPending = { ...remoteHealthById.value }
+    delete nextPending[id]
+    remoteHealthById.value = nextPending
+    try {
+      const data = await $fetch<{ domains: Record<string, ProxyRemoteDomainHealth> }>(
+        `/api/proxy/hosts/${id}/remote-health`,
+      )
+      remoteHealthById.value = { ...remoteHealthById.value, [id]: data.domains || {} }
+      return data.domains || {}
+    }
+    catch {
+      remoteHealthById.value = { ...remoteHealthById.value, [id]: {} }
+      return {}
+    }
+  }
+
+  async function loadAllRemoteHealth() {
+    remoteHealthById.value = {}
+    const concurrency = 4
+    const list = hosts.value
+    for (let i = 0; i < list.length; i += concurrency) {
+      await Promise.all(list.slice(i, i + concurrency).map(host => loadRemoteHealth(host.id)))
+    }
+  }
+
   async function saveHost(input: ProxyHostInput) {
     if (input.id) {
       const data = await $fetch<{ host: ProxyHost }>(`/api/proxy/hosts/${input.id}`, {
@@ -132,6 +168,7 @@ export function useProxyHosts() {
         hosts.value.push(data.host)
       }
       void loadHealth(data.host.id)
+      void loadRemoteHealth(data.host.id)
       return data.host
     }
     const data = await $fetch<{ host: ProxyHost }>('/api/proxy/hosts', {
@@ -140,6 +177,7 @@ export function useProxyHosts() {
     })
     hosts.value.push(data.host)
     void loadHealth(data.host.id)
+    void loadRemoteHealth(data.host.id)
     return data.host
   }
 
@@ -149,6 +187,9 @@ export function useProxyHosts() {
     const next = { ...healthById.value }
     delete next[id]
     healthById.value = next
+    const nextRemote = { ...remoteHealthById.value }
+    delete nextRemote[id]
+    remoteHealthById.value = nextRemote
   }
 
   return {
@@ -156,12 +197,15 @@ export function useProxyHosts() {
     certEntries,
     certNames,
     healthById,
+    remoteHealthById,
     pending,
     error,
     loadHosts,
     loadCertNames,
     loadHealth,
     loadAllHealth,
+    loadRemoteHealth,
+    loadAllRemoteHealth,
     saveHost,
     removeHost,
   }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { probeProxyHostHealth } from '../runtime/server/utils/proxyHostHealth'
+import { probeProxyHostHealth, probeProxyRemoteHealth } from '../runtime/server/utils/proxyHostHealth'
 
 describe('probeProxyHostHealth', () => {
   test('marks HTTP upstream online on any response status', async () => {
@@ -157,6 +157,65 @@ describe('probeProxyHostHealth', () => {
     }
     finally {
       server.stop(true)
+    }
+  })
+})
+
+describe('probeProxyRemoteHealth', () => {
+  test('marks public URL online on any HTTP status', async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch() {
+        return new Response('nope', { status: 404 })
+      },
+    })
+    try {
+      const result = await probeProxyRemoteHealth(`http://127.0.0.1:${server.port}/`)
+      expect(result.online).toBe(true)
+      expect(result.status).toBe(404)
+      expect(result.target).toContain(String(server.port))
+    }
+    finally {
+      server.stop(true)
+    }
+  })
+
+  test('reports offline when nothing listens', async () => {
+    const result = await probeProxyRemoteHealth('http://127.0.0.1:9/', 400)
+    expect(result.online).toBe(false)
+    expect(result.error).toBeTruthy()
+  })
+
+  test('fails fast when URL is empty', async () => {
+    const result = await probeProxyRemoteHealth('  ')
+    expect(result.online).toBe(false)
+    expect(result.error).toContain('empty')
+  })
+
+  test('does not use TCP fallback for remote probes', async () => {
+    const { createServer } = await import('node:net')
+    const server = createServer((socket) => {
+      socket.on('data', () => {
+        socket.destroy()
+      })
+    })
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve())
+    })
+    const address = server.address()
+    if (!address || typeof address === 'string') {
+      server.close()
+      throw new Error('expected TCP listen address')
+    }
+    try {
+      const result = await probeProxyRemoteHealth(`http://127.0.0.1:${address.port}/`, 500)
+      expect(result.online).toBe(false)
+      expect(result.error).toBeTruthy()
+    }
+    finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close(error => error ? reject(error) : resolve())
+      })
     }
   })
 })
