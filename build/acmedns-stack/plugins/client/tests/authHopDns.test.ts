@@ -18,6 +18,14 @@ describe('authHopDns', () => {
     expect(resolveAuthHopEntryLabel('harianto.dev', 'auth.mizu.work', [
       '018f3a2b-7c4d-7000-8000-0000000000ab.auth.mizu.work',
     ])).toBe('018f3a2b-7c4d-7000-8000-0000000000ab')
+
+    expect(resolveAuthHopEntryLabel('harianto.dev', 'auth.mizu.work', [
+      'i-eat-cake.auth.mizu.work',
+    ])).toBe('i-eat-cake')
+
+    expect(resolveAuthHopEntryLabel('harianto.dev', 'auth.mizu.work', [
+      '_wildcard_.auth.mizu.work',
+    ])).toBe('_wildcard_')
   })
 
   test('planAuthHopPublishSlot returns local hop-only slot', () => {

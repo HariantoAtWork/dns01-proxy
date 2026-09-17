@@ -39,8 +39,8 @@ const { sharedMode, authZone } = useSharedMode()
         <li>Open <strong class="font-medium text-ink">Certificates</strong>, Save, then Apply. TXT under that label is published automatically.</li>
         <li>
           Optional: enable <span class="font-mono text-ink">ACMEDNS_AUTH_HOP</span> so each authorization gets a dynamic
-          CNAME from the encoded apex to a fresh UUID (TXT only on the UUID). Cloudflare CNAME stays on
-          <span class="font-mono text-ink">_mdstn-com_.{{ authZone || 'auth.uti.email' }}</span>.
+          CNAME from whatever label you pointed at under the auth zone
+          (encoded apex, arbitrary name, or UUID) to a fresh UUID (TXT only on that UUID).
         </li>
       </ol>
       <p class="mt-3 text-sm text-muted">

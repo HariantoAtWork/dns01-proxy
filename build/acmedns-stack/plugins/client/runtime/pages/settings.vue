@@ -528,8 +528,8 @@ const tocItems: Array<{ id: string, label: string }> = [
         <span>
           ACMEDNS_AUTH_HOP — per-authorization UUID CNAME hop
           <span class="block text-xs text-muted">
-            Auth DNS answers <span class="font-mono">_apex_</span> → fresh UUID; TXT only on the UUID.
-            Keep Cloudflare CNAME on the encoded apex. ({{ sourceLabel(operator.sources.authHop) }})
+            Point Cloudflare at <span class="font-mono">any-label.auth.zone</span>; this server answers
+            that label → fresh UUID (TXT only on the UUID). ({{ sourceLabel(operator.sources.authHop) }})
           </span>
         </span>
       </label>

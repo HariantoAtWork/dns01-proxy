@@ -222,7 +222,8 @@ export function createDnsServer(config: AcmeDnsConfig) {
 
         if (type === Packet.TYPE.CNAME || type === Packet.TYPE.ANY) {
           const label = sanitizeDomainQuestion(name)
-          const hopTarget = !isUuidLabel(label) ? getAliasTarget(label) : null
+          // Active alias wins for any entry label (encoded apex, arbitrary, or UUID).
+          const hopTarget = getAliasTarget(label)
           if (hopTarget) {
             pushAnswer(response.answers, {
               name,
@@ -243,13 +244,13 @@ export function createDnsServer(config: AcmeDnsConfig) {
               })
             }
           }
-          // UUID hop labels never answer CNAME (TXT terminal).
+          // UUID labels without an alias are TXT terminals — never answer CNAME.
         }
 
         if (type === Packet.TYPE.TXT || type === Packet.TYPE.ANY) {
           const subdomain = sanitizeDomainQuestion(name)
-          const hopTarget = !isUuidLabel(subdomain) ? getAliasTarget(subdomain) : null
-          // Entry label with active alias is CNAME-only — suppress TXT (even stale slots).
+          // Any entry with an active alias is CNAME-only (suppress TXT, even stale).
+          const hopTarget = getAliasTarget(subdomain)
           if (!hopTarget) {
             const values = getTXTForDomain(subdomain)
             for (const data of values) {
