@@ -9,6 +9,7 @@ import {
 } from '#proxy-shared/utils/proxyCertMatch'
 import { forwardTarget, isWildcardDomainName } from '#proxy-shared/utils/proxyHost'
 import {
+  PhCircle as Circle,
   PhPencilSimple as Pencil,
   PhTrash as Trash,
 } from '@phosphor-icons/vue'
@@ -19,9 +20,24 @@ type HostHealth = {
   error?: string
 }
 
-const { hosts, healthById = {}, certEntries = [], togglingId = null } = defineProps<{
+type RemoteDomainHealth = {
+  online: boolean
+  latencyMs?: number
+  status?: number
+  target?: string
+  error?: string
+}
+
+const {
+  hosts,
+  healthById = {},
+  remoteHealthById = {},
+  certEntries = [],
+  togglingId = null,
+} = defineProps<{
   hosts: ProxyHost[]
   healthById?: Record<string, HostHealth>
+  remoteHealthById?: Record<string, Record<string, RemoteDomainHealth>>
   certEntries?: ProxyCertCandidate[]
   togglingId?: string | null
 }>()
@@ -96,6 +112,39 @@ function domainEntries(host: ProxyHost) {
   }))
 }
 
+function remoteLedClass(host: ProxyHost, domain: string): string {
+  if (!host.enabled || isWildcardDomainName(domain)) {
+    return 'text-muted'
+  }
+  const byHost = remoteHealthById[host.id]
+  if (!byHost || !(domain in byHost)) {
+    return 'text-muted animate-pulse'
+  }
+  return byHost[domain]?.online ? 'text-live' : 'text-danger'
+}
+
+function remoteLedTitle(host: ProxyHost, domain: string): string {
+  if (!host.enabled) {
+    return 'Off'
+  }
+  if (isWildcardDomainName(domain)) {
+    return 'Wildcard — not probed'
+  }
+  const byHost = remoteHealthById[host.id]
+  if (!byHost || !(domain in byHost)) {
+    return 'Checking…'
+  }
+  const health = byHost[domain]
+  if (!health) {
+    return 'Checking…'
+  }
+  if (health.online) {
+    const ms = health.latencyMs != null ? ` (${health.latencyMs}ms)` : ''
+    return `Online${ms}`
+  }
+  return health.error ? `Offline — ${health.error}` : 'Offline'
+}
+
 function onEnabledChange(host: ProxyHost, event: Event) {
   const checked = (event.target as HTMLInputElement).checked
   emit('toggle-enabled', host, checked)
@@ -124,10 +173,18 @@ function onEnabledChange(host: ProxyHost, event: Event) {
         >
           <td class="px-3 py-2 font-medium text-ink">
             <div class="flex flex-col gap-0.5">
-              <template
+              <div
                 v-for="entry in domainEntries(host)"
                 :key="entry.name"
+                class="flex items-center gap-1.5"
               >
+                <Circle
+                  :size="8"
+                  weight="fill"
+                  aria-hidden="true"
+                  :class="remoteLedClass(host, entry.name)"
+                  :title="remoteLedTitle(host, entry.name)"
+                />
                 <a
                   v-if="entry.href"
                   :href="entry.href"
@@ -139,7 +196,7 @@ function onEnabledChange(host: ProxyHost, event: Event) {
                   v-else
                   class="font-mono text-sm"
                 >{{ entry.name }}</span>
-              </template>
+              </div>
             </div>
           </td>
           <td class="px-3 py-2 font-mono text-xs text-muted">

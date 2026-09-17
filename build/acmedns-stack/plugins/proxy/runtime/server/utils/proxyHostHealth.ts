@@ -183,3 +183,49 @@ export async function probeProxyHostHealth(
     error: `${http.error}; ${tcp.error}`,
   }
 }
+
+export type ProxyRemoteHealthProbe = {
+  online: boolean
+  latencyMs: number
+  status?: number
+  target: string
+  error?: string
+}
+
+/**
+ * Reachability for Proxy Host Source-column LEDs.
+ * Probes the public site URL (same as the Source link). HTTP(S) only — no TCP fallback.
+ * Any HTTP response counts as online.
+ */
+export async function probeProxyRemoteHealth(
+  url: string,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<ProxyRemoteHealthProbe> {
+  const target = typeof url === 'string' ? url.trim() : ''
+  if (!target) {
+    return {
+      online: false,
+      latencyMs: 0,
+      target: '(empty)',
+      error: 'remote URL is empty',
+    }
+  }
+
+  const started = Date.now()
+  const http = await probeHttp(target, timeoutMs)
+  if ('status' in http) {
+    return {
+      online: true,
+      latencyMs: Date.now() - started,
+      status: http.status,
+      target,
+    }
+  }
+
+  return {
+    online: false,
+    latencyMs: Date.now() - started,
+    target,
+    error: http.error,
+  }
+}
