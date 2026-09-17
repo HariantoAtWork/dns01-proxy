@@ -23,6 +23,8 @@ const {
   removeHost,
 } = useProxyHosts()
 
+const { flashes: visitFlashes } = useProxyVisitStream()
+
 const { lists: accessLists, loadLists: loadAccessLists } = useAccessLists()
 const { lists: bearerLists, loadLists: loadBearerLists } = useBearerLists()
 
@@ -190,6 +192,7 @@ onMounted(() => {
       :remote-health-by-id="remoteHealthById"
       :cert-entries="certEntries"
       :toggling-id="togglingId"
+      :visit-flashes="visitFlashes"
       @edit="openEdit"
       @remove="askDelete"
       @toggle-enabled="onToggleEnabled"
