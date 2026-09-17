@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { sniHostnamesForDomain } from './tls'
+import { fingerprintEdgeTls, sniHostnamesForDomain, type BunTlsEntry } from './tls'
 
 describe('sniHostnamesForDomain', () => {
   test('returns exact domain as-is', () => {
@@ -21,5 +21,46 @@ describe('sniHostnamesForDomain', () => {
 
   test('does not register literal wildcard as serverName', () => {
     expect(sniHostnamesForDomain('*.example.com', ['*.example.com'])).toEqual([])
+  })
+})
+
+describe('fingerprintEdgeTls', () => {
+  const entry = (serverName: string | undefined, cert: string, key: string): BunTlsEntry => ({
+    serverName,
+    cert,
+    key,
+  })
+
+  test('null and empty are empty fingerprint', () => {
+    expect(fingerprintEdgeTls(null)).toBe('')
+    expect(fingerprintEdgeTls(undefined)).toBe('')
+    expect(fingerprintEdgeTls([])).toBe('')
+  })
+
+  test('same material yields same fingerprint regardless of order', () => {
+    const a = entry('b.example.com', 'cert-b', 'key-b')
+    const b = entry('a.example.com', 'cert-a', 'key-a')
+    expect(fingerprintEdgeTls([a, b])).toBe(fingerprintEdgeTls([b, a]))
+  })
+
+  test('single entry matches one-element array', () => {
+    const one = entry(undefined, 'cert', 'key')
+    expect(fingerprintEdgeTls(one)).toBe(fingerprintEdgeTls([one]))
+  })
+
+  test('cert or key change alters fingerprint', () => {
+    const base = entry('app.example.com', 'cert', 'key')
+    expect(fingerprintEdgeTls(base)).not.toBe(
+      fingerprintEdgeTls(entry('app.example.com', 'cert-2', 'key')),
+    )
+    expect(fingerprintEdgeTls(base)).not.toBe(
+      fingerprintEdgeTls(entry('app.example.com', 'cert', 'key-2')),
+    )
+  })
+
+  test('serverName change alters fingerprint', () => {
+    expect(fingerprintEdgeTls(entry('a.example.com', 'cert', 'key'))).not.toBe(
+      fingerprintEdgeTls(entry('b.example.com', 'cert', 'key')),
+    )
   })
 })
