@@ -7,23 +7,14 @@ function remoteUrl(certificateName: string | null, domain: string): string {
   return `${scheme}://${domain}`
 }
 
+/** One domain at a time — process-wide remote queue already serializes; avoid API-level storms. */
 async function probeDomains(
   domains: string[],
   certificateName: string | null,
-  concurrency = 4,
 ): Promise<Record<string, ProxyRemoteHealthProbe>> {
   const result: Record<string, ProxyRemoteHealthProbe> = {}
-  for (let i = 0; i < domains.length; i += concurrency) {
-    const batch = domains.slice(i, i + concurrency)
-    const probed = await Promise.all(
-      batch.map(async (name) => {
-        const probe = await probeProxyRemoteHealth(remoteUrl(certificateName, name))
-        return [name, probe] as const
-      }),
-    )
-    for (const [name, probe] of probed) {
-      result[name] = probe
-    }
+  for (const name of domains) {
+    result[name] = await probeProxyRemoteHealth(remoteUrl(certificateName, name))
   }
   return result
 }

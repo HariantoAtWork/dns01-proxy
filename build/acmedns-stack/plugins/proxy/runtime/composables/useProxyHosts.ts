@@ -119,8 +119,8 @@ export function useProxyHosts() {
   }
 
   async function loadAllHealth() {
-    // Bound concurrency so slow/offline upstreams do not stampede the edge fetch pool.
-    const concurrency = 4
+    // Low concurrency: Status probes share the process fetch pool with live forwarding.
+    const concurrency = 2
     const list = hosts.value
     for (let i = 0; i < list.length; i += concurrency) {
       await Promise.all(list.slice(i, i + concurrency).map(host => loadHealth(host.id)))
@@ -128,10 +128,7 @@ export function useProxyHosts() {
   }
 
   async function loadRemoteHealth(id: string) {
-    // Clear so Source LEDs pulse while this host’s remote probe runs.
-    const nextPending = { ...remoteHealthById.value }
-    delete nextPending[id]
-    remoteHealthById.value = nextPending
+    // Keep last-known Source LEDs until the new result arrives (no mass wipe / panic flash).
     try {
       const data = await $fetch<{ domains: Record<string, ProxyRemoteDomainHealth> }>(
         `/api/proxy/hosts/${id}/remote-health`,
@@ -140,17 +137,19 @@ export function useProxyHosts() {
       return data.domains || {}
     }
     catch {
-      remoteHealthById.value = { ...remoteHealthById.value, [id]: {} }
-      return {}
+      // Leave previous LEDs if any; only mark empty when we never had a result.
+      if (!(id in remoteHealthById.value)) {
+        remoteHealthById.value = { ...remoteHealthById.value, [id]: {} }
+      }
+      return remoteHealthById.value[id] || {}
     }
   }
 
   async function loadAllRemoteHealth() {
-    remoteHealthById.value = {}
-    const concurrency = 4
+    // One host API at a time — remote probes are process-serialized and hairpin the edge.
     const list = hosts.value
-    for (let i = 0; i < list.length; i += concurrency) {
-      await Promise.all(list.slice(i, i + concurrency).map(host => loadRemoteHealth(host.id)))
+    for (const host of list) {
+      await loadRemoteHealth(host.id)
     }
   }
 

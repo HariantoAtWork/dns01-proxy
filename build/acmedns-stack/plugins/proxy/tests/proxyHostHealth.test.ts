@@ -1,5 +1,18 @@
 import { describe, expect, test } from 'bun:test'
-import { probeProxyHostHealth, probeProxyRemoteHealth } from '../runtime/server/utils/proxyHostHealth'
+import {
+  classifyProbeError,
+  probeProxyHostHealth,
+  probeProxyRemoteHealth,
+} from '../runtime/server/utils/proxyHostHealth'
+
+describe('classifyProbeError', () => {
+  test('maps common failure classes', () => {
+    expect(classifyProbeError('getaddrinfo ENOTFOUND example.test')).toBe('DNS: hostname not found')
+    expect(classifyProbeError('The operation was aborted')).toBe('timeout')
+    expect(classifyProbeError('UNKNOWN_CERTIFICATE_VERIFICATION_ERROR')).toBe('TLS probe failed')
+    expect(classifyProbeError('connect ECONNREFUSED 127.0.0.1:9')).toBe('connection refused')
+  })
+})
 
 describe('probeProxyHostHealth', () => {
   test('marks HTTP upstream online on any response status', async () => {
@@ -216,6 +229,32 @@ describe('probeProxyRemoteHealth', () => {
       await new Promise<void>((resolve, reject) => {
         server.close(error => error ? reject(error) : resolve())
       })
+    }
+  })
+
+  test('serializes concurrent remote probes process-wide', async () => {
+    let inFlight = 0
+    let maxInFlight = 0
+    const server = Bun.serve({
+      port: 0,
+      async fetch() {
+        inFlight += 1
+        maxInFlight = Math.max(maxInFlight, inFlight)
+        await Bun.sleep(40)
+        inFlight -= 1
+        return new Response('ok', { status: 200 })
+      },
+    })
+    try {
+      const url = `http://127.0.0.1:${server.port}/`
+      const results = await Promise.all(
+        Array.from({ length: 6 }, () => probeProxyRemoteHealth(url, 2000)),
+      )
+      expect(results.every(r => r.online)).toBe(true)
+      expect(maxInFlight).toBe(1)
+    }
+    finally {
+      server.stop(true)
     }
   })
 })
