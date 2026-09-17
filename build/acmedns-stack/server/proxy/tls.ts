@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import type { ListenTlsOptions } from '../utils/listen'
 import { resolveTlsMaterial } from '../utils/listen'
@@ -166,3 +167,28 @@ export function toListenTlsMaterial(entry: BunTlsEntry): ListenTlsOptions {
     serverName: entry.serverName,
   }
 }
+
+/**
+ * Stable fingerprint of edge TLS/SNI material.
+ * Used to skip :443 rebinds when Proxy Host writes do not change certs.
+ */
+export function fingerprintEdgeTls(
+  tlsBodies: BunTlsEntry[] | BunTlsEntry | null | undefined,
+): string {
+  if (!tlsBodies) {
+    return ''
+  }
+  const entries = Array.isArray(tlsBodies) ? tlsBodies : [tlsBodies]
+  if (entries.length === 0) {
+    return ''
+  }
+  const lines = entries.map((entry) => {
+    const name = (entry.serverName || '').toLowerCase()
+    const certHash = createHash('sha256').update(entry.cert).digest('hex')
+    const keyHash = createHash('sha256').update(entry.key).digest('hex')
+    return `${name}\0${certHash}\0${keyHash}`
+  })
+  lines.sort()
+  return createHash('sha256').update(lines.join('\n')).digest('hex')
+}
+
