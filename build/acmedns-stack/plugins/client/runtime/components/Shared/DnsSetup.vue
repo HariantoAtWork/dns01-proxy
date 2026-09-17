@@ -49,6 +49,7 @@ const rows = computed(() => {
       <p class="mt-1 max-w-[60ch] text-sm text-muted">
         One CNAME per apex (DNS only). Add lines on
         <NuxtLink to="/certs" class="text-ink underline-offset-2 hover:underline">Certificates</NuxtLink>.
+        With auth hop enabled, keep pointing at the encoded apex — this server mints a per-authorization UUID as the last CNAME hop.
       </p>
     </header>
 

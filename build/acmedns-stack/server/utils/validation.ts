@@ -1,7 +1,8 @@
 const SAFE_RE = /[^A-Za-z\-\_0-9]+/g
 /** Single DNS label: UUID, classic alnum-hyphen, or Tiny `_encoded-apex_` (underscores allowed). Max 63. */
 const SUBDOMAIN_RE = /^[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?$/
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+/** Username + hop labels: UUID versions 1–8 (includes v7). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export function sanitizeString(value: string): string {
   return value.replace(SAFE_RE, '')
@@ -25,6 +26,11 @@ export function getValidUsername(username: string): string {
     throw new Error(`Invalid username: ${username}`)
   }
   return username.toLowerCase()
+}
+
+/** True for a single-label UUID (incl. v7) used as auth-hop terminal. */
+export function isUuidLabel(label: string): boolean {
+  return UUID_RE.test(label.trim())
 }
 
 export function validKey(key: string): boolean {

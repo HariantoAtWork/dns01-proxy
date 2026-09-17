@@ -41,6 +41,7 @@ const BASE_CONFIG: AcmeDnsConfig = {
     shared_mode: false,
     shared_username: '00000000-0000-4000-8000-000000000001',
     shared_password: '',
+    auth_hop: false,
     tls: 'none',
     corsorigins: ['*'],
     use_header: false,

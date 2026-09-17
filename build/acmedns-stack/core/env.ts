@@ -116,6 +116,11 @@ export function envAcmednsSharedKey(): string | undefined {
   return envTrimmed('ACMEDNS_TINY_SHARED_KEY')
 }
 
+/** Opt-in per-authorization UUID CNAME hop on the auth zone (`ACMEDNS_AUTH_HOP`). */
+export function envAcmednsAuthHop(): boolean | undefined {
+  return envTruthy('ACMEDNS_AUTH_HOP')
+}
+
 export function envAcmeDnsListen(): string | undefined {
   return envFirst('ACME_DNS_LISTEN', 'DNS_LISTEN')
 }

@@ -37,6 +37,11 @@ const { sharedMode, authZone } = useSharedMode()
         <li>Open <strong class="font-medium text-ink">DNS setup</strong> (<span class="font-mono text-ink">/domains</span>) for CNAME copy-paste rows from <span class="font-mono text-ink">domains.txt</span>.</li>
         <li>At your registrar / Cloudflare: <span class="font-mono text-ink">_acme-challenge.mdstn.com</span> CNAME <span class="font-mono text-ink">_mdstn-com_.{{ authZone || 'auth.uti.email' }}</span> (DNS only) — dots in the apex become hyphens, wrapped in underscores.</li>
         <li>Open <strong class="font-medium text-ink">Certificates</strong>, Save, then Apply. TXT under that label is published automatically.</li>
+        <li>
+          Optional: enable <span class="font-mono text-ink">ACMEDNS_AUTH_HOP</span> so each authorization gets a dynamic
+          CNAME from the encoded apex to a fresh UUID (TXT only on the UUID). Cloudflare CNAME stays on
+          <span class="font-mono text-ink">_mdstn-com_.{{ authZone || 'auth.uti.email' }}</span>.
+        </li>
       </ol>
       <p class="mt-3 text-sm text-muted">
         See <span class="font-mono text-ink">.wiki/Tiny-stack.md</span> in the repo for the full operator guide.

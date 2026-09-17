@@ -21,6 +21,11 @@ export interface AcmeDnsConfig {
     shared_username: string
     /** Plaintext shared API key (optional; env ACMEDNS_TINY_SHARED_KEY or auto-generated). */
     shared_password: string
+    /**
+     * Opt-in: per-authorization dynamic CNAME hop to a UUID TXT terminal.
+     * Override with ACMEDNS_AUTH_HOP / app-settings authHop.
+     */
+    auth_hop: boolean
     tls: string
     tls_cert_privkey?: string
     tls_cert_fullchain?: string

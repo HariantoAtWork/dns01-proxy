@@ -7,9 +7,19 @@ import {
   mergeSharedPublishSubdomains,
   planTinyPublishSlots,
   tinyApexLabel,
+  authZoneTxtLabel,
   type TinyPublishSlot,
 } from '#shared/utils/tinyModeDns'
+import {
+  planAuthHopPublishSlot,
+  resolveAuthHopEntryLabel,
+} from '#shared/utils/authHopDns'
 import { getSharedModeContext } from '../../../../../server/utils/sharedModeBootstrap'
+import {
+  clearAuthHop,
+  isAuthHopEnabled,
+  mintAuthHop,
+} from '../../../../../server/utils/authHop'
 import { ACME_REQUEST_STEPS } from '#shared/utils/acmeIssueSteps'
 import { resolveAcmeDnsBase, updateAcmeDnsTxt, isInProcessAcmeDnsPublish } from './acmedns'
 import { appendCertActivity } from './certActivity'
@@ -132,6 +142,8 @@ export interface Dns01PublishTarget {
   txt: string
   certName: string
   domain: string
+  /** Clear dynamic auth-hop CNAME after LE validate (when enabled). */
+  authHopCleanup?: () => void
 }
 
 /** Follow public CNAME hops from the challenge host; collect targets under auth zone. */
@@ -260,108 +272,157 @@ export async function runDns01Challenge(options: {
     ? await collectChallengeCnameTargets(challengeName, options.shared.authZone)
     : []
 
-  const publish = resolveDns01PublishTarget({
-    ...options,
-    cnameTargets,
-  })
+  let publish: Dns01PublishTarget
+  let authHopCleanup: (() => void) | undefined
 
-  const slotSummary = publish.slots
-    .map(slot => `${slot.subdomain}@${slot.local ? 'local' : slot.serverUrl}`)
-    .join(', ')
-  logDns01Step(
-    options.certName,
-    options.shared
-      ? `dns-01 ${domain}: publishing TXT to shared acme-dns slot(s) ${slotSummary}`
-      : `dns-01 ${domain}: publishing TXT to acme-dns subdomain ${publish.subdomain} (${publish.serverUrl})`,
-    activitySource,
-  )
-
-  const anyRemote = publish.slots.some(slot => !slot.local)
-  const anyLocal = publish.slots.some(slot => slot.local)
-  const publishPlace = anyRemote && anyLocal
-    ? 'local+remote'
-    : anyRemote
-      ? 'remote'
-      : 'local'
-  options.reportStep(
-    ACME_REQUEST_STEPS.PUBLISH_TXT,
-    `Publish TXT ${domain} (${publishPlace})`,
-  )
-
-  for (const slot of publish.slots) {
-    await updateAcmeDnsTxt({
-      serverUrl: slot.serverUrl,
-      username: publish.username,
-      password: publish.password,
-      subdomain: slot.subdomain,
-      txt: publish.txt,
+  if (options.shared && isAuthHopEnabled()) {
+    const authZone = options.shared.authZone
+    const lastLanding = cnameTargets[cnameTargets.length - 1]
+    if (lastLanding && !authZoneTxtLabel(lastLanding, authZone)) {
+      throw new Error(
+        `Auth hop requires CNAME to land on local auth zone ${authZone} (got ${lastLanding})`,
+      )
+    }
+    const entryLabel = resolveAuthHopEntryLabel(options.certName, authZone, cnameTargets)
+    const hopLabel = mintAuthHop(entryLabel)
+    authHopCleanup = () => {
+      clearAuthHop(entryLabel)
+    }
+    const account = options.shared.account
+    const localServerUrl = account.server_url || options.preferUrl
+    const slot = planAuthHopPublishSlot({
+      hopLabel,
+      localServerUrl,
+      authZone,
+    })
+    publish = {
+      serverUrl: localServerUrl,
+      username: account.username,
+      password: account.password,
+      subdomain: hopLabel,
+      subdomains: [hopLabel],
+      slots: [slot],
+      txt: options.keyAuthorization,
+      certName: options.certName,
+      domain,
+      authHopCleanup,
+    }
+    logDns01Step(
+      options.certName,
+      `dns-01 ${domain}: auth hop ${entryLabel} → ${hopLabel}.${authZone}`,
+      activitySource,
+    )
+  }
+  else {
+    publish = resolveDns01PublishTarget({
+      ...options,
+      cnameTargets,
     })
   }
 
-  logDns01Step(
-    options.certName,
-    `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} on ${slotSummary}`,
-    activitySource,
-  )
+  try {
+    const slotSummary = publish.slots
+      .map(slot => `${slot.subdomain}@${slot.local ? 'local' : slot.serverUrl}`)
+      .join(', ')
+    logDns01Step(
+      options.certName,
+      options.shared
+        ? `dns-01 ${domain}: publishing TXT to shared acme-dns slot(s) ${slotSummary}`
+        : `dns-01 ${domain}: publishing TXT to acme-dns subdomain ${publish.subdomain} (${publish.serverUrl})`,
+      activitySource,
+    )
 
-  throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
+    const anyRemote = publish.slots.some(slot => !slot.local)
+    const anyLocal = publish.slots.some(slot => slot.local)
+    const publishPlace = anyRemote && anyLocal
+      ? 'local+remote'
+      : anyRemote
+        ? 'remote'
+        : 'local'
+    options.reportStep(
+      ACME_REQUEST_STEPS.PUBLISH_TXT,
+      `Publish TXT ${domain} (${publishPlace})`,
+    )
 
-  await waitForChallengeTxtOnline({
-    challengeName,
-    expectedTxt: publish.txt,
-    certName: options.certName,
-    signal: options.signal,
-    activitySource,
-    onProgress: ({ attempt, phase, nextRetryInMs, timeoutRemainingMs }) => {
-      const timeoutSeconds = Math.max(0, Math.ceil(timeoutRemainingMs / 1000))
-      if (phase === 'wait') {
-        const nextSeconds = Math.max(0, Math.ceil((nextRetryInMs ?? 0) / 1000))
+    for (const slot of publish.slots) {
+      await updateAcmeDnsTxt({
+        serverUrl: slot.serverUrl,
+        username: publish.username,
+        password: publish.password,
+        subdomain: slot.subdomain,
+        txt: publish.txt,
+      })
+    }
+
+    logDns01Step(
+      options.certName,
+      `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} on ${slotSummary}`,
+      activitySource,
+    )
+
+    throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
+
+    await waitForChallengeTxtOnline({
+      challengeName,
+      expectedTxt: publish.txt,
+      certName: options.certName,
+      signal: options.signal,
+      activitySource,
+      onProgress: ({ attempt, phase, nextRetryInMs, timeoutRemainingMs }) => {
+        const timeoutSeconds = Math.max(0, Math.ceil(timeoutRemainingMs / 1000))
+        if (phase === 'wait') {
+          const nextSeconds = Math.max(0, Math.ceil((nextRetryInMs ?? 0) / 1000))
+          options.reportStep(
+            ACME_REQUEST_STEPS.TXT_ONLINE,
+            `TXT online ${domain} (attempt ${attempt} · ${nextSeconds}s · timeout ${timeoutSeconds}s)`,
+          )
+          return
+        }
         options.reportStep(
           ACME_REQUEST_STEPS.TXT_ONLINE,
-          `TXT online ${domain} (attempt ${attempt} · ${nextSeconds}s · timeout ${timeoutSeconds}s)`,
+          `TXT online ${domain} (attempt ${attempt} · timeout ${timeoutSeconds}s)`,
         )
-        return
-      }
-      options.reportStep(
-        ACME_REQUEST_STEPS.TXT_ONLINE,
-        `TXT online ${domain} (attempt ${attempt} · timeout ${timeoutSeconds}s)`,
-      )
-    },
-  })
+      },
+    })
 
-  const settleMs = acmeTxtSettleMs()
-  if (settleMs > 0) {
-    const settleSeconds = Math.max(1, Math.ceil(settleMs / 1000))
-    if (activitySource !== 'lab') {
-      logAcmeStep(
-        options.certName,
-        `dns-01 TXT visible for ${domain}; waiting ${settleSeconds}s before LE validate`,
-      )
-    }
-    const endsAt = Date.now() + settleMs
-    while (true) {
-      throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
-      const remainingMs = endsAt - Date.now()
-      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
-      options.reportStep(
-        ACME_REQUEST_STEPS.DNS_SETTLE,
-        `DNS settle ${domain} (${remainingSeconds}s)`,
-      )
-      if (remainingMs <= 0) {
-        break
+    const settleMs = acmeTxtSettleMs()
+    if (settleMs > 0) {
+      const settleSeconds = Math.max(1, Math.ceil(settleMs / 1000))
+      if (activitySource !== 'lab') {
+        logAcmeStep(
+          options.certName,
+          `dns-01 TXT visible for ${domain}; waiting ${settleSeconds}s before LE validate`,
+        )
       }
-      await abortableDelay(Math.min(1000, remainingMs), options.signal)
+      const endsAt = Date.now() + settleMs
+      while (true) {
+        throwIfAborted(options.signal, activitySource === 'lab' ? 'Lab DNS-01 aborted' : 'ACME aborted')
+        const remainingMs = endsAt - Date.now()
+        const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
+        options.reportStep(
+          ACME_REQUEST_STEPS.DNS_SETTLE,
+          `DNS settle ${domain} (${remainingSeconds}s)`,
+        )
+        if (remainingMs <= 0) {
+          break
+        }
+        await abortableDelay(Math.min(1000, remainingMs), options.signal)
+      }
     }
+
+    const validateLabel = options.validateStepLabel?.(domain) ?? `LE validate ${domain}`
+    const readyLog = options.validateReadyLog?.(domain)
+      ?? `dns-01 TXT ready for ${domain}; telling Let's Encrypt to validate`
+    logDns01Step(options.certName, readyLog, activitySource)
+
+    options.reportStep(ACME_REQUEST_STEPS.VALIDATE_SAVE, validateLabel)
+
+    return publish
   }
-
-  const validateLabel = options.validateStepLabel?.(domain) ?? `LE validate ${domain}`
-  const readyLog = options.validateReadyLog?.(domain)
-    ?? `dns-01 TXT ready for ${domain}; telling Let's Encrypt to validate`
-  logDns01Step(options.certName, readyLog, activitySource)
-
-  options.reportStep(ACME_REQUEST_STEPS.VALIDATE_SAVE, validateLabel)
-
-  return publish
+  catch (error) {
+    authHopCleanup?.()
+    throw error
+  }
 }
 
 export { resolveAcmeDnsBase }

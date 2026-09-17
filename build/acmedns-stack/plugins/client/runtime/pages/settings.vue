@@ -36,6 +36,7 @@ const operator = reactive({
   tz: 'UTC',
   acmeTxtSettleMs: 5000,
   acmeTxtHoldMs: 300000,
+  authHop: false,
   sources: {} as AppSettingsResponse['operator']['sources'],
 })
 
@@ -62,6 +63,7 @@ const api = reactive({
   shared_username: '',
   shared_password: '',
   sharedPasswordSet: false,
+  auth_hop: false,
   tls: 'none',
   tls_cert_fullchain: '',
   tls_cert_privkey: '',
@@ -241,6 +243,7 @@ async function save() {
         tz: operator.tz,
         acmeTxtSettleMs: Number(operator.acmeTxtSettleMs),
         acmeTxtHoldMs: Number(operator.acmeTxtHoldMs),
+        authHop: Boolean(operator.authHop),
       },
       general: generalBody,
       database: { ...database },
@@ -512,6 +515,24 @@ const tocItems: Array<{ id: string, label: string }> = [
           />
         </UiField>
       </div>
+      <label
+        v-if="api.shared_mode"
+        class="mt-4 flex items-start gap-2 text-sm text-ink"
+      >
+        <input
+          v-model="operator.authHop"
+          type="checkbox"
+          class="mt-0.5 accent-[var(--signal)]"
+          :disabled="pending"
+        >
+        <span>
+          ACMEDNS_AUTH_HOP — per-authorization UUID CNAME hop
+          <span class="block text-xs text-muted">
+            Auth DNS answers <span class="font-mono">_apex_</span> → fresh UUID; TXT only on the UUID.
+            Keep Cloudflare CNAME on the encoded apex. ({{ sourceLabel(operator.sources.authHop) }})
+          </span>
+        </span>
+      </label>
     </UiPanel>
 
     <UiPanel id="settings-general" class="scroll-mt-20 lg:scroll-mt-6">
