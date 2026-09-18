@@ -4,6 +4,7 @@ import { resolveIdleTimeoutSeconds } from '../utils/idleTimeout'
 import {
   buildEdgeTlsOptions,
   fingerprintEdgeTls,
+  fingerprintEdgeTlsPems,
   shouldBindEdgeHttps,
 } from './tls'
 import { proxyLog } from './proxyLog'
@@ -29,6 +30,7 @@ let httpsServer: Server | null = null
 let reloadQueue: Promise<void> = Promise.resolve()
 let scheduledReload: ReturnType<typeof setTimeout> | null = null
 let lastTlsFingerprint = ''
+let lastPemFingerprint = ''
 
 /**
  * Remember how to (re)bind edge HTTPS after Proxy Host / cert changes.
@@ -42,10 +44,13 @@ export function registerEdgeHttpsRuntime(
   httpsServer = server
   if (server) {
     const want = shouldBindEdgeHttps()
-    lastTlsFingerprint = fingerprintEdgeTls(want ? buildEdgeTlsOptions() : null)
+    const bodies = want ? buildEdgeTlsOptions() : null
+    lastTlsFingerprint = fingerprintEdgeTls(bodies)
+    lastPemFingerprint = fingerprintEdgeTlsPems(bodies)
   }
   else {
     lastTlsFingerprint = ''
+    lastPemFingerprint = ''
   }
 }
 
@@ -130,6 +135,7 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
   const want = shouldBindEdgeHttps()
   const tlsBodies = want ? buildEdgeTlsOptions() : null
   const nextFingerprint = fingerprintEdgeTls(tlsBodies)
+  const nextPemFingerprint = fingerprintEdgeTlsPems(tlsBodies)
 
   // Routes already hot-swapped — skip when SNI PEMs + serverNames are identical.
   if (httpsServer && nextFingerprint === lastTlsFingerprint && nextFingerprint !== '') {
@@ -140,12 +146,14 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
     return
   }
 
-  // Still have a live HTTPS listener and still want TLS: hot-reload SNI in place.
-  // stop()+rebind briefly refuses :443 and kills every other host — unacceptable for NPM parity.
-  if (httpsServer && tlsBodies) {
+  // Names-only change (add/remove Proxy Host SNI): hot-reload keeps :443 up.
+  // PEM body change (issue/renew/SAN update): Bun.reload keeps the old cert for
+  // existing serverNames — must stop+rebind so browsers see the new leaf.
+  if (httpsServer && tlsBodies && nextPemFingerprint === lastPemFingerprint) {
     try {
       httpsServer = applyEdgeHttpsTlsHot(httpsServer, tlsBodies)
       lastTlsFingerprint = nextFingerprint
+      lastPemFingerprint = nextPemFingerprint
       proxyLog('info', `[acmedns] Edge HTTPS SNI hot-reloaded on ${httpsServer.url} (no port drop)`)
       return
     }
@@ -158,6 +166,9 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
       )
     }
   }
+  else if (httpsServer && tlsBodies && nextPemFingerprint !== lastPemFingerprint) {
+    proxyLog('info', '[acmedns] Edge HTTPS PEMs changed — rebinding :443 (Bun reload cannot swap cert bodies)')
+  }
 
   if (httpsServer) {
     const how = await stopHttpsWithDrainCap(httpsServer)
@@ -169,12 +180,14 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
 
   if (!tlsBodies) {
     lastTlsFingerprint = ''
+    lastPemFingerprint = ''
     proxyLog('info', '[acmedns] Edge HTTPS idle — no readable PEMs / SSL hosts')
     return
   }
 
   httpsServer = await startHttpsWithRetry(tlsBodies)
   lastTlsFingerprint = nextFingerprint
+  lastPemFingerprint = nextPemFingerprint
   proxyLog('info', `[acmedns] Edge HTTPS rebound on ${httpsServer.url} (SNI)`)
 }
 

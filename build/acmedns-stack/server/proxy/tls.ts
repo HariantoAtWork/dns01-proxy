@@ -312,3 +312,26 @@ export function fingerprintEdgeTls(
   lines.sort()
   return createHash('sha256').update(lines.join('\n')).digest('hex')
 }
+
+/**
+ * Fingerprint of PEM bodies only (ignores serverName).
+ * Bun.serve().reload() updates the SNI name set but does not swap cert/key for
+ * names that already existed — PEM changes need a full :443 rebind.
+ */
+export function fingerprintEdgeTlsPems(
+  tlsBodies: BunTlsEntry[] | BunTlsEntry | null | undefined,
+): string {
+  if (!tlsBodies) {
+    return ''
+  }
+  const entries = Array.isArray(tlsBodies) ? tlsBodies : [tlsBodies]
+  if (entries.length === 0) {
+    return ''
+  }
+  const lines = [...new Set(entries.map((entry) => {
+    const certHash = createHash('sha256').update(entry.cert).digest('hex')
+    const keyHash = createHash('sha256').update(entry.key).digest('hex')
+    return `${certHash}\0${keyHash}`
+  }))].sort()
+  return createHash('sha256').update(lines.join('\n')).digest('hex')
+}
