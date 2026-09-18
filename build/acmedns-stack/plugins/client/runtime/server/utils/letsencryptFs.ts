@@ -1,7 +1,13 @@
 import { dirname, join } from 'node:path'
 import { promises as fs } from 'node:fs'
 import type { LetsEncryptDirectoryMode } from '#shared/types/certs'
+import { scheduleEdgeHttpsReload } from '../../../../../server/proxy/edgeHttps'
 import { getLetsencryptDir } from '../../../../../server/utils/paths'
+
+/** Edge HTTPS reads `/live` PEMs into Bun SNI — refresh after production tree changes. */
+function notifyLiveCertsChanged() {
+  scheduleEdgeHttpsReload()
+}
 
 const PEM_NAMES = ['cert.pem', 'chain.pem', 'fullchain.pem', 'privkey.pem'] as const
 
@@ -100,6 +106,9 @@ export async function writeLivePems(
       await fs.chmod(target, 0o600)
     }
   }
+  if (mode === 'production') {
+    notifyLiveCertsChanged()
+  }
 }
 
 export async function removeCertTree(
@@ -113,6 +122,14 @@ export async function removeCertTree(
       ? lastSavedTreePath(fromTree, certName)
       : certTreePath(mode, certName)
   await fs.rm(dir, { recursive: true, force: true })
+  if (mode === 'production') {
+    notifyLiveCertsChanged()
+  }
+}
+
+/** Call after move/restore into or out of production `/live` (not covered by writeLivePems). */
+export function notifyProductionLiveCertTreeChanged() {
+  notifyLiveCertsChanged()
 }
 
 export async function moveTree(from: string, to: string) {

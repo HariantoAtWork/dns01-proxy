@@ -7,6 +7,7 @@ import {
   lastSavedTreePath,
   listCertNamesInLastSaved,
   moveTree,
+  notifyProductionLiveCertTreeChanged,
   removeCertTree,
   treeDirName,
 } from './letsencryptFs'
@@ -110,6 +111,9 @@ export async function restoreCertFromLastSaved(
   }
   catch {
     // ok
+  }
+  if (fromTree === 'live') {
+    notifyProductionLiveCertTreeChanged()
   }
 }
 

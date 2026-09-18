@@ -190,7 +190,7 @@ export function reloadEdgeHttps(): Promise<void> {
 
 /**
  * Debounce + defer SNI update so the current API response can flush first.
- * Prefer this from Proxy Host write paths.
+ * Prefer this from Proxy Host writes and production `/live` cert changes.
  */
 export function scheduleEdgeHttpsReload(delayMs = EDGE_HTTPS_RELOAD_DEBOUNCE_MS): void {
   if (scheduledReload) {
