@@ -144,6 +144,10 @@ export interface Dns01PublishTarget {
   domain: string
   /** Clear dynamic auth-hop CNAME after LE validate (when enabled). */
   authHopCleanup?: () => void
+  /** Auth-zone entry FQDN that CNAMEs to the hop (e.g. `_apex_.auth.zone`). */
+  authHopEntryFqdn?: string
+  /** Terminal hop FQDN holding TXT (e.g. `<uuid>.auth.zone`). */
+  authHopFqdn?: string
 }
 
 /** Follow public CNAME hops from the challenge host; collect targets under auth zone. */
@@ -287,6 +291,8 @@ export async function runDns01Challenge(options: {
     }
     const entryLabel = resolveAuthHopEntryLabel(options.certName, authZone, cnameTargets)
     const hopLabel = mintAuthHop(entryLabel)
+    const entryFqdn = `${entryLabel}.${authZone}`
+    const hopFqdn = `${hopLabel}.${authZone}`
     authHopCleanup = () => {
       clearAuthHop(entryLabel)
     }
@@ -308,10 +314,12 @@ export async function runDns01Challenge(options: {
       certName: options.certName,
       domain,
       authHopCleanup,
+      authHopEntryFqdn: entryFqdn,
+      authHopFqdn: hopFqdn,
     }
     logDns01Step(
       options.certName,
-      `dns-01 ${domain}: auth hop ${entryLabel} → ${hopLabel}.${authZone}`,
+      `dns-01 ${domain}: auth hop entry ${entryFqdn} → ${hopFqdn} (TXT on hop only)`,
       activitySource,
     )
   }
@@ -323,13 +331,20 @@ export async function runDns01Challenge(options: {
   }
 
   try {
+    const hopFqdn = publish.authHopFqdn
     const slotSummary = publish.slots
-      .map(slot => `${slot.subdomain}@${slot.local ? 'local' : slot.serverUrl}`)
+      .map((slot) => {
+        const where = slot.local ? 'local' : slot.serverUrl
+        if (hopFqdn && slot.subdomain === publish.subdomain) {
+          return `${hopFqdn}@${where}`
+        }
+        return `${slot.subdomain}@${where}`
+      })
       .join(', ')
     logDns01Step(
       options.certName,
       options.shared
-        ? `dns-01 ${domain}: publishing TXT to shared acme-dns slot(s) ${slotSummary}`
+        ? `dns-01 ${domain}: publishing TXT to ${slotSummary}`
         : `dns-01 ${domain}: publishing TXT to acme-dns subdomain ${publish.subdomain} (${publish.serverUrl})`,
       activitySource,
     )
@@ -343,7 +358,9 @@ export async function runDns01Challenge(options: {
         : 'local'
     options.reportStep(
       ACME_REQUEST_STEPS.PUBLISH_TXT,
-      `Publish TXT ${domain} (${publishPlace})`,
+      hopFqdn
+        ? `Publish TXT ${domain} → ${hopFqdn}`
+        : `Publish TXT ${domain} (${publishPlace})`,
     )
 
     for (const slot of publish.slots) {
@@ -358,7 +375,9 @@ export async function runDns01Challenge(options: {
 
     logDns01Step(
       options.certName,
-      `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} on ${slotSummary}`,
+      hopFqdn
+        ? `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} on ${hopFqdn}`
+        : `dns-01 ${domain}: acme-dns accepted TXT ${publish.txt} on ${slotSummary}`,
       activitySource,
     )
 
@@ -372,17 +391,18 @@ export async function runDns01Challenge(options: {
       activitySource,
       onProgress: ({ attempt, phase, nextRetryInMs, timeoutRemainingMs }) => {
         const timeoutSeconds = Math.max(0, Math.ceil(timeoutRemainingMs / 1000))
+        const hopHint = hopFqdn ? ` via ${hopFqdn}` : ''
         if (phase === 'wait') {
           const nextSeconds = Math.max(0, Math.ceil((nextRetryInMs ?? 0) / 1000))
           options.reportStep(
             ACME_REQUEST_STEPS.TXT_ONLINE,
-            `TXT online ${domain} (attempt ${attempt} · ${nextSeconds}s · timeout ${timeoutSeconds}s)`,
+            `TXT online ${domain}${hopHint} (attempt ${attempt} · ${nextSeconds}s · timeout ${timeoutSeconds}s)`,
           )
           return
         }
         options.reportStep(
           ACME_REQUEST_STEPS.TXT_ONLINE,
-          `TXT online ${domain} (attempt ${attempt} · timeout ${timeoutSeconds}s)`,
+          `TXT online ${domain}${hopHint} (attempt ${attempt} · timeout ${timeoutSeconds}s)`,
         )
       },
     })
@@ -393,7 +413,9 @@ export async function runDns01Challenge(options: {
       if (activitySource !== 'lab') {
         logAcmeStep(
           options.certName,
-          `dns-01 TXT visible for ${domain}; waiting ${settleSeconds}s before LE validate`,
+          hopFqdn
+            ? `dns-01 TXT visible for ${domain} at ${hopFqdn}; waiting ${settleSeconds}s before LE validate`
+            : `dns-01 TXT visible for ${domain}; waiting ${settleSeconds}s before LE validate`,
         )
       }
       const endsAt = Date.now() + settleMs
@@ -403,7 +425,9 @@ export async function runDns01Challenge(options: {
         const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
         options.reportStep(
           ACME_REQUEST_STEPS.DNS_SETTLE,
-          `DNS settle ${domain} (${remainingSeconds}s)`,
+          hopFqdn
+            ? `DNS settle ${domain} @ ${hopFqdn} (${remainingSeconds}s)`
+            : `DNS settle ${domain} (${remainingSeconds}s)`,
         )
         if (remainingMs <= 0) {
           break
@@ -412,9 +436,12 @@ export async function runDns01Challenge(options: {
       }
     }
 
-    const validateLabel = options.validateStepLabel?.(domain) ?? `LE validate ${domain}`
+    const validateLabel = options.validateStepLabel?.(domain)
+      ?? (hopFqdn ? `LE validate ${domain} @ ${hopFqdn}` : `LE validate ${domain}`)
     const readyLog = options.validateReadyLog?.(domain)
-      ?? `dns-01 TXT ready for ${domain}; telling Let's Encrypt to validate`
+      ?? (hopFqdn
+        ? `dns-01 TXT ready for ${domain} on ${hopFqdn}; telling Let's Encrypt to validate`
+        : `dns-01 TXT ready for ${domain}; telling Let's Encrypt to validate`)
     logDns01Step(options.certName, readyLog, activitySource)
 
     options.reportStep(ACME_REQUEST_STEPS.VALIDATE_SAVE, validateLabel)

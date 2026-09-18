@@ -86,6 +86,7 @@ describe('challengeTxtOnline', () => {
     expect(line).toContain(`published: ${token}`)
     expect(line).toContain('stale-a, stale-b')
     expect(line).toContain('uuid.auth.acme-dns.io')
+    expect(line).toContain('TXT at uuid.auth.acme-dns.io')
     expect(line).toContain('no match')
   })
 
