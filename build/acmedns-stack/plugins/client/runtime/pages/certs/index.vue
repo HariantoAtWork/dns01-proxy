@@ -657,6 +657,7 @@ async function onJobAction(action: JobQueueAction, id: number) {
         :actions-menu-open="actionsMenuOpen"
         :now-ms="now.getTime()"
         @issue="onIssueCert"
+        @issue-all="onApply"
         @download="onDownload"
         @upload="onUploadRequest"
         @batch-download="onBatchDownload"
