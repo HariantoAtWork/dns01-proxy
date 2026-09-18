@@ -219,13 +219,36 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
   const auth = loadDefaultTlsEntry()
   const entries: BunTlsEntry[] = []
 
-  if (wildcardDefaults.size === 1) {
-    const only = [...wildcardDefaults.values()][0]!
-    entries.push({ cert: only.cert, key: only.key })
-    console.info(
-      `[proxy] TLS default ← wildcard cert for ${only.patterns.join(', ')} `
-      + '(Bun SNI is exact-only; unmatched names use this cert)',
-    )
+  if (wildcardDefaults.size >= 1) {
+    const ranked = [...wildcardDefaults.values()].map(item => ({
+      ...item,
+      score: item.patterns.reduce(
+        (sum, pattern) => sum + exactProxyHostnamesUnderPattern(pattern).length,
+        0,
+      ),
+    })).sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score
+      }
+      return a.patterns.join(',').localeCompare(b.patterns.join(','))
+    })
+    const chosen = ranked[0]!
+    entries.push({ cert: chosen.cert, key: chosen.key })
+    if (wildcardDefaults.size === 1) {
+      console.info(
+        `[proxy] TLS default ← wildcard cert for ${chosen.patterns.join(', ')} `
+        + '(Bun SNI is exact-only; unmatched names use this cert)',
+      )
+    }
+    else {
+      const others = ranked.slice(1).flatMap(item => item.patterns).join(', ')
+      console.warn(
+        `[proxy] ${wildcardDefaults.size} distinct wildcard certs — TLS default ← `
+        + `${chosen.patterns.join(', ')} (${chosen.score} exact domainName(s)); `
+        + `other wildcards (${others}) need exact domainNames on Proxy Hosts `
+        + '(Bun cannot SNI-match a literal *.zone)',
+      )
+    }
     if (auth) {
       for (const serverName of authSniHostnames()) {
         if (seen.has(serverName)) {
@@ -236,17 +259,8 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
       }
     }
   }
-  else {
-    if (wildcardDefaults.size > 1) {
-      const zones = [...wildcardDefaults.values()].flatMap(item => item.patterns).join(', ')
-      console.warn(
-        `[proxy] ${wildcardDefaults.size} distinct wildcard certs (${zones}) — `
-        + 'only one TLS default is possible; add exact SANs/domainNames or terminate TLS upstream',
-      )
-    }
-    if (auth) {
-      entries.push(auth)
-    }
+  else if (auth) {
+    entries.push(auth)
   }
 
   entries.push(...sniEntries)
