@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   certHasWildcardSanForPattern,
   fingerprintEdgeTls,
+  fingerprintEdgeTlsPems,
   sniHostnamesForDomain,
   type BunTlsEntry,
 } from './tls'
@@ -80,6 +81,26 @@ describe('fingerprintEdgeTls', () => {
   test('serverName change alters fingerprint', () => {
     expect(fingerprintEdgeTls(entry('a.example.com', 'cert', 'key'))).not.toBe(
       fingerprintEdgeTls(entry('b.example.com', 'cert', 'key')),
+    )
+  })
+})
+
+describe('fingerprintEdgeTlsPems', () => {
+  const entry = (serverName: string | undefined, cert: string, key: string): BunTlsEntry => ({
+    serverName,
+    cert,
+    key,
+  })
+
+  test('ignores serverName-only changes', () => {
+    expect(fingerprintEdgeTlsPems(entry('a.example.com', 'cert', 'key'))).toBe(
+      fingerprintEdgeTlsPems(entry('b.example.com', 'cert', 'key')),
+    )
+  })
+
+  test('cert body change alters PEM fingerprint', () => {
+    expect(fingerprintEdgeTlsPems(entry('app.example.com', 'cert', 'key'))).not.toBe(
+      fingerprintEdgeTlsPems(entry('app.example.com', 'cert-2', 'key')),
     )
   })
 })

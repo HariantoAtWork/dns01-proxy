@@ -177,4 +177,61 @@ describe('applyEdgeHttpsTlsHot', () => {
       await fs.rm(dir, { recursive: true, force: true })
     }
   })
+
+  test('Bun.reload keeps old PEM for existing serverName (must rebind on cert renew)', async () => {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const os = await import('node:os')
+    const { $ } = await import('bun')
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'edge-pem-'))
+
+    async function makeLeaf(cn: string) {
+      const keyPath = path.join(dir, `${cn}.key`)
+      const certPath = path.join(dir, `${cn}.crt`)
+      await $`openssl req -x509 -newkey rsa:2048 -keyout ${keyPath} -out ${certPath} -days 1 -nodes -subj /CN=${cn}`.quiet()
+      return {
+        cert: await fs.readFile(certPath, 'utf-8'),
+        key: await fs.readFile(keyPath, 'utf-8'),
+      }
+    }
+
+    async function presentedCn(port: number, serverName: string) {
+      const out = await $`openssl s_client -connect 127.0.0.1:${port} -servername ${serverName}`.nothrow().quiet()
+      const text = `${out.stdout.toString()}${out.stderr.toString()}`
+      return (text.match(/subject=.*?CN\s*=\s*([^\s/,]+)/i) || text.match(/subject=.*?\/CN=([^\s/]+)/))?.[1]
+    }
+
+    const oldLeaf = await makeLeaf('old.example')
+    const newLeaf = await makeLeaf('new.example')
+
+    registerEdgeHttpsRuntime(
+      {
+        binding: { host: '127.0.0.1', port: 0 },
+        fetch: () => new Response('ok'),
+        websocket: { message() {}, open() {}, close() {} },
+      },
+      null,
+    )
+
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      tls: [{ cert: oldLeaf.cert, key: oldLeaf.key, serverName: 'app.example' }],
+      fetch: () => new Response('ok'),
+    })
+    const port = server.port!
+    try {
+      expect(await presentedCn(port, 'app.example')).toBe('old.example')
+      applyEdgeHttpsTlsHot(server, [
+        { cert: newLeaf.cert, key: newLeaf.key, serverName: 'app.example' },
+      ])
+      await Bun.sleep(30)
+      // Document Bun behaviour: reload does not swap PEM bodies for existing names.
+      expect(await presentedCn(port, 'app.example')).toBe('old.example')
+    }
+    finally {
+      server.stop(true)
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
 })
