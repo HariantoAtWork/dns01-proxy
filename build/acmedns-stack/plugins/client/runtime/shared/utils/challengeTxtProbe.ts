@@ -112,11 +112,28 @@ export function formatDns01ProbeLog(options: {
     }
     return part
   })
+  /** Last CNAME target in the chain is where TXT should live (auth-hop UUID FQDN). */
+  let txtAt: string | undefined
+  for (const hop of options.hops) {
+    if (hop.cnameTarget) {
+      txtAt = hop.cnameTarget
+    }
+  }
+  if (!txtAt) {
+    const lastWithTxt = [...options.hops].reverse().find(hop => hop.txtValues.length > 0)
+    txtAt = lastWithTxt?.qname
+  }
   const match = options.matched ? 'match' : 'no match'
-  return [
+  const parts = [
     `dns-01 probe ${options.challengeName} (attempt ${options.attempt}, ${match})`,
+  ]
+  if (txtAt) {
+    parts.push(`TXT at ${txtAt}`)
+  }
+  parts.push(
     `LE token: ${options.leToken}`,
     `published: ${options.publishedToken}`,
     `authoritative: ${hopParts.join(' | ') || '(no answers)'}`,
-  ].join(' · ')
+  )
+  return parts.join(' · ')
 }
