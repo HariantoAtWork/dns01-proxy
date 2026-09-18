@@ -10,6 +10,7 @@ import {
   certInFlightOrQueued,
   formatRemaining,
   issueDisabled,
+  statusBadgeClass,
   statusLabel,
 } from '#shared/utils/certsUi'
 import { PhDotsThreeVertical as Actions, PhDownload as Download, PhLightning as Lightning, PhTrash as Trash, PhUpload as Upload } from '@phosphor-icons/vue'
@@ -48,6 +49,7 @@ const {
 
 const emit = defineEmits<{
   issue: [certName: string, force: boolean]
+  'issue-all': [force: boolean]
   download: [certName: string]
   upload: [certName: string]
   'batch-download': []
@@ -58,6 +60,14 @@ const emit = defineEmits<{
 
 const statusActionsOpen = ref(false)
 const liveOnDiskCount = computed(() => statusEntries.filter(entry => entry.liveOnDisk).length)
+
+const issueAllDisabled = computed(() =>
+  dirty
+  || pending
+  || certJob.running
+  || (directoryMode === 'production' && !acmeEnabled)
+  || !statusEntries.some(entry => canIssueCert(entry)),
+)
 
 function showActionsMenu(entry: CertStatusEntry) {
   return entry.tree !== 'none'
@@ -96,7 +106,7 @@ function isCertInFlightOrQueued(certName: string) {
         </h2>
         <p class="mt-1 text-xs text-muted">
           Issue queues one Let's Encrypt job per apex; click several in a row and they run one after another.
-          Download, Upload, and Force Issue are in the ⋮ menu.
+          Actions also has Issue (all) and Force re-issue (all). Download, Upload, and Force Issue are in each row's ⋮ menu.
         </p>
       </div>
       <UiMenu v-model:open="statusActionsOpen" align="right">
@@ -118,6 +128,26 @@ function isCertInFlightOrQueued(certName: string) {
           </button>
         </template>
         <template #default="{ close }">
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+            :disabled="issueAllDisabled"
+            @click="close(); emit('issue-all', false)"
+          >
+            <Lightning :size="16" weight="regular" aria-hidden="true" />
+            Issue (all)
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+            :disabled="issueAllDisabled"
+            @click="close(); emit('issue-all', true)"
+          >
+            <Lightning :size="16" weight="regular" aria-hidden="true" />
+            Force re-issue (all)
+          </button>
           <button
             type="button"
             role="menuitem"
@@ -154,7 +184,8 @@ function isCertInFlightOrQueued(certName: string) {
           <p class="font-mono text-sm text-ink">
             {{ entry.certName }}
             <span
-              class="ml-2 rounded-[4px] border border-rule px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted"
+              class="ml-2 rounded-[4px] border px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
+              :class="statusBadgeClass(entry.status)"
             >{{ statusLabel(entry.status) }}</span>
             <span
               v-if="certJob.running && certJob.currentCert === entry.certName"

@@ -126,6 +126,16 @@ export function statusLabel(status: string) {
   }
 }
 
+/** Badge colour for certificate status pills in the domain table. */
+export function statusBadgeClass(status: string) {
+  switch (status) {
+    case 'ok':
+      return 'border-live/40 text-live'
+    default:
+      return 'border-rule text-muted'
+  }
+}
+
 export function activityLevelClass(level: string) {
   switch (level) {
     case 'error': return 'text-danger'
