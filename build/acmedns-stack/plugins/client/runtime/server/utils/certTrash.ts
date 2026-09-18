@@ -5,6 +5,7 @@ import {
   certTreePath,
   listCertNamesInTree,
   moveTree,
+  notifyProductionLiveCertTreeChanged,
   removeCertTree,
   trashTreePath,
 } from './letsencryptFs'
@@ -63,6 +64,9 @@ export async function moveCertToTrash(certName: string, fromTree: 'live' | 'stag
     fromTree,
     notAfter: certMeta?.notAfter,
   })
+  if (fromTree === 'live') {
+    notifyProductionLiveCertTreeChanged()
+  }
 }
 
 export async function restoreCertFromTrash(certName: string) {
@@ -85,6 +89,9 @@ export async function restoreCertFromTrash(certName: string) {
   }
   catch {
     // ok
+  }
+  if (fromTree === 'live') {
+    notifyProductionLiveCertTreeChanged()
   }
 }
 
