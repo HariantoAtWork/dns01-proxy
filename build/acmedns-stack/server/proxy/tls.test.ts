@@ -44,6 +44,61 @@ describe('certHasWildcardSanForPattern', () => {
   })
 })
 
+describe('Bun.serve literal wildcard serverName', () => {
+  test('matches one-label SNI for multiple *.zone entries', async () => {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const os = await import('node:os')
+    const { $ } = await import('bun')
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'sni-wc-'))
+
+    async function makeLeaf(cn: string, san: string) {
+      const keyPath = path.join(dir, `${cn}.key`)
+      const certPath = path.join(dir, `${cn}.crt`)
+      const confPath = path.join(dir, `${cn}.cnf`)
+      await Bun.write(
+        confPath,
+        `[req]\ndistinguished_name=req\n[req]\n[v3]\nsubjectAltName=${san}\n`,
+      )
+      await $`openssl req -x509 -newkey rsa:2048 -keyout ${keyPath} -out ${certPath} -days 1 -nodes -subj /CN=${cn} -extensions v3 -config ${confPath}`.quiet()
+      return {
+        cert: await fs.readFile(certPath, 'utf-8'),
+        key: await fs.readFile(keyPath, 'utf-8'),
+      }
+    }
+
+    async function presentedCn(port: number, serverName: string) {
+      const out = await $`openssl s_client -connect 127.0.0.1:${port} -servername ${serverName}`.nothrow().quiet()
+      const text = `${out.stdout.toString()}${out.stderr.toString()}`
+      return (text.match(/subject=.*?CN\s*=\s*([^\s/,]+)/i) || text.match(/subject=.*?\/CN=([^\s/]+)/))?.[1]
+    }
+
+    const uti = await makeLeaf('uti.email', 'DNS:*.uti.email,DNS:uti.email')
+    const link = await makeLeaf('harianto.link', 'DNS:*.harianto.link,DNS:harianto.link')
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      tls: [
+        { cert: uti.cert, key: uti.key, serverName: '*.uti.email' },
+        { cert: link.cert, key: link.key, serverName: '*.harianto.link' },
+        { cert: link.cert, key: link.key, serverName: 'harianto.link' },
+      ],
+      fetch: () => new Response('ok'),
+    })
+    const port = server.port!
+    try {
+      expect(await presentedCn(port, 'banana.uti.email')).toBe('uti.email')
+      expect(await presentedCn(port, 'zz.uti.email')).toBe('uti.email')
+      expect(await presentedCn(port, 'zz.harianto.link')).toBe('harianto.link')
+      expect(await presentedCn(port, 'harianto.link')).toBe('harianto.link')
+    }
+    finally {
+      server.stop(true)
+      await fs.rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('fingerprintEdgeTls', () => {
   const entry = (serverName: string | undefined, cert: string, key: string): BunTlsEntry => ({
     serverName,
