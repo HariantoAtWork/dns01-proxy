@@ -19,10 +19,6 @@ export interface BunTlsEntry {
   serverName?: string
 }
 
-function pemFingerprint(cert: string, key: string): string {
-  return createHash('sha256').update(cert).update('\0').update(key).digest('hex')
-}
-
 /** Default (auth) cert from config.cfg — used for control HTTPS and as SNI fallback. */
 export function loadDefaultTlsEntry(): BunTlsEntry | null {
   const material = resolveTlsMaterial()
@@ -63,9 +59,10 @@ export function certHasWildcardSanForPattern(pattern: string, certSans: string[]
 
 /**
  * Hostnames to register for Bun SNI for one proxy domain pattern.
- * Bun matches `serverName` exactly — a literal `*.example.com` never matches clients.
- * For wildcards, expand to exact SANs on the covering cert that the pattern matches,
- * plus the parent apex when present on the cert (`uti.email` for `*.uti.email`).
+ * Exact patterns return themselves. Wildcard patterns expand to exact SANs on
+ * the covering cert that the pattern matches, plus apex when present.
+ * The literal `*.zone` itself is registered separately in buildEdgeTlsOptions
+ * (Bun matches one-label wildcards).
  */
 export function sniHostnamesForDomain(
   domain: string,
@@ -127,16 +124,19 @@ function exactProxyHostnamesUnderPattern(pattern: string): string[] {
 }
 
 /**
- * Build Bun `tls` option for edge HTTPS: SNI entries for exact names, plus a
- * no-`serverName` default. When a proxy host uses a LE wildcard cert (no exact
- * SANs), that PEM becomes the TLS default so `derp.uti.email` etc. get the right
- * cert — Bun cannot match a literal `*.uti.email` serverName.
+ * Build Bun `tls` option for edge HTTPS.
+ *
+ * Bun matches `serverName` exactly **or** as a one-label wildcard (`*.uti.email`
+ * matches `banana.uti.email`, not `a.b.uti.email`). Register each Proxy Host
+ * wildcard pattern as a literal `*.zone` SNI entry so multiple catch-alls
+ * (uti + harianto.link) all work — NPM-style. Exact domainNames still get their
+ * own entries (and win over the wildcard for the same PEM).
  */
 export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
   const sniEntries: BunTlsEntry[] = []
   const seen = new Set<string>()
-  /** PEM fingerprint → material for wildcard zones that need a TLS default. */
-  const wildcardDefaults = new Map<string, { cert: string, key: string, patterns: string[] }>()
+  /** Literal `*.zone` SNI patterns registered (for logging). */
+  const wildcardSnIs: string[] = []
 
   const liveCerts = listLiveCertCandidatesSync()
   const pemCache = new Map<string, { cert: string, key: string }>()
@@ -174,93 +174,54 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
         ...sniHostnamesForDomain(pattern, sans),
         ...exactProxyHostnamesUnderPattern(pattern),
       ]
-      const uniqueNames = [...new Set(hostnames)]
-
-      if (uniqueNames.length) {
-        for (const serverName of uniqueNames) {
-          if (seen.has(serverName)) {
-            continue
-          }
-          seen.add(serverName)
-          sniEntries.push({ cert: pem.cert, key: pem.key, serverName })
-        }
-      }
-
-      // LE wildcard certs often only have `*.zone` + apex — Bun cannot SNI-match `*.zone`.
-      // Use that PEM as the TLS default so arbitrary subdomains still get the right cert.
+      // Bun one-label wildcard SNI: register `*.zone` so random subdomains work
+      // without stealing a single global TLS default from other catch-alls.
       if (
         isWildcardDomainName(pattern)
         && certHasWildcardSanForPattern(pattern, sans)
       ) {
-        const fp = pemFingerprint(pem.cert, pem.key)
-        const existing = wildcardDefaults.get(fp)
-        if (existing) {
-          if (!existing.patterns.includes(pattern)) {
-            existing.patterns.push(pattern)
-          }
-        }
-        else {
-          wildcardDefaults.set(fp, {
-            cert: pem.cert,
-            key: pem.key,
-            patterns: [pattern],
-          })
-        }
+        hostnames.push(pattern)
       }
-      else if (!uniqueNames.length) {
+      else if (isWildcardDomainName(pattern) && !certHasWildcardSanForPattern(pattern, sans)) {
         console.warn(
-          `[proxy] wildcard ${pattern} has no exact SANs for SNI `
-          + `(cert ${certName}); add exact domainNames or SANs`,
+          `[proxy] wildcard ${pattern} has no matching SAN on cert ${certName}; `
+          + 'random subdomains under this pattern will not get this leaf',
         )
       }
+
+      for (const serverName of [...new Set(hostnames)]) {
+        if (seen.has(serverName)) {
+          continue
+        }
+        seen.add(serverName)
+        sniEntries.push({ cert: pem.cert, key: pem.key, serverName })
+        if (isWildcardDomainName(serverName)) {
+          wildcardSnIs.push(serverName)
+        }
+      }
     }
+  }
+
+  if (wildcardSnIs.length) {
+    console.info(
+      `[proxy] TLS SNI wildcards ← ${[...new Set(wildcardSnIs)].sort().join(', ')} `
+      + '(Bun one-label match; exact domainNames still registered separately)',
+    )
   }
 
   const auth = loadDefaultTlsEntry()
   const entries: BunTlsEntry[] = []
 
-  if (wildcardDefaults.size >= 1) {
-    const ranked = [...wildcardDefaults.values()].map(item => ({
-      ...item,
-      score: item.patterns.reduce(
-        (sum, pattern) => sum + exactProxyHostnamesUnderPattern(pattern).length,
-        0,
-      ),
-    })).sort((a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score
-      }
-      return a.patterns.join(',').localeCompare(b.patterns.join(','))
-    })
-    const chosen = ranked[0]!
-    entries.push({ cert: chosen.cert, key: chosen.key })
-    if (wildcardDefaults.size === 1) {
-      console.info(
-        `[proxy] TLS default ← wildcard cert for ${chosen.patterns.join(', ')} `
-        + '(Bun SNI is exact-only; unmatched names use this cert)',
-      )
-    }
-    else {
-      const others = ranked.slice(1).flatMap(item => item.patterns).join(', ')
-      console.warn(
-        `[proxy] ${wildcardDefaults.size} distinct wildcard certs — TLS default ← `
-        + `${chosen.patterns.join(', ')} (${chosen.score} exact domainName(s)); `
-        + `other wildcards (${others}) need exact domainNames on Proxy Hosts `
-        + '(Bun cannot SNI-match a literal *.zone)',
-      )
-    }
-    if (auth) {
-      for (const serverName of authSniHostnames()) {
-        if (seen.has(serverName)) {
-          continue
-        }
-        seen.add(serverName)
-        entries.push({ cert: auth.cert, key: auth.key, serverName })
-      }
-    }
-  }
-  else if (auth) {
+  // Auth / control cert as no-SNI default for unmatched names (not a catch-all zone).
+  if (auth) {
     entries.push(auth)
+    for (const serverName of authSniHostnames()) {
+      if (seen.has(serverName)) {
+        continue
+      }
+      seen.add(serverName)
+      entries.push({ cert: auth.cert, key: auth.key, serverName })
+    }
   }
 
   entries.push(...sniEntries)
