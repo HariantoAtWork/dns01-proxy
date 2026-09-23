@@ -114,8 +114,10 @@ export async function stopHttpsWithDrainCap(
 }
 
 /**
- * Hot-update SNI/TLS on the live :443 listener (Bun.serve reload).
- * Does not drop the socket — other Proxy Hosts keep working across host add/remove.
+ * Bun.serve().reload() with new TLS options — for regression tests only.
+ * Production must rebind: reload neither swaps PEM bodies for existing
+ * serverNames nor registers newly added serverNames (unmatched SNI keeps the
+ * no-SNI default cert, often the auth zone).
  */
 export function applyEdgeHttpsTlsHot(
   server: Server,
@@ -146,28 +148,17 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
     return
   }
 
-  // Names-only change (add/remove Proxy Host SNI): hot-reload keeps :443 up.
-  // PEM body change (issue/renew/SAN update): Bun.reload keeps the old cert for
-  // existing serverNames — must stop+rebind so browsers see the new leaf.
-  if (httpsServer && tlsBodies && nextPemFingerprint === lastPemFingerprint) {
-    try {
-      httpsServer = applyEdgeHttpsTlsHot(httpsServer, tlsBodies)
-      lastTlsFingerprint = nextFingerprint
-      lastPemFingerprint = nextPemFingerprint
-      proxyLog('info', `[acmedns] Edge HTTPS SNI hot-reloaded on ${httpsServer.url} (no port drop)`)
-      return
+  // Bun.serve().reload() is not reliable for TLS:
+  // - PEM body changes keep the old leaf for existing serverNames
+  // - newly added serverNames never bind (unmatched SNI → auth/default cert)
+  // Always stop+rebind :443 when the fingerprint changes.
+  if (httpsServer && tlsBodies) {
+    if (nextPemFingerprint !== lastPemFingerprint) {
+      proxyLog('info', '[acmedns] Edge HTTPS PEMs changed — rebinding :443 (Bun reload cannot swap cert bodies)')
     }
-    catch (error) {
-      proxyLog(
-        'warn',
-        `[acmedns] Edge HTTPS hot-reload failed — falling back to rebind: ${
-          error instanceof Error ? error.message : error
-        }`,
-      )
+    else {
+      proxyLog('info', '[acmedns] Edge HTTPS SNI names changed — rebinding :443 (Bun reload cannot add serverNames)')
     }
-  }
-  else if (httpsServer && tlsBodies && nextPemFingerprint !== lastPemFingerprint) {
-    proxyLog('info', '[acmedns] Edge HTTPS PEMs changed — rebinding :443 (Bun reload cannot swap cert bodies)')
   }
 
   if (httpsServer) {
@@ -191,7 +182,7 @@ async function reloadEdgeHttpsUnlocked(): Promise<void> {
   proxyLog('info', `[acmedns] Edge HTTPS rebound on ${httpsServer.url} (SNI)`)
 }
 
-/** Rebuild SNI material without dropping live traffic when possible. */
+/** Rebuild SNI material (short :443 drain + rebind when TLS fingerprint changes). */
 export function reloadEdgeHttps(): Promise<void> {
   reloadQueue = reloadQueue
     .then(() => reloadEdgeHttpsUnlocked())
