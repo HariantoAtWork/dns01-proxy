@@ -13,10 +13,11 @@ Three jobs, three paths:
 | Path | What talks | How it reaches the NAS |
 | --- | --- | --- |
 | DNS-01 | Let's Encrypt → `_acme-challenge` → your acme-dns zone | Public **UDP/TCP 53** on `84.86.220.240` (grey-cloud A, not the tunnel) |
-| HTTP API | Certbot hook, Nuxt register/update | Synology Reverse Proxy → host `8080` → container `:80` |
-| Tunnel (optional) | Browser UI / HTTPS hostnames | cloudflared — **HTTP only**. It does not carry port 53 |
+| Control HTTP | Certbot hook, Nuxt register/update, operator UI | Synology Reverse Proxy / cloudflared → host **`1080`** (control), not edge `:80` |
+| Edge HTTP(S) | Public Proxy Hosts / apps | Shared Bun **`80` / `443`** — [Bun proxy and SSL](Proxy-SSL.md) |
+| Tunnel (optional) | Browser UI / control hostnames | cloudflared — **HTTP only**. It does not carry port 53 |
 
-Cloudflare orange-cloud on `auth.uti.email` is fine for a website. It is wrong for a nameserver. Keep the auth zone **DNS only**.
+Cloudflare orange-cloud on `auth.uti.email` is fine for a website. It is wrong for a nameserver. Keep the auth zone **DNS only**. DSM reverse-proxy TLS for `auth.uti.email` is not the same as a Proxy Host “SSL Certificate” / Inherited SSL flag.
 
 ---
 
@@ -96,7 +97,7 @@ logtype = "stdout"
 logformat = "text"
 ```
 
-`tls = "none"` is deliberate. The reverse proxy speaks HTTPS to the world; the container speaks plain HTTP on 8080.
+`tls = "none"` is deliberate when DSM terminates HTTPS for the auth hostname; the control listener speaks plain HTTP on `1080`.
 
 If your Cloudflare glue uses a separate NS hostname (`ns.uti.email`), keep the A/AAAA for that name at Cloudflare and make sure `records` / `nsname` in this file tell the same story. The working NAS copy above self-NSes as `auth.uti.email`; Cloudflare may still publish `auth → ns.uti.email` plus an A for `ns`. Both sides need to agree on “who answers for the zone” and “which IP is grey-cloud”.
 
@@ -201,14 +202,14 @@ You want the A on the public IP (not Cloudflare proxy addresses), an NS that poi
 
 ## 3. Synology Reverse Proxy
 
-Publish the API on the host, then let DSM terminate TLS:
+Point **auth / operator** hostnames at the **control** port. Leave edge `:80`/`:443` for Proxy Hosts (or cloudflared-mapped apps).
 
 | Description | Source | Destination |
 | --- | --- | --- |
-| `acmedns-stack http` | `http://auth.uti.email:80` | `http://localhost:8080` |
-| `acmedns-stack https` | `https://auth.uti.email:443` | `http://localhost:8080` |
+| `acmedns-stack control http` | `http://auth.uti.email:80` | `http://localhost:1080` |
+| `acmedns-stack control https` | `https://auth.uti.email:443` | `http://localhost:1080` |
 
-Compose maps container `:80` → host `8080` (see below). Nothing fancy — hostname in, localhost out.
+Compose publishes control as `1080:1080` (see below). Hostname in, localhost out. Public app names belong on Bun edge `80`/`443` — see [Bun proxy and SSL](Proxy-SSL.md).
 
 ---
 
@@ -227,7 +228,7 @@ After register, copy the `fulldomain` into the `_acme-challenge.<apex>` CNAME at
 
 ## 5. Docker Compose ports on the NAS
 
-`acmedns-stack` needs DNS on the host **and** the API reachable for the reverse proxy:
+`acmedns-stack` needs DNS on the host, control for auth/UI, and (optionally) edge for Proxy Hosts:
 
 ```yml
 services:
@@ -235,13 +236,15 @@ services:
     ports:
       - "53:53"
       - "53:53/udp"
-      - "8080:80"
-      - "8443:443"
+      - "80:80"       # edge HTTP — Bun reverse proxy (public apps)
+      - "443:443"     # edge HTTPS — Bun reverse proxy (SNI)
+      - "1080:1080"   # control HTTP — operator UI + /register /update /health /api
+      - "1443:1443"   # control HTTPS when tls=cert
 ```
 
 - `53` — Let's Encrypt. Nothing else on the NAS should bind it (Synology DNS Server package, another DNS container, …).
-- `8080:80` — what the reverse proxy targets.
-- `8443:443` — optional HTTPS when `api.tls = "cert"` (HTTP `:80` stays up either way).
+- `1080` / `1443` — what DSM reverse proxy / Certbot should target for the **auth** hostname.
+- `80` / `443` — shared Bun edge for Proxy Hosts ([Bun proxy and SSL](Proxy-SSL.md)). Do not send auth UI here if you also proxy public apps on the same ports.
 
 Certificate issuance runs in the same process (nothing published for ACME). Prefer loopback / reverse-proxy `http://auth.uti.email` for `ACMEDNS_URL` / `server_url` when that is what works on Synology.
 
@@ -340,7 +343,7 @@ This NAS client can mix `ACMEDNS_URL` for your server (`https://auth.uti.email`)
 1. Compose runs on the Synology (DMZ host).
 2. `53/tcp` and `53/udp` published; nothing else owns 53.
 3. Cloudflare: grey-cloud A/NS glue for `auth` / `ns`; apex `_acme-challenge` CNAME → `fulldomain`; nested zones chain to that apex name.
-4. Reverse proxy: `auth.uti.email` → `localhost:8080`.
+4. Reverse proxy: `auth.uti.email` → `localhost:1080` (control, not edge).
 5. Register apex with **`http://auth.uti.email`**.
 6. `domains.txt` lists the cert; Save + Apply in the Certs UI (Production → `live/`).
 7. From cellular: dig A/NS/SOA/TXT until they look right, then watch client Apply results / logs for a successful issue.

@@ -175,4 +175,4 @@ The **Register** page, nav button, and modal are hidden in tiny mode; `/register
 
 - [Cloudflared and DNS](Cloudflared-and-DNS) — HTTP via tunnel; DNS still needs public `:53`.
 - [Working Synology setup](Working-Synology-setup) — production NAS runbook (full or tiny).
-- [Hostnames do not split ports](Hostnames-do-not-split-ports) — why glue A + NS matter.
+- [Public DNS and port 53](Public-DNS-and-port-53) — glue A + NS, why hostnames do not split ports.

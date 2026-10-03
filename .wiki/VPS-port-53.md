@@ -2,7 +2,7 @@
 
 On a single-IP VPS, the NIC address **is** the public IP. Publishing `53:53` (`0.0.0.0:53`) often fails because **systemd-resolved** already holds `127.0.0.1:53`. Binding only the public address avoids that collision — no `network_mode: host`.
 
-At home the usual path is different: router **DMZ** (or forward UDP/TCP 53) to the Synology and publish `53:53` there. See [DMZ, Synology, and Mac](DMZ-Synology-and-Mac.md).
+At home the usual path is different: router **DMZ** (or forward UDP/TCP 53) to the Synology and publish `53:53` there. See [Test this stack on the Synology](Test-on-Synology.md).
 
 ## Compose
 
