@@ -165,3 +165,7 @@ build/acmedns-stack/           # DNS + API + UI plugin + seed/
 build/acmedns-server/         # Go reference / rollback
 build/acmedns-client/         # legacy standalone client (reference)
 ```
+
+## License
+
+[MIT](LICENSE) — use it, fork it, break it. Provided as is; lock `ADMINISTRATOR_PASSWORD` if the control plane is reachable.
