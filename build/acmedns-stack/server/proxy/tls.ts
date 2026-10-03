@@ -88,6 +88,71 @@ export function sniHostnamesForDomain(
   return [...new Set(exact)]
 }
 
+/**
+ * One-label parent wildcard that covers an exact hostname when present on the cert.
+ * `test.admin.harianto.dev` → `*.admin.harianto.dev` (not `*.harianto.dev`).
+ * Bun SNI wildcards are one-label only, so nested names need this parent form.
+ */
+export function coveringWildcardSanForHostname(
+  hostname: string,
+  certSans: string[],
+): string | null {
+  const name = normalizeDomainName(hostname)
+  if (!name || isWildcardDomainName(name)) {
+    return null
+  }
+  const labels = name.split('.')
+  if (labels.length < 2) {
+    return null
+  }
+  const parentWild = `*.${labels.slice(1).join('.')}`
+  return certSans.some(san => normalizeDomainName(san) === parentWild)
+    ? parentWild
+    : null
+}
+
+/**
+ * Bun `serverName` values for one Proxy Host domain + covering cert.
+ *
+ * Prefer a one-label parent wildcard SAN when the cert has it, so adding
+ * `test.admin.harianto.dev` after `blog.admin.harianto.dev` does not change the
+ * TLS fingerprint (no :443 rebind). Nested names never match `*.harianto.dev`.
+ */
+export function sniServerNamesForProxyDomain(
+  domain: string,
+  certSans: string[],
+): string[] {
+  const pattern = normalizeDomainName(domain)
+  if (!pattern) {
+    return []
+  }
+
+  if (!isWildcardDomainName(pattern)) {
+    const parentWild = coveringWildcardSanForHostname(pattern, certSans)
+    if (parentWild) {
+      return [parentWild]
+    }
+    return [pattern]
+  }
+
+  // Wildcard proxy row: register literal `*.zone` when the cert has that SAN.
+  // Do not expand every exact sibling host — that forced a rebind on each add.
+  if (certHasWildcardSanForPattern(pattern, certSans)) {
+    const names = [pattern]
+    const apex = wildcardParentSuffix(pattern)
+    if (apex && certSans.some(san => normalizeDomainName(san) === apex)) {
+      names.push(apex)
+    }
+    return names
+  }
+
+  // Cert lacks the literal wildcard SAN — fall back to exact SAN / known hosts.
+  return [
+    ...sniHostnamesForDomain(pattern, certSans),
+    ...exactProxyHostnamesUnderPattern(pattern),
+  ]
+}
+
 /** Auth-zone hostnames that should keep an explicit SNI mapping to the default cert. */
 function authSniHostnames(): string[] {
   try {
@@ -170,26 +235,19 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
       }
 
       const sans = best?.sans ?? []
-      const hostnames = [
-        ...sniHostnamesForDomain(pattern, sans),
-        ...exactProxyHostnamesUnderPattern(pattern),
-      ]
-      // Bun one-label wildcard SNI: register `*.zone` so random subdomains work
-      // without stealing a single global TLS default from other catch-alls.
       if (
         isWildcardDomainName(pattern)
-        && certHasWildcardSanForPattern(pattern, sans)
+        && !certHasWildcardSanForPattern(pattern, sans)
       ) {
-        hostnames.push(pattern)
-      }
-      else if (isWildcardDomainName(pattern) && !certHasWildcardSanForPattern(pattern, sans)) {
         console.warn(
           `[proxy] wildcard ${pattern} has no matching SAN on cert ${certName}; `
           + 'random subdomains under this pattern will not get this leaf',
         )
       }
 
-      for (const serverName of [...new Set(hostnames)]) {
+      // Prefer parent-wildcard SNI (`*.admin.harianto.dev`) over per-host exact
+      // names so nested Proxy Hosts do not rebind :443 on every save.
+      for (const serverName of sniServerNamesForProxyDomain(pattern, sans)) {
         if (seen.has(serverName)) {
           continue
         }
@@ -205,7 +263,7 @@ export function buildEdgeTlsOptions(): BunTlsEntry[] | BunTlsEntry | null {
   if (wildcardSnIs.length) {
     console.info(
       `[proxy] TLS SNI wildcards ← ${[...new Set(wildcardSnIs)].sort().join(', ')} `
-      + '(Bun one-label match; exact domainNames still registered separately)',
+      + '(Bun one-label match; nested names use parent *.zone, not per-host rebind)',
     )
   }
 
