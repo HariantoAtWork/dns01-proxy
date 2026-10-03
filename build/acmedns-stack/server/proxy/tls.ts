@@ -9,7 +9,17 @@ import {
   normalizeDomainName,
   wildcardParentSuffix,
 } from '../../plugins/proxy/runtime/shared/utils/proxyHost'
-import { pickBestCertificateForDomain } from '../../plugins/proxy/runtime/shared/utils/proxyCertMatch'
+import {
+  certHasWildcardSanForPattern,
+  coveringWildcardSanForHostname,
+  pickBestCertificateForDomain,
+  preferredSniServerNamesForDomain,
+} from '../../plugins/proxy/runtime/shared/utils/proxyCertMatch'
+
+export {
+  certHasWildcardSanForPattern,
+  coveringWildcardSanForHostname,
+} from '../../plugins/proxy/runtime/shared/utils/proxyCertMatch'
 import { listLiveCertCandidatesSync } from './liveCerts'
 import { listEnabledProxyHosts, resolveCertPemPaths } from './routeTable'
 
@@ -48,15 +58,6 @@ function readPemPair(certificateName: string): { cert: string, key: string } | n
   }
 }
 
-/** True when the cert has a DNS SAN identical to the wildcard proxy pattern (e.g. both `*.uti.email`). */
-export function certHasWildcardSanForPattern(pattern: string, certSans: string[]): boolean {
-  const name = normalizeDomainName(pattern)
-  if (!name || !isWildcardDomainName(name)) {
-    return false
-  }
-  return certSans.some(san => normalizeDomainName(san) === name)
-}
-
 /**
  * Hostnames to register for Bun SNI for one proxy domain pattern.
  * Exact patterns return themselves. Wildcard patterns expand to exact SANs on
@@ -89,29 +90,6 @@ export function sniHostnamesForDomain(
 }
 
 /**
- * One-label parent wildcard that covers an exact hostname when present on the cert.
- * `test.admin.harianto.dev` → `*.admin.harianto.dev` (not `*.harianto.dev`).
- * Bun SNI wildcards are one-label only, so nested names need this parent form.
- */
-export function coveringWildcardSanForHostname(
-  hostname: string,
-  certSans: string[],
-): string | null {
-  const name = normalizeDomainName(hostname)
-  if (!name || isWildcardDomainName(name)) {
-    return null
-  }
-  const labels = name.split('.')
-  if (labels.length < 2) {
-    return null
-  }
-  const parentWild = `*.${labels.slice(1).join('.')}`
-  return certSans.some(san => normalizeDomainName(san) === parentWild)
-    ? parentWild
-    : null
-}
-
-/**
  * Bun `serverName` values for one Proxy Host domain + covering cert.
  *
  * Prefer a one-label parent wildcard SAN when the cert has it, so adding
@@ -122,30 +100,14 @@ export function sniServerNamesForProxyDomain(
   domain: string,
   certSans: string[],
 ): string[] {
+  const preferred = preferredSniServerNamesForDomain(domain, certSans)
+  if (preferred.length) {
+    return preferred
+  }
   const pattern = normalizeDomainName(domain)
-  if (!pattern) {
-    return []
+  if (!pattern || !isWildcardDomainName(pattern)) {
+    return preferred
   }
-
-  if (!isWildcardDomainName(pattern)) {
-    const parentWild = coveringWildcardSanForHostname(pattern, certSans)
-    if (parentWild) {
-      return [parentWild]
-    }
-    return [pattern]
-  }
-
-  // Wildcard proxy row: register literal `*.zone` when the cert has that SAN.
-  // Do not expand every exact sibling host — that forced a rebind on each add.
-  if (certHasWildcardSanForPattern(pattern, certSans)) {
-    const names = [pattern]
-    const apex = wildcardParentSuffix(pattern)
-    if (apex && certSans.some(san => normalizeDomainName(san) === apex)) {
-      names.push(apex)
-    }
-    return names
-  }
-
   // Cert lacks the literal wildcard SAN — fall back to exact SAN / known hosts.
   return [
     ...sniHostnamesForDomain(pattern, certSans),

@@ -3,6 +3,7 @@ import type { ForwardScheme, ProxyHost, ProxyHostInput, ProxyLocation } from '#p
 import type { ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
 import {
   PROXY_SSL_AUTO,
+  activeEdgeSslForDomains,
   poolSslCoverage,
   proxyHostSslAvailability,
   proxySslAvailabilityClass,
@@ -31,7 +32,7 @@ const {
   saving = false,
 } = defineProps<{
   certEntries?: ProxyCertCandidate[]
-  existingHosts?: Array<Pick<ProxyHost, 'id' | 'domainNames'>>
+  existingHosts?: Array<Pick<ProxyHost, 'id' | 'domainNames' | 'enabled' | 'certificateName'>>
   accessLists?: Array<{ id: string, name: string }>
   bearerLists?: Array<{ id: string, name: string }>
   saving?: boolean
@@ -104,23 +105,56 @@ const boundAvailability = computed(() =>
   proxyHostSslAvailability(draft.value.certificateName, draftDomains.value, certEntries),
 )
 
-const sslStatusLine = computed(() => {
+const edgeSslWhenOff = computed(() =>
+  activeEdgeSslForDomains(
+    draftDomains.value,
+    existingHosts,
+    certEntries,
+    draft.value.id,
+  ),
+)
+
+type SslStatusPart = { text: string, live?: boolean }
+
+const sslStatusParts = computed((): SslStatusPart[] => {
   if (!draftDomains.value.length) {
-    return 'Add domain names on Details first.'
+    return [{ text: 'Add domain names on Details first.' }]
   }
   if (!sslEnabled.value) {
+    const edge = edgeSslWhenOff.value
+    if (edge.fullyCovered) {
+      return [
+        { text: 'Off — SSL features off. HTTPS active via ' },
+        { text: edge.certNames.join(', '), live: true },
+        { text: ' (zone SNI from other SSL hosts).' },
+      ]
+    }
+    if (edge.covered > 0) {
+      return [
+        { text: 'Off — SSL features off. HTTPS via ' },
+        { text: edge.certNames.join(', '), live: true },
+        { text: ` for ${edge.covered}/${edge.total} domains; not on edge: ${edge.uncoveredDomains.join(', ')}.` },
+      ]
+    }
     if (sslBinding.value) {
-      return `Off — live certs ready: ${sslBinding.value.certNames.join(', ')}`
+      return [
+        { text: 'Off — SSL features off. Live cert ready (' },
+        { text: sslBinding.value.certNames.join(', '), live: true },
+        { text: ') but not on :443 yet — turn SSL on to bind it for this host.' },
+      ]
     }
     const pool = poolSslCoverage(draftDomains.value, certEntries)
     if (pool.availability === 'some') {
-      return `Off — only ${pool.covered}/${pool.total} domains have a live cert.`
+      return [{ text: `Off — SSL features off. Only ${pool.covered}/${pool.total} domains have a live cert; none are on :443 for this host.` }]
     }
-    return 'Off — no live certificate covers these domains yet (Certificates page).'
+    return [{ text: 'Off — SSL features off. No matching leaf on :443 for this host.' }]
   }
   const label = proxySslAvailabilityLabel(boundAvailability.value)
   const certs = proxySslCertLabel(draft.value.certificateName, draftDomains.value, certEntries)
-  return `${label} · ${certs}`
+  return [
+    { text: `On — ${label} · ` },
+    { text: certs, live: true },
+  ]
 })
 
 const portPlaceholder = computed(() => String(defaultForwardPort(draft.value.forwardScheme)))
@@ -646,10 +680,20 @@ watch(open, (value) => {
               class="text-xs"
               :class="sslEnabled ? proxySslAvailabilityClass(boundAvailability) : 'text-muted'"
             >
-              {{ sslStatusLine }}
+              <template
+                v-for="(part, index) in sslStatusParts"
+                :key="index"
+              >
+                <span :class="part.live ? 'text-live' : undefined">{{ part.text }}</span>
+              </template>
             </p>
             <template #info>
-              Uses live/ certificates per domain (e.g. *.mizu.work and *.harianto.dev together) — no manual pick.
+              <p>
+                Opts this host into SSL features (Force SSL, HSTS, HTTP/2) and binds live/ certs per domain automatically — no manual pick.
+              </p>
+              <p class="mt-2">
+                Unlike Nginx Proxy Manager, Off does not mean HTTP-only. When Off, the status line names the leaf already on :443 from other SSL hosts (zone/parent SNI), or says none is bound yet. :80 keeps working either way.
+              </p>
             </template>
           </UiInfoDrawer>
         </div>
@@ -672,7 +716,7 @@ watch(open, (value) => {
               >
             </template>
             <template #info>
-              Redirect HTTP to HTTPS for this host when SSL is enabled. Skips the redirect when the request already looks like HTTPS (e.g. X-Forwarded-Proto).
+              Redirect HTTP to HTTPS for this host. Requires SSL Certificate on. Skips the redirect when the request already looks like HTTPS (e.g. X-Forwarded-Proto).
             </template>
           </UiInfoDrawer>
           <UiInfoDrawer
@@ -686,13 +730,13 @@ watch(open, (value) => {
               <input
                 type="checkbox"
                 class="size-4"
-                :checked="draft.http2Support"
+                :checked="sslEnabled && draft.http2Support"
                 aria-label="HTTP/2 Support"
                 @change="enableSslFeature('http2Support', ($event.target as HTMLInputElement).checked)"
               >
             </template>
             <template #info>
-              Also serve HTTP/2 beside HTTP/1.1 on the edge HTTPS listener (ALPN). Not a replacement for h1.
+              Also serve HTTP/2 beside HTTP/1.1 on the edge HTTPS listener (ALPN). Requires SSL Certificate on. Not a replacement for h1.
             </template>
           </UiInfoDrawer>
           <UiInfoDrawer

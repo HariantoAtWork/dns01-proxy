@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import type { ProxyHost } from '#proxy-shared/types/proxyHost'
-import type { ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
+import type { ActiveEdgeSslSummary, ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
 import {
+  activeEdgeSslForDomains,
   proxyHostSslAvailability,
   proxySslAvailabilityClass,
   proxySslAvailabilityLabel,
   proxySslCertLabel,
 } from '#proxy-shared/utils/proxyCertMatch'
-import { forwardTarget, isWildcardDomainName, visitMatchesDomainEntry } from '#proxy-shared/utils/proxyHost'
+import {
+  forwardTarget,
+  isWildcardDomainName,
+  normalizeDomainName,
+  visitMatchesDomainEntry,
+} from '#proxy-shared/utils/proxyHost'
 import {
   PhCircle as Circle,
   PhPencilSimple as Pencil,
@@ -103,13 +109,38 @@ function sslCertLabel(host: ProxyHost) {
   return proxySslCertLabel(host.certificateName, host.domainNames, certEntries)
 }
 
+/**
+ * HTTPS on :443 via another host's zone/parent SNI while this host's SSL Certificate is off.
+ */
+function inheritedSsl(host: ProxyHost): ActiveEdgeSslSummary | null {
+  if (host.certificateName) {
+    return null
+  }
+  const edge = activeEdgeSslForDomains(host.domainNames, hosts, certEntries, host.id)
+  return edge.covered > 0 ? edge : null
+}
+
+function inheritedSslTitle(host: ProxyHost): string {
+  const edge = inheritedSsl(host)
+  if (!edge) {
+    return ''
+  }
+  return `HTTPS via ${edge.certNames.join(', ')} (zone SNI from other SSL hosts)`
+}
+
 /** Public URL for an exact domain; wildcards stay plain text. */
 function domainHref(host: ProxyHost, name: string): string | null {
   if (isWildcardDomainName(name)) {
     return null
   }
-  const scheme = host.certificateName ? 'https' : 'http'
-  return `${scheme}://${name}`
+  if (host.certificateName) {
+    return `https://${name}`
+  }
+  const key = normalizeDomainName(name)
+  if (inheritedSsl(host)?.byDomain[key]) {
+    return `https://${name}`
+  }
+  return `http://${name}`
 }
 
 function domainEntries(host: ProxyHost) {
@@ -253,7 +284,13 @@ function onEnabledChange(host: ProxyHost, event: Event) {
               <span
                 v-if="host.certificateName"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
+                title="SSL Certificate opted in for this host"
               >SSL</span>
+              <span
+                v-else-if="inheritedSsl(host)"
+                class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-live"
+                :title="inheritedSslTitle(host)"
+              >Inherited SSL</span>
               <span
                 v-if="host.sslForced"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"

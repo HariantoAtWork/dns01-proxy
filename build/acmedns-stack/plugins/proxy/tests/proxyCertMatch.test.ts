@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import {
   PROXY_SSL_AUTO,
+  activeEdgeSslForDomains,
+  coveringWildcardSanForHostname,
   pickBestCertificate,
   poolSslCoverage,
+  preferredSniServerNamesForDomain,
   proxyHostSslAvailability,
   proxySslAvailabilityLabel,
   proxySslCertLabel,
@@ -26,6 +29,76 @@ describe('sanCoversDomain', () => {
     expect(sanCoversDomain('*.example.com', 'example.com')).toBe(false)
     expect(sanCoversDomain('*.example.com', '*.example.com')).toBe(true)
     expect(sanCoversDomain('app.example.com', '*.example.com')).toBe(false)
+  })
+})
+
+describe('activeEdgeSslForDomains', () => {
+  test('names the zone cert already on :443 from another SSL host', () => {
+    const candidates = [
+      live({ certName: 'harianto.link', sans: ['harianto.link', '*.harianto.link'] }),
+    ]
+    const edge = activeEdgeSslForDomains(
+      ['whoami.harianto.link'],
+      [{
+        id: 'other',
+        enabled: true,
+        certificateName: PROXY_SSL_AUTO,
+        domainNames: ['blog.harianto.link'],
+      }],
+      candidates,
+    )
+    expect(edge.fullyCovered).toBe(true)
+    expect(edge.certNames).toEqual(['harianto.link'])
+    expect(edge.byDomain['whoami.harianto.link']).toBe('harianto.link')
+  })
+
+  test('reports no edge leaf when no other SSL host bound the zone', () => {
+    const candidates = [
+      live({ certName: 'harianto.link', sans: ['harianto.link', '*.harianto.link'] }),
+    ]
+    const edge = activeEdgeSslForDomains(
+      ['whoami.harianto.link'],
+      [{
+        id: 'other',
+        enabled: true,
+        certificateName: null,
+        domainNames: ['blog.harianto.link'],
+      }],
+      candidates,
+    )
+    expect(edge.fullyCovered).toBe(false)
+    expect(edge.covered).toBe(0)
+    expect(edge.certNames).toEqual([])
+  })
+
+  test('nested admin host uses parent wildcard SNI from sibling SSL host', () => {
+    const candidates = [
+      live({
+        certName: 'admin.harianto.dev',
+        sans: ['admin.harianto.dev', '*.admin.harianto.dev'],
+      }),
+    ]
+    expect(coveringWildcardSanForHostname(
+      'test.admin.harianto.dev',
+      candidates[0]!.sans,
+    )).toBe('*.admin.harianto.dev')
+    expect(preferredSniServerNamesForDomain(
+      'blog.admin.harianto.dev',
+      candidates[0]!.sans,
+    )).toEqual(['*.admin.harianto.dev'])
+
+    const edge = activeEdgeSslForDomains(
+      ['test.admin.harianto.dev'],
+      [{
+        id: 'blog',
+        enabled: true,
+        certificateName: PROXY_SSL_AUTO,
+        domainNames: ['blog.admin.harianto.dev'],
+      }],
+      candidates,
+    )
+    expect(edge.fullyCovered).toBe(true)
+    expect(edge.certNames).toEqual(['admin.harianto.dev'])
   })
 })
 

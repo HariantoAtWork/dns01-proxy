@@ -24,7 +24,7 @@ export function emptyProxyHost(): ProxyHostInput {
     locations: [],
     certificateName: null,
     sslForced: false,
-    http2Support: true,
+    http2Support: false,
     hstsEnabled: false,
     hstsSubdomains: false,
     trustForwardedProto: false,
@@ -354,8 +354,12 @@ export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost
       ? null
       : String(row.certificateName),
     sslForced: Boolean(row.sslForced),
-    // Prefer on for new/missing values; explicit false stays off.
-    http2Support: row.http2Support === undefined ? true : Boolean(row.http2Support),
+    // Default on only when SSL is opted in; SSL-off hosts should not show HTTP/2 as enabled.
+    http2Support: row.certificateName == null || row.certificateName === ''
+      ? false
+      : row.http2Support === undefined
+        ? true
+        : Boolean(row.http2Support),
     hstsEnabled: Boolean(row.hstsEnabled),
     hstsSubdomains: Boolean(row.hstsSubdomains),
     trustForwardedProto: Boolean(row.trustForwardedProto),
