@@ -30,7 +30,7 @@ flowchart LR
 
 Router sends unsolicited inbound traffic (including UDP/TCP 53) to the NAS. Compose publishes `53:53` / `53:53/udp`. Glue points at the home public IP. No special Docker network driver required.
 
-See [`.wiki/DMZ-Synology-and-Mac.md`](../.wiki/DMZ-Synology-and-Mac.md) and [`.wiki/Working-Synology-setup.md`](../.wiki/Working-Synology-setup.md).
+See [`.wiki/Test-on-Synology.md`](../.wiki/Test-on-Synology.md) and [`.wiki/Working-Synology-setup.md`](../.wiki/Working-Synology-setup.md).
 
 ### VPS (one public IP)
 
@@ -135,5 +135,5 @@ At home, honesty is DMZ to the box that runs acme-dns. Same glue story, differen
 ---
 
 *Previously: [After the merge: a DNS-01 lab…](./dns01-lab-and-txt-probe.md).*  
-*Wiki: [VPS port 53](../.wiki/VPS-port-53.md) · [DMZ, Synology, and Mac](../.wiki/DMZ-Synology-and-Mac.md).*  
+*Wiki: [VPS port 53](../.wiki/VPS-port-53.md) · [Test this stack on the Synology](../.wiki/Test-on-Synology.md).*
 *Stack: [HariantoAtWork/acmedns-stack](https://github.com/HariantoAtWork/acmedns-stack).*
