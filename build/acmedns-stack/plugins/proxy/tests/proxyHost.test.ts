@@ -24,8 +24,18 @@ describe('proxyHost normalize', () => {
     expect(host.forwardScheme).toBe('http')
     expect(host.forwardPort).toBe(8123)
     expect(host.allowWebsocketUpgrade).toBe(true)
-    expect(host.http2Support).toBe(true)
+    // No SSL opt-in → HTTP/2 stays off (avoids a misleading checked box).
+    expect(host.http2Support).toBe(false)
     expect(validateProxyHost(host)).toBeNull()
+  })
+
+  test('defaults HTTP/2 on when SSL is opted in and the field is missing', () => {
+    const host = normalizeProxyHost({
+      domainNames: ['a.example.com'],
+      forwardHost: 'app',
+      certificateName: 'auto',
+    })
+    expect(host.http2Support).toBe(true)
   })
 
   test('defaults empty port by scheme and strips legacy keys', () => {

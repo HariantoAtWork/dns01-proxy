@@ -2,6 +2,7 @@ import {
   domainPatternMatchesHostname,
   isWildcardDomainName,
   normalizeDomainName,
+  wildcardParentSuffix,
 } from './proxyHost'
 
 /** Slim cert row used for proxy SSL matching (leaf SANs from `/live/<name>/`). */
@@ -16,6 +17,143 @@ export interface ProxyCertCandidate {
 
 /** Stored on ProxyHost when SSL is on and certs are resolved per domain from live/. */
 export const PROXY_SSL_AUTO = 'auto'
+
+/**
+ * One-label parent wildcard that covers an exact hostname when present on the cert.
+ * `test.admin.harianto.dev` → `*.admin.harianto.dev` (not `*.harianto.dev`).
+ */
+export function coveringWildcardSanForHostname(
+  hostname: string,
+  certSans: string[],
+): string | null {
+  const name = normalizeDomainName(hostname)
+  if (!name || isWildcardDomainName(name)) {
+    return null
+  }
+  const labels = name.split('.')
+  if (labels.length < 2) {
+    return null
+  }
+  const parentWild = `*.${labels.slice(1).join('.')}`
+  return certSans.some(san => normalizeDomainName(san) === parentWild)
+    ? parentWild
+    : null
+}
+
+/** True when the cert has a DNS SAN identical to the wildcard proxy pattern. */
+export function certHasWildcardSanForPattern(pattern: string, certSans: string[]): boolean {
+  const name = normalizeDomainName(pattern)
+  if (!name || !isWildcardDomainName(name)) {
+    return false
+  }
+  return certSans.some(san => normalizeDomainName(san) === name)
+}
+
+/**
+ * Preferred Bun serverNames for one domain + covering cert (no server-only host scan).
+ * Matches the hot path used when building edge SNI.
+ */
+export function preferredSniServerNamesForDomain(
+  domain: string,
+  certSans: string[],
+): string[] {
+  const pattern = normalizeDomainName(domain)
+  if (!pattern) {
+    return []
+  }
+  if (!isWildcardDomainName(pattern)) {
+    const parentWild = coveringWildcardSanForHostname(pattern, certSans)
+    if (parentWild) {
+      return [parentWild]
+    }
+    return [pattern]
+  }
+  if (!certHasWildcardSanForPattern(pattern, certSans)) {
+    return []
+  }
+  const names = [pattern]
+  const apex = wildcardParentSuffix(pattern)
+  if (apex && certSans.some(san => normalizeDomainName(san) === apex)) {
+    names.push(apex)
+  }
+  return names
+}
+
+export type EdgeSslHostRow = {
+  id?: string | null
+  enabled?: boolean
+  certificateName?: string | null
+  domainNames: string[]
+}
+
+export type ActiveEdgeSslSummary = {
+  /** domain → live cert name already bound on edge via other SSL hosts */
+  byDomain: Record<string, string>
+  certNames: string[]
+  covered: number
+  total: number
+  fullyCovered: boolean
+  uncoveredDomains: string[]
+}
+
+/**
+ * Which covering leaf is already on :443 for these domains because other
+ * SSL-enabled proxy hosts registered that SNI (zone/parent wildcard or exact).
+ */
+export function activeEdgeSslForDomains(
+  domains: string[],
+  otherHosts: EdgeSslHostRow[],
+  candidates: ProxyCertCandidate[],
+  excludeHostId?: string | null,
+): ActiveEdgeSslSummary {
+  const wanted = domains.map(normalizeDomainName).filter(Boolean)
+  const active: Array<{ serverName: string, certName: string }> = []
+
+  for (const host of otherHosts) {
+    if (host.enabled === false) {
+      continue
+    }
+    if (!host.certificateName) {
+      continue
+    }
+    if (excludeHostId && host.id && host.id === excludeHostId) {
+      continue
+    }
+    const hostDomains = (host.domainNames || []).map(normalizeDomainName).filter(Boolean)
+    for (const domain of hostDomains) {
+      const best = pickBestCertificateForDomain(candidates, domain, hostDomains)
+      if (!best?.certName || best.liveOnDisk !== true) {
+        continue
+      }
+      for (const serverName of preferredSniServerNamesForDomain(domain, best.sans)) {
+        active.push({ serverName, certName: best.certName })
+      }
+    }
+  }
+
+  const byDomain: Record<string, string> = {}
+  for (const domain of wanted) {
+    const hit = active.find(entry =>
+      entry.serverName === domain
+      || domainPatternMatchesHostname(entry.serverName, domain),
+    )
+    if (hit) {
+      byDomain[domain] = hit.certName
+    }
+  }
+
+  const uncoveredDomains = wanted.filter(domain => !(domain in byDomain))
+  const certNames = [...new Set(Object.values(byDomain))].sort()
+  const covered = wanted.length - uncoveredDomains.length
+  return {
+    byDomain,
+    certNames,
+    covered,
+    total: wanted.length,
+    fullyCovered: wanted.length > 0 && uncoveredDomains.length === 0,
+    uncoveredDomains,
+  }
+}
 
 export type ProxySslAvailability = 'available' | 'some' | 'none'
 
