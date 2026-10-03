@@ -144,7 +144,8 @@ function startEdgeBinding(binding: ListenBinding, tlsBodies?: ReturnType<typeof 
     hostname: binding.host,
     idleTimeout: resolveIdleTimeoutSeconds('edge'),
     ...tlsOpt,
-    ...(http2 ? { http2: true } : {}),
+    // Match edgeHttps rebind: SO_REUSEPORT so SNI updates can overlap-bind :443.
+    ...(http2 ? { http2: true, reusePort: true } : {}),
     fetch: (req: Request, server: unknown) => handleFetch(req, server, binding),
     websocket: proxyWebsocketHandlers,
   } as Parameters<typeof Bun.serve>[0])
