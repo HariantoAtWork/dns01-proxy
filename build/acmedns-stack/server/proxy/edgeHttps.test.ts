@@ -1,10 +1,17 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import {
+  EDGE_HTTPS_BIND_ATTEMPTS,
   EDGE_HTTPS_DRAIN_MS,
+  EDGE_HTTPS_HEAL_MS,
   applyEdgeHttpsTlsHot,
   registerEdgeHttpsRuntime,
+  resetEdgeHttpsForTests,
   stopHttpsWithDrainCap,
 } from './edgeHttps'
+
+afterEach(() => {
+  resetEdgeHttpsForTests()
+})
 
 describe('stopHttpsWithDrainCap', () => {
   test('returns graceful when stop finishes before drain cap', async () => {
@@ -35,6 +42,72 @@ describe('stopHttpsWithDrainCap', () => {
 
   test('default drain budget is 2s', () => {
     expect(EDGE_HTTPS_DRAIN_MS).toBe(2_000)
+  })
+
+  test('bind retry budget covers slow port release', () => {
+    expect(EDGE_HTTPS_BIND_ATTEMPTS).toBeGreaterThanOrEqual(12)
+    expect(EDGE_HTTPS_HEAL_MS).toBeGreaterThanOrEqual(1_000)
+  })
+})
+
+describe('edge HTTPS overlap rebind (reusePort)', () => {
+  test('new listener can bind before old is stopped so Sources stay reachable', async () => {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const os = await import('node:os')
+    const { $ } = await import('bun')
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'edge-overlap-'))
+
+    async function makeLeaf(cn: string, san: string) {
+      const keyPath = path.join(dir, `${cn}.key`)
+      const certPath = path.join(dir, `${cn}.crt`)
+      const confPath = path.join(dir, `${cn}.cnf`)
+      await Bun.write(
+        confPath,
+        `[req]\ndistinguished_name=req\n[req]\n[v3]\nsubjectAltName=${san}\n`,
+      )
+      await $`openssl req -x509 -newkey rsa:2048 -keyout ${keyPath} -out ${certPath} -days 1 -nodes -subj /CN=${cn} -extensions v3 -config ${confPath}`.quiet()
+      return {
+        cert: await fs.readFile(certPath, 'utf-8'),
+        key: await fs.readFile(keyPath, 'utf-8'),
+      }
+    }
+
+    const a = await makeLeaf('a.example', 'DNS:a.example')
+    const b = await makeLeaf('b.example', 'DNS:b.example')
+
+    const first = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      reusePort: true,
+      tls: [{ cert: a.cert, key: a.key, serverName: 'a.example' }],
+      fetch: () => new Response('one'),
+    })
+    const port = first.port!
+
+    // Production rebind path: bind next SNI set first, then drain the previous listener.
+    const second = Bun.serve({
+      port,
+      hostname: '127.0.0.1',
+      reusePort: true,
+      tls: [
+        { cert: a.cert, key: a.key, serverName: 'a.example' },
+        { cert: b.cert, key: b.key, serverName: 'b.example' },
+      ],
+      fetch: () => new Response('two'),
+    })
+
+    await stopHttpsWithDrainCap(first, 200)
+
+    const res = await fetch(`https://127.0.0.1:${port}/`, {
+      tls: { rejectUnauthorized: false },
+      headers: { Host: 'a.example' },
+    } as RequestInit)
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('two')
+
+    second.stop(true)
+    await fs.rm(dir, { recursive: true, force: true })
   })
 })
 
