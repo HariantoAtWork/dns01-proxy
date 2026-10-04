@@ -10,9 +10,11 @@ afterEach(() => {
 })
 
 describe('resolveIdleTimeoutSeconds', () => {
-  test('edge and control default to 120s', () => {
+  test('edge and control default to 255s', () => {
     expect(resolveIdleTimeoutSeconds('edge')).toBe(DEFAULT_EDGE_IDLE_TIMEOUT_SECONDS)
     expect(resolveIdleTimeoutSeconds('control')).toBe(DEFAULT_CONTROL_IDLE_TIMEOUT_SECONDS)
+    expect(DEFAULT_EDGE_IDLE_TIMEOUT_SECONDS).toBe(255)
+    expect(DEFAULT_CONTROL_IDLE_TIMEOUT_SECONDS).toBe(255)
   })
 
   test('0 means Bun default; clamps to 255', () => {

@@ -47,10 +47,10 @@ services:
       - PROXY_ACCESS_LOG_LEVEL=${PROXY_ACCESS_LOG_LEVEL:-info}
       # Force-disable access lines only (0/false). Prefer PROXY_LOG_LEVEL=warn to keep errors.
       - PROXY_ACCESS_LOG=${PROXY_ACCESS_LOG:-true}
-      # Upstream fetch deadline for edge proxy (ms; 0 disables). Default 60000.
-      - PROXY_UPSTREAM_TIMEOUT_MS=${PROXY_UPSTREAM_TIMEOUT_MS:-60000}
-      # Bun.serve idleTimeout seconds for edge + control (max 255). Default 120; 0 = Bun default (10s).
-      - NITRO_BUN_IDLE_TIMEOUT=${NITRO_BUN_IDLE_TIMEOUT:-120}
+      # Upstream fetch deadline for edge proxy (ms; 0 disables). Default 0 (no deadline).
+      - PROXY_UPSTREAM_TIMEOUT_MS=${PROXY_UPSTREAM_TIMEOUT_MS:-0}
+      # Bun.serve idleTimeout seconds for edge + control (max 255). Default 255; 0 = Bun default (10s).
+      - NITRO_BUN_IDLE_TIMEOUT=${NITRO_BUN_IDLE_TIMEOUT:-255}
       # ── Tiny stack (optional — see .wiki/Tiny-stack.md) ───────────────────────
       - ACMEDNS_TINY_DOMAIN=${ACMEDNS_TINY_DOMAIN:-}
       - ACMEDNS_TINY_ACCEPT_ZONES=${ACMEDNS_TINY_ACCEPT_ZONES:-}

@@ -14,8 +14,8 @@ export interface ForwardTarget {
   port: number
 }
 
-/** Default upstream fetch deadline (ms). `PROXY_UPSTREAM_TIMEOUT_MS=0` disables. */
-export const DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS = 60_000
+/** Default upstream fetch deadline (ms). `0` disables (needed for long video/AI streams). */
+export const DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS = 0
 
 export function proxyUpstreamTimeoutMs(): number {
   const raw = process.env.PROXY_UPSTREAM_TIMEOUT_MS
