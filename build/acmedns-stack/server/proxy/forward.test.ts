@@ -17,8 +17,9 @@ afterEach(() => {
 })
 
 describe('proxyUpstreamTimeoutMs', () => {
-  test('defaults to 60s', () => {
+  test('defaults to disabled (0)', () => {
     expect(proxyUpstreamTimeoutMs()).toBe(DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS)
+    expect(DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS).toBe(0)
   })
 
   test('reads env and allows 0 to disable', () => {

@@ -1,15 +1,15 @@
 /**
  * Bun.serve `idleTimeout` is in **seconds** (runtime default 10, max 255).
- * Edge reverse-proxy streaming and control SSE (`/api/certs/stream`) need a higher
+ * Edge reverse-proxy streaming and control SSE (`/api/certs/stream`) need a high
  * floor or clients see blank/cut pages / ERR_INCOMPLETE_CHUNKED_ENCODING.
  *
  * Env: `NITRO_BUN_IDLE_TIMEOUT`
- * - unset → edge + control 120s
+ * - unset → edge + control 255s (Bun max; favours long streams / quiet SSE gaps)
  * - `0` → Bun default for that server
  * - `1`–`255` → clamped value
  */
-export const DEFAULT_EDGE_IDLE_TIMEOUT_SECONDS = 120
-export const DEFAULT_CONTROL_IDLE_TIMEOUT_SECONDS = 120
+export const DEFAULT_EDGE_IDLE_TIMEOUT_SECONDS = 255
+export const DEFAULT_CONTROL_IDLE_TIMEOUT_SECONDS = 255
 
 export function resolveIdleTimeoutSeconds(role: 'edge' | 'control'): number | undefined {
   const fallback = role === 'edge'
