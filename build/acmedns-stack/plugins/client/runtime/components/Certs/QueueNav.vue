@@ -12,7 +12,6 @@ import {
 
 const dialogId = useId()
 const { open, toggle } = useCertQueueModal()
-const toasts = useToasts()
 const {
   certJob,
   certQueue,
@@ -25,6 +24,14 @@ const {
   deleteJob,
   useGlobalLifecycle,
 } = useCertQueueLive()
+
+const { onJobAction } = useCertJobActions({
+  jobActionPending,
+  cancelJob,
+  resumeJob,
+  rerunJob,
+  deleteJob,
+})
 
 useGlobalLifecycle()
 
@@ -57,42 +64,6 @@ const badgeCount = computed(() => {
   }
   return count
 })
-
-type JobQueueAction = 'cancel' | 'resume' | 'rerun' | 'delete'
-
-async function onJobAction(action: JobQueueAction, id: number) {
-  jobActionPending.value = true
-  try {
-    if (action === 'cancel') {
-      await cancelJob(id)
-      toasts.info(`Job #${id} cancelled`, 'Queue')
-    }
-    else if (action === 'resume') {
-      await resumeJob(id)
-      toasts.ok(`Job #${id} resumed`, 'Queue')
-    }
-    else if (action === 'rerun') {
-      await rerunJob(id)
-      toasts.ok(`Job #${id} re-queued from start`, 'Queue')
-    }
-    else {
-      await deleteJob(id)
-      toasts.info(`Job #${id} deleted`, 'Queue')
-    }
-  }
-  catch (caught) {
-    const errors: Record<JobQueueAction, string> = {
-      cancel: 'Cancel failed',
-      resume: 'Resume failed',
-      rerun: 'Re-run failed',
-      delete: 'Delete failed',
-    }
-    toasts.error(caught instanceof Error ? caught.message : errors[action])
-  }
-  finally {
-    jobActionPending.value = false
-  }
-}
 </script>
 
 <template>
