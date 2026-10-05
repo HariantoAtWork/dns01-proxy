@@ -4,6 +4,7 @@ import type { ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
 import { PROXY_SSL_AUTO, resolveCertificatesForDomains } from '#proxy-shared/utils/proxyCertMatch'
 import {
   asForwardPort,
+  asIdleTimeoutSeconds,
   applyForwardTargetInput,
   emptyProxyHost,
   findDuplicateDomainConflicts,
@@ -111,6 +112,7 @@ function onSave() {
     ...(draft.value.id ? { id: draft.value.id } : {}),
     domainNames: normalizeDomainNames(domainsText.value),
     forwardPort: asForwardPort(draft.value.forwardPort, scheme),
+    idleTimeout: asIdleTimeoutSeconds(draft.value.idleTimeout),
     locations: draft.value.locations.map(location => ({
       ...location,
       forwardPort: asForwardPort(location.forwardPort, location.forwardScheme),

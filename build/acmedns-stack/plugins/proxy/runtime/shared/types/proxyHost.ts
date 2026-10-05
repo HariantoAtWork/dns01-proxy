@@ -28,6 +28,11 @@ export interface ProxyHost {
   hstsEnabled: boolean
   hstsSubdomains: boolean
   trustForwardedProto: boolean
+  /**
+   * Per-request Bun idle timeout override (seconds) via `server.timeout(req, …)`.
+   * `null`/omitted → inherit edge `idleTimeout`; `0` disables (streaming-safe).
+   */
+  idleTimeout?: number | null
   enabled: boolean
 }
 

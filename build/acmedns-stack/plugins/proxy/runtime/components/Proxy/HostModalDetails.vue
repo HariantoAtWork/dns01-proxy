@@ -28,12 +28,26 @@ const detailsInfoOpen = reactive({
   domains: false,
   enabled: false,
   websockets: false,
+  idleTimeout: false,
 })
 
 function resetDetailsInfoOpen() {
   detailsInfoOpen.domains = false
   detailsInfoOpen.enabled = false
   detailsInfoOpen.websockets = false
+  detailsInfoOpen.idleTimeout = false
+}
+
+function onIdleTimeoutInput(event: Event) {
+  const raw = (event.target as HTMLInputElement).value
+  if (raw.trim() === '') {
+    draft.idleTimeout = null
+    return
+  }
+  const n = Number.parseInt(raw, 10)
+  draft.idleTimeout = Number.isFinite(n) && Number.isInteger(n) && n >= 0
+    ? n
+    : null
 }
 
 defineExpose({ resetDetailsInfoOpen })
@@ -144,6 +158,31 @@ defineExpose({ resetDetailsInfoOpen })
         </template>
         <template #info>
           Allow WebSocket upgrades through to the upstream (Upgrade / Connection headers). Leave off for plain HTTP only.
+        </template>
+      </UiInfoDrawer>
+      <UiInfoDrawer
+        v-model="detailsInfoOpen.idleTimeout"
+        label="About Idle Timeout"
+      >
+        <template #title>
+          <span>Idle Timeout (seconds)</span>
+        </template>
+        <template #action>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            class="ui-input w-24 border border-rule bg-paper px-2 py-1 font-mono text-sm"
+            style="border-radius: var(--radius-input)"
+            :value="draft.idleTimeout ?? ''"
+            placeholder="inherit"
+            aria-label="Idle Timeout seconds"
+            @input="onIdleTimeoutInput"
+          >
+        </template>
+        <template #info>
+          Override Bun’s per-request idle timeout for this host. Leave empty to inherit the edge default.
+          Use <code class="font-mono text-xs">0</code> to disable (keeps video / AI / SSE streams alive through quiet gaps).
         </template>
       </UiInfoDrawer>
     </div>

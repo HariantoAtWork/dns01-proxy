@@ -12,6 +12,18 @@ export function defaultForwardPort(scheme: ForwardScheme): number {
   return scheme === 'https' ? 443 : 80
 }
 
+/** Parse optional idleTimeout seconds; invalid/empty → null. */
+export function asIdleTimeoutSeconds(raw: unknown): number | null {
+  if (raw == null || raw === '') {
+    return null
+  }
+  const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw).trim(), 10)
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+    return null
+  }
+  return n
+}
+
 export function emptyProxyHost(): ProxyHostInput {
   return {
     domainNames: [],
@@ -28,6 +40,7 @@ export function emptyProxyHost(): ProxyHostInput {
     hstsEnabled: false,
     hstsSubdomains: false,
     trustForwardedProto: false,
+    idleTimeout: null,
     enabled: true,
   }
 }
@@ -363,6 +376,7 @@ export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost
     hstsEnabled: Boolean(row.hstsEnabled),
     hstsSubdomains: Boolean(row.hstsSubdomains),
     trustForwardedProto: Boolean(row.trustForwardedProto),
+    idleTimeout: asIdleTimeoutSeconds(row.idleTimeout),
     enabled: row.enabled === undefined ? true : Boolean(row.enabled),
   }
 }
@@ -390,6 +404,11 @@ export function validateProxyHost(host: ProxyHost): string | null {
   }
   if (host.forwardPort < 1 || host.forwardPort > 65535) {
     return 'Forward port must be between 1 and 65535'
+  }
+  if (host.idleTimeout != null) {
+    if (!Number.isInteger(host.idleTimeout) || host.idleTimeout < 0) {
+      return 'Idle timeout must be a non-negative integer (seconds), or empty to inherit'
+    }
   }
   for (const location of host.locations) {
     if (!location.path.trim()) {

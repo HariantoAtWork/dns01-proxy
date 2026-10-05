@@ -8,6 +8,7 @@ import { logProxyAccess } from './accessLog'
 import { resolveProxyClientIp } from './clientIp'
 import { isReservedHostname } from './reserved'
 import { forwardHttpRequest, forceSslRedirect } from './forward'
+import { applyProxyHostIdleTimeout } from './hostIdleTimeout'
 import { matchProxyRoute } from './routeTable'
 import { tryUpgradeProxyWebSocket } from './websocket'
 import { evaluateAccessList } from './accessEvaluate'
@@ -183,6 +184,8 @@ export async function tryHandleProxy(
     })
     return new Response('Not Found', { status: 404 })
   }
+
+  applyProxyHostIdleTimeout(server, req, match.host)
 
   publishProxyVisit({
     hostId: match.host.id,
