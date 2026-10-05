@@ -1,154 +1,34 @@
-import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import type { ListenTlsOptions } from '../utils/listen'
 import { resolveTlsMaterial } from '../utils/listen'
-import { getAcmeConfig } from '../utils/config'
-import {
-  domainPatternMatchesHostname,
-  isWildcardDomainName,
-  normalizeDomainName,
-  wildcardParentSuffix,
-} from '../../plugins/proxy/runtime/shared/utils/proxyHost'
+import { isWildcardDomainName } from '../../plugins/proxy/runtime/shared/utils/proxyHost'
 import {
   certHasWildcardSanForPattern,
-  coveringWildcardSanForHostname,
   pickBestCertificateForDomain,
-  preferredSniServerNamesForDomain,
-} from '../../plugins/proxy/runtime/shared/utils/proxyCertMatch'
-
-export {
-  certHasWildcardSanForPattern,
-  coveringWildcardSanForHostname,
 } from '../../plugins/proxy/runtime/shared/utils/proxyCertMatch'
 import { listLiveCertCandidatesSync } from './liveCerts'
 import { listEnabledProxyHosts, resolveCertPemPaths } from './routeTable'
+import {
+  authSniHostnames,
+  sniServerNamesForProxyDomain,
+} from './tlsSni'
+import {
+  loadDefaultTlsEntry,
+  readPemPair,
+  type BunTlsEntry,
+} from './tlsMaterial'
 
-export interface BunTlsEntry {
-  cert: string
-  key: string
-  serverName?: string
-}
-
-/** Default (auth) cert from config.cfg — used for control HTTPS and as SNI fallback. */
-export function loadDefaultTlsEntry(): BunTlsEntry | null {
-  const material = resolveTlsMaterial()
-  if (!material) {
-    return null
-  }
-  return {
-    cert: readFileSync(material.certPath, 'utf8'),
-    key: readFileSync(material.keyPath, 'utf8'),
-  }
-}
-
-function readPemPair(certificateName: string): { cert: string, key: string } | null {
-  const paths = resolveCertPemPaths(certificateName)
-  if (!paths) {
-    return null
-  }
-  try {
-    return {
-      cert: readFileSync(paths.certPath, 'utf8'),
-      key: readFileSync(paths.keyPath, 'utf8'),
-    }
-  }
-  catch (error) {
-    console.warn(`[proxy] cannot read PEMs for ${certificateName}:`, error)
-    return null
-  }
-}
-
-/**
- * Hostnames to register for Bun SNI for one proxy domain pattern.
- * Exact patterns return themselves. Wildcard patterns expand to exact SANs on
- * the covering cert that the pattern matches, plus apex when present.
- * The literal `*.zone` itself is registered separately in buildEdgeTlsOptions
- * (Bun matches one-label wildcards).
- */
-export function sniHostnamesForDomain(
-  domain: string,
-  certSans: string[],
-): string[] {
-  const name = domain.replace(/\.$/, '').toLowerCase()
-  if (!name) {
-    return []
-  }
-  if (!isWildcardDomainName(name)) {
-    return [name]
-  }
-  const exact = certSans
-    .map(san => san.replace(/\.$/, '').toLowerCase())
-    .filter(san => san && !isWildcardDomainName(san) && domainPatternMatchesHostname(name, san))
-  const apex = wildcardParentSuffix(name)
-  if (apex) {
-    const hasApex = certSans.some(san => normalizeDomainName(san) === apex)
-    if (hasApex) {
-      exact.push(apex)
-    }
-  }
-  return [...new Set(exact)]
-}
-
-/**
- * Bun `serverName` values for one Proxy Host domain + covering cert.
- *
- * Prefer a one-label parent wildcard SAN when the cert has it, so adding
- * `test.admin.harianto.dev` after `blog.admin.harianto.dev` does not change the
- * TLS fingerprint (no :443 rebind). Nested names never match `*.harianto.dev`.
- */
-export function sniServerNamesForProxyDomain(
-  domain: string,
-  certSans: string[],
-): string[] {
-  const preferred = preferredSniServerNamesForDomain(domain, certSans)
-  if (preferred.length) {
-    return preferred
-  }
-  const pattern = normalizeDomainName(domain)
-  if (!pattern || !isWildcardDomainName(pattern)) {
-    return preferred
-  }
-  // Cert lacks the literal wildcard SAN — fall back to exact SAN / known hosts.
-  return [
-    ...sniHostnamesForDomain(pattern, certSans),
-    ...exactProxyHostnamesUnderPattern(pattern),
-  ]
-}
-
-/** Auth-zone hostnames that should keep an explicit SNI mapping to the default cert. */
-function authSniHostnames(): string[] {
-  try {
-    const config = getAcmeConfig()
-    return [...new Set(
-      [config.general.domain, config.general.nsname]
-        .map(name => normalizeDomainName(name))
-        .filter(Boolean),
-    )]
-  }
-  catch {
-    return []
-  }
-}
-
-/**
- * Exact proxy domainNames covered by a wildcard pattern (other rows / extras on the same host).
- * Lets Bun SNI list known names even when the LE cert only has `*.zone` + apex.
- */
-function exactProxyHostnamesUnderPattern(pattern: string): string[] {
-  const names: string[] = []
-  for (const host of listEnabledProxyHosts()) {
-    for (const domain of host.domainNames) {
-      const key = normalizeDomainName(domain)
-      if (!key || isWildcardDomainName(key)) {
-        continue
-      }
-      if (domainPatternMatchesHostname(pattern, key)) {
-        names.push(key)
-      }
-    }
-  }
-  return [...new Set(names)]
-}
+export type { BunTlsEntry } from './tlsMaterial'
+export {
+  fingerprintEdgeTls,
+  fingerprintEdgeTlsPems,
+  loadDefaultTlsEntry,
+  toListenTlsMaterial,
+} from './tlsMaterial'
+export {
+  certHasWildcardSanForPattern,
+  coveringWildcardSanForHostname,
+  sniHostnamesForDomain,
+  sniServerNamesForProxyDomain,
+} from './tlsSni'
 
 /**
  * Build Bun `tls` option for edge HTTPS.
@@ -274,59 +154,4 @@ export function shouldBindEdgeHttps(): boolean {
     }
   }
   return false
-}
-
-export function toListenTlsMaterial(entry: BunTlsEntry): ListenTlsOptions {
-  return {
-    certPath: '',
-    keyPath: '',
-    serverName: entry.serverName,
-  }
-}
-
-/**
- * Stable fingerprint of edge TLS/SNI material.
- * Used to skip :443 rebinds when Proxy Host writes do not change certs.
- */
-export function fingerprintEdgeTls(
-  tlsBodies: BunTlsEntry[] | BunTlsEntry | null | undefined,
-): string {
-  if (!tlsBodies) {
-    return ''
-  }
-  const entries = Array.isArray(tlsBodies) ? tlsBodies : [tlsBodies]
-  if (entries.length === 0) {
-    return ''
-  }
-  const lines = entries.map((entry) => {
-    const name = (entry.serverName || '').toLowerCase()
-    const certHash = createHash('sha256').update(entry.cert).digest('hex')
-    const keyHash = createHash('sha256').update(entry.key).digest('hex')
-    return `${name}\0${certHash}\0${keyHash}`
-  })
-  lines.sort()
-  return createHash('sha256').update(lines.join('\n')).digest('hex')
-}
-
-/**
- * Fingerprint of PEM bodies only (ignores serverName).
- * Bun.serve().reload() updates the SNI name set but does not swap cert/key for
- * names that already existed — PEM changes need a full :443 rebind.
- */
-export function fingerprintEdgeTlsPems(
-  tlsBodies: BunTlsEntry[] | BunTlsEntry | null | undefined,
-): string {
-  if (!tlsBodies) {
-    return ''
-  }
-  const entries = Array.isArray(tlsBodies) ? tlsBodies : [tlsBodies]
-  if (entries.length === 0) {
-    return ''
-  }
-  const lines = [...new Set(entries.map((entry) => {
-    const certHash = createHash('sha256').update(entry.cert).digest('hex')
-    const keyHash = createHash('sha256').update(entry.key).digest('hex')
-    return `${certHash}\0${keyHash}`
-  }))].sort()
-  return createHash('sha256').update(lines.join('\n')).digest('hex')
 }

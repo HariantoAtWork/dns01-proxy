@@ -1,18 +1,36 @@
-import type { ProxyHost, ProxyLocation } from '../../plugins/proxy/runtime/shared/types/proxyHost'
-import { hstsHeaderValue } from '../../plugins/proxy/runtime/shared/utils/proxyHost'
+import type { ProxyHost } from '../../plugins/proxy/runtime/shared/types/proxyHost'
 import type { ListenBinding } from '../utils/listen'
-import { getProxySettingsCached } from './accessListState'
 import { logProxyAccess } from './accessLog'
-import { resolveProxyClientIp } from './clientIp'
+import {
+  applyHstsHeader,
+  buildForwardHeaders,
+  sanitizeUpstreamResponseHeaders,
+} from './forwardHeaders'
+import {
+  buildUpstreamUrl,
+  formatProxyUpstreamContext,
+  resolveForwardTarget,
+  validateForwardTarget,
+} from './forwardTarget'
 import { proxyLog } from './proxyLog'
 import type { RouteMatch } from './routeTable'
 import type { Server } from 'bun'
 
-export interface ForwardTarget {
-  scheme: 'http' | 'https'
-  host: string
-  port: number
-}
+export type { ForwardTarget } from './forwardTarget'
+export {
+  buildUpstreamUrl,
+  buildUpstreamWsUrl,
+  describeTarget,
+  formatProxyUpstreamContext,
+  resolveForwardTarget,
+  validateForwardTarget,
+} from './forwardTarget'
+export {
+  applyHstsHeader,
+  buildForwardHeaders,
+  clientFacingHttps,
+  sanitizeUpstreamResponseHeaders,
+} from './forwardHeaders'
 
 /** Default upstream fetch deadline (ms). `0` disables (needed for long video/AI streams). */
 export const DEFAULT_PROXY_UPSTREAM_TIMEOUT_MS = 0
@@ -29,215 +47,12 @@ export function proxyUpstreamTimeoutMs(): number {
   return Math.floor(value)
 }
 
-export function resolveForwardTarget(match: RouteMatch): ForwardTarget {
-  if (match.location) {
-    return {
-      scheme: match.location.forwardScheme,
-      host: match.location.forwardHost,
-      port: match.location.forwardPort,
-    }
-  }
-  return {
-    scheme: match.host.forwardScheme,
-    host: match.host.forwardHost,
-    port: match.host.forwardPort,
-  }
-}
-
-export function buildUpstreamUrl(reqUrl: URL, target: ForwardTarget): string {
-  const path = `${reqUrl.pathname}${reqUrl.search}`
-  return `${target.scheme}://${target.host}:${target.port}${path}`
-}
-
-export function buildUpstreamWsUrl(reqUrl: URL, target: ForwardTarget): string {
-  const scheme = target.scheme === 'https' ? 'wss' : 'ws'
-  return `${scheme}://${target.host}:${target.port}${reqUrl.pathname}${reqUrl.search}`
-}
-
-/**
- * Returns a human reason when the forward target cannot form a valid URL.
- * Call before fetch/WebSocket so Bun does not dump a bare ERR_INVALID_URL.
- */
-export function validateForwardTarget(target: ForwardTarget): string | null {
-  const host = typeof target.host === 'string' ? target.host.trim() : ''
-  if (!host) {
-    return 'forward host is empty'
-  }
-  if (/^https?:\/\//i.test(host)) {
-    return 'forward host includes a scheme (use hostname/IP only)'
-  }
-  if (host.includes('/') || host.includes(' ')) {
-    return `forward host looks malformed (${JSON.stringify(host)})`
-  }
-  if (!Number.isFinite(target.port) || target.port <= 0 || target.port > 65535) {
-    return `forward port is invalid (${String(target.port)})`
-  }
-  if (target.scheme !== 'http' && target.scheme !== 'https') {
-    return `forward scheme is invalid (${String(target.scheme)})`
-  }
-  try {
-    const parsed = new URL(`${target.scheme}://${host}:${target.port}/`)
-    if (!parsed.hostname) {
-      return 'forward host produced an empty hostname'
-    }
-  }
-  catch {
-    return 'forward target is not a valid URL'
-  }
-  return null
-}
-
-export function formatProxyUpstreamContext(
-  match: RouteMatch,
-  req: Request,
-  reqUrl: URL,
-  target: ForwardTarget,
-  upstream: string,
-): string {
-  const domains = match.host.domainNames.join(',') || '(none)'
-  const location = match.location ? ` location=${match.location.path}` : ''
-  const inbound = req.headers.get('host') || reqUrl.host || '(no host)'
-  return [
-    `id=${match.host.id}`,
-    `domains=${domains}${location}`,
-    `inbound=${inbound}`,
-    `${req.method} ${reqUrl.pathname}${reqUrl.search}`,
-    `→ ${upstream}`,
-    `target scheme=${target.scheme} host=${JSON.stringify(target.host)} port=${target.port}`,
-  ].join(' ')
-}
-
 function errorCode(error: unknown): string {
   if (!error || typeof error !== 'object' || !('code' in error)) {
     return ''
   }
   const code = (error as { code?: unknown }).code
   return typeof code === 'string' || typeof code === 'number' ? String(code) : ''
-}
-
-function clientIp(req: Request, server?: Server): string {
-  const settings = getProxySettingsCached()
-  const resolved = resolveProxyClientIp(req, {
-    trustForwardedClientIp: settings.trustForwardedClientIp,
-    server,
-  })
-  return resolved.address || ''
-}
-
-export function buildForwardHeaders(
-  req: Request,
-  match: RouteMatch,
-  binding: ListenBinding,
-  server?: Server,
-): Headers {
-  const headers = new Headers(req.headers)
-  // Hop-by-hop
-  headers.delete('host')
-  headers.delete('connection')
-  headers.delete('keep-alive')
-  headers.delete('proxy-authenticate')
-  headers.delete('proxy-authorization')
-  headers.delete('te')
-  headers.delete('trailers')
-  headers.delete('transfer-encoding')
-  headers.delete('upgrade')
-
-  if (match.stripAuthorization) {
-    headers.delete('authorization')
-  }
-
-  const hostHeader = req.headers.get('host') || match.host.domainNames[0] || ''
-  headers.set('Host', hostHeader.split(':')[0] || hostHeader)
-
-  const ip = clientIp(req, server)
-  if (ip) {
-    headers.set('X-Real-IP', ip)
-    const prior = req.headers.get('x-forwarded-for')
-    headers.set('X-Forwarded-For', prior ? `${prior}, ${ip}` : ip)
-  }
-
-  // Client-facing scheme: TLS binding, Force SSL intent, or trusted CDN header.
-  // Prefer inbound X-Forwarded-Proto=https so Cloudflare Flexible / Synology
-  // TLS termination does not look like plain HTTP to the upstream (redirect loops).
-  const incomingProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase()
-  const bindingScheme = binding.tls ? 'https' : 'http'
-  let forwardedProto = bindingScheme
-  if (match.host.sslForced) {
-    forwardedProto = 'https'
-  }
-  else if (incomingProto === 'https') {
-    forwardedProto = 'https'
-  }
-  else if (match.host.trustForwardedProto && incomingProto) {
-    forwardedProto = incomingProto
-  }
-  headers.set('X-Forwarded-Proto', forwardedProto)
-
-  // Only for real WebSocket upgrades — never re-attach Connection: keep-alive on
-  // ordinary HTTP (that blanks many upstream apps when Bun fetch proxies them).
-  if (match.host.allowWebsocketUpgrade) {
-    const upgrade = req.headers.get('upgrade')
-    if (upgrade?.toLowerCase() === 'websocket') {
-      headers.set('Upgrade', upgrade)
-      headers.set('Connection', 'Upgrade')
-    }
-  }
-
-  return headers
-}
-
-/** Drop hop-by-hop / length headers so Bun can reframe the streamed body.
- * Keep `content-encoding` — upstream fetch uses `decompress: false` so bytes stay compressed.
- */
-export function sanitizeUpstreamResponseHeaders(headers: Headers): Headers {
-  const out = new Headers(headers)
-  out.delete('connection')
-  out.delete('keep-alive')
-  out.delete('proxy-authenticate')
-  out.delete('proxy-authorization')
-  out.delete('te')
-  out.delete('trailers')
-  out.delete('transfer-encoding')
-  out.delete('content-length')
-  out.delete('upgrade')
-  return out
-}
-
-/** True when the client-facing request is (or should be treated as) HTTPS. */
-export function clientFacingHttps(
-  req: Request,
-  host: Pick<ProxyHost, 'sslForced' | 'trustForwardedProto'>,
-  binding: ListenBinding,
-): boolean {
-  if (binding.tls) {
-    return true
-  }
-  if (host.sslForced) {
-    return true
-  }
-  const incomingProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase()
-  if (incomingProto === 'https') {
-    return true
-  }
-  if (host.trustForwardedProto && incomingProto) {
-    return incomingProto === 'https'
-  }
-  return false
-}
-
-/** Attach Strict-Transport-Security when HSTS is on and the client sees HTTPS. */
-export function applyHstsHeader(
-  headers: Headers,
-  host: Pick<ProxyHost, 'hstsEnabled' | 'hstsSubdomains' | 'sslForced' | 'trustForwardedProto'>,
-  req: Request,
-  binding: ListenBinding,
-): Headers {
-  const value = hstsHeaderValue(host)
-  if (!value || !clientFacingHttps(req, host, binding)) {
-    return headers
-  }
-  headers.set('Strict-Transport-Security', value)
-  return headers
 }
 
 function isAbortLike(error: unknown): boolean {
@@ -356,12 +171,4 @@ export function forceSslRedirect(req: Request, reqUrl: URL, host: ProxyHost): Re
   }
   const location = `https://${reqUrl.host}${reqUrl.pathname}${reqUrl.search}`
   return Response.redirect(location, 301)
-}
-
-/** Test helper — location vs default target. */
-export function describeTarget(host: ProxyHost, location: ProxyLocation | null): string {
-  const t = location
-    ? { scheme: location.forwardScheme, host: location.forwardHost, port: location.forwardPort }
-    : { scheme: host.forwardScheme, host: host.forwardHost, port: host.forwardPort }
-  return `${t.scheme}://${t.host}:${t.port}`
 }

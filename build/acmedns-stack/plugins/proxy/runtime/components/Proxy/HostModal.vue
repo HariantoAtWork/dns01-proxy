@@ -1,28 +1,16 @@
 <script setup lang="ts">
-import type { ForwardScheme, ProxyHost, ProxyHostInput, ProxyLocation } from '#proxy-shared/types/proxyHost'
+import type { ProxyHost, ProxyHostInput } from '#proxy-shared/types/proxyHost'
 import type { ProxyCertCandidate } from '#proxy-shared/utils/proxyCertMatch'
-import {
-  PROXY_SSL_AUTO,
-  activeEdgeSslForDomains,
-  poolSslCoverage,
-  proxyHostSslAvailability,
-  proxySslAvailabilityClass,
-  proxySslAvailabilityLabel,
-  proxySslCertLabel,
-  resolveCertificatesForDomains,
-} from '#proxy-shared/utils/proxyCertMatch'
+import { PROXY_SSL_AUTO, resolveCertificatesForDomains } from '#proxy-shared/utils/proxyCertMatch'
 import {
   asForwardPort,
   applyForwardTargetInput,
-  defaultForwardPort,
   emptyProxyHost,
   findDuplicateDomainConflicts,
   formatDuplicateDomainWarning,
   normalizeDomainNames,
-  parseForwardTargetInput,
   validateDomainName,
 } from '#proxy-shared/utils/proxyHost'
-import { PhPlus as Plus, PhTrash as Trash } from '@phosphor-icons/vue'
 
 const {
   certEntries = [],
@@ -49,35 +37,7 @@ const tab = ref<Tab>('details')
 const draft = ref<ProxyHostInput>(emptyProxyHost())
 const domainsText = ref('')
 const formError = ref<string | null>(null)
-const sslInfoOpen = reactive({
-  cert: false,
-  force: false,
-  http2: false,
-  hsts: false,
-  hstsSubdomains: false,
-  trustForwardedProto: false,
-})
-
-const detailsInfoOpen = reactive({
-  domains: false,
-  enabled: false,
-  websockets: false,
-})
-
-function resetSslInfoOpen() {
-  sslInfoOpen.cert = false
-  sslInfoOpen.force = false
-  sslInfoOpen.http2 = false
-  sslInfoOpen.hsts = false
-  sslInfoOpen.hstsSubdomains = false
-  sslInfoOpen.trustForwardedProto = false
-}
-
-function resetDetailsInfoOpen() {
-  detailsInfoOpen.domains = false
-  detailsInfoOpen.enabled = false
-  detailsInfoOpen.websockets = false
-}
+const detailsPanel = ref<{ resetDetailsInfoOpen: () => void } | null>(null)
 
 const tabs: Array<{ id: Tab, label: string }> = [
   { id: 'details', label: 'Details' },
@@ -97,82 +57,35 @@ const duplicateConflicts = computed(() =>
 
 const duplicateWarning = computed(() => formatDuplicateDomainWarning(duplicateConflicts.value))
 
-const sslBinding = computed(() => resolveCertificatesForDomains(draftDomains.value, certEntries))
+const {
+  portPlaceholder,
+  pasteForwardTarget,
+  onHostForwardBlur,
+  onLocationForwardBlur,
+} = useForwardTargetFields(draft)
 
-const sslEnabled = computed(() => Boolean(draft.value.certificateName))
-
-const boundAvailability = computed(() =>
-  proxyHostSslAvailability(draft.value.certificateName, draftDomains.value, certEntries),
-)
-
-const edgeSslWhenOff = computed(() =>
-  activeEdgeSslForDomains(
-    draftDomains.value,
-    existingHosts,
-    certEntries,
-    draft.value.id,
-  ),
-)
-
-type SslStatusPart = { text: string, live?: boolean }
-
-const sslStatusParts = computed((): SslStatusPart[] => {
-  if (!draftDomains.value.length) {
-    return [{ text: 'Add domain names on Details first.' }]
-  }
-  if (!sslEnabled.value) {
-    const edge = edgeSslWhenOff.value
-    if (edge.fullyCovered) {
-      return [
-        { text: 'Off — SSL features off. HTTPS active via ' },
-        { text: edge.certNames.join(', '), live: true },
-        { text: ' (zone SNI from other SSL hosts).' },
-      ]
-    }
-    if (edge.covered > 0) {
-      return [
-        { text: 'Off — SSL features off. HTTPS via ' },
-        { text: edge.certNames.join(', '), live: true },
-        { text: ` for ${edge.covered}/${edge.total} domains; not on edge: ${edge.uncoveredDomains.join(', ')}.` },
-      ]
-    }
-    if (sslBinding.value) {
-      return [
-        { text: 'Off — SSL features off. Live cert ready (' },
-        { text: sslBinding.value.certNames.join(', '), live: true },
-        { text: ') but not on :443 yet — turn SSL on to bind it for this host.' },
-      ]
-    }
-    const pool = poolSslCoverage(draftDomains.value, certEntries)
-    if (pool.availability === 'some') {
-      return [{ text: `Off — SSL features off. Only ${pool.covered}/${pool.total} domains have a live cert; none are on :443 for this host.` }]
-    }
-    return [{ text: 'Off — SSL features off. No matching leaf on :443 for this host.' }]
-  }
-  const label = proxySslAvailabilityLabel(boundAvailability.value)
-  const certs = proxySslCertLabel(draft.value.certificateName, draftDomains.value, certEntries)
-  return [
-    { text: `On — ${label} · ` },
-    { text: certs, live: true },
-  ]
+const {
+  sslInfoOpen,
+  resetSslInfoOpen,
+  sslEnabled,
+  boundAvailability,
+  sslStatusParts,
+  setSslEnabled,
+  enableSslFeature,
+} = useProxyHostSsl({
+  draft,
+  draftDomains,
+  certEntries: () => certEntries,
+  existingHosts: () => existingHosts,
+  formError,
+  duplicateWarning,
 })
-
-const portPlaceholder = computed(() => String(defaultForwardPort(draft.value.forwardScheme)))
-
-function emptyLocation(): ProxyLocation {
-  return {
-    path: '/',
-    forwardScheme: 'http',
-    forwardHost: '',
-    forwardPort: 80,
-  }
-}
 
 function load(host?: ProxyHost | null) {
   tab.value = 'details'
   formError.value = null
   resetSslInfoOpen()
-  resetDetailsInfoOpen()
+  detailsPanel.value?.resetDetailsInfoOpen()
   if (host) {
     // Hosts from the list are Vue proxies — structuredClone throws on them.
     draft.value = structuredClone(toRaw(host))
@@ -185,123 +98,6 @@ function load(host?: ProxyHost | null) {
 }
 
 defineExpose({ load })
-
-function addLocation() {
-  draft.value.locations = [...draft.value.locations, emptyLocation()]
-}
-
-function removeLocation(index: number) {
-  draft.value.locations = draft.value.locations.filter((_, i) => i !== index)
-}
-
-/** Enable SSL when every domain is covered by some live cert (may be several certs). */
-function applyLiveCertificates(): boolean {
-  const binding = resolveCertificatesForDomains(draftDomains.value, certEntries)
-  if (!binding) {
-    return false
-  }
-  draft.value.certificateName = PROXY_SSL_AUTO
-  return true
-}
-
-function clearSsl() {
-  draft.value.certificateName = null
-  draft.value.sslForced = false
-  draft.value.http2Support = false
-  draft.value.hstsEnabled = false
-  draft.value.hstsSubdomains = false
-}
-
-function setSslEnabled(enabled: boolean) {
-  if (!enabled) {
-    clearSsl()
-    formError.value = null
-    return
-  }
-  const ok = applyLiveCertificates()
-  if (!ok) {
-    formError.value = 'No live certificate covers every domain — issue SANs under live/ first.'
-    return
-  }
-  formError.value = null
-}
-
-/** When turning SSL options on, ensure live coverage for every domain. */
-function enableSslFeature(feature: 'sslForced' | 'http2Support' | 'hstsEnabled', enabled: boolean) {
-  if (!enabled) {
-    draft.value[feature] = false
-    if (feature === 'sslForced') {
-      draft.value.hstsEnabled = false
-      draft.value.hstsSubdomains = false
-    }
-    if (feature === 'hstsEnabled') {
-      draft.value.hstsSubdomains = false
-    }
-    return
-  }
-
-  if (!draft.value.certificateName) {
-    const ok = applyLiveCertificates()
-    if (!ok) {
-      formError.value = 'No live certificate covers every domain — issue SANs under live/ first.'
-      return
-    }
-    formError.value = null
-  }
-
-  draft.value[feature] = true
-  if (feature === 'hstsEnabled' && !draft.value.sslForced) {
-    draft.value.sslForced = true
-  }
-}
-
-/** Keep SSL only while the live pool fully covers every domain. */
-watch(draftDomains, () => {
-  if (formError.value && /already used by another proxy host/i.test(formError.value)) {
-    formError.value = duplicateWarning.value || null
-  }
-  if (!draft.value.certificateName) {
-    return
-  }
-  if (!resolveCertificatesForDomains(draftDomains.value, certEntries)) {
-    clearSsl()
-    return
-  }
-  draft.value.certificateName = PROXY_SSL_AUTO
-})
-
-watch(
-  () => draft.value.forwardScheme,
-  (scheme, previous) => {
-    if (!previous) {
-      return
-    }
-    const port = Number(draft.value.forwardPort)
-    if (!port || port === defaultForwardPort(previous as ForwardScheme)) {
-      draft.value.forwardPort = defaultForwardPort(scheme)
-    }
-  },
-)
-
-function pasteForwardTarget(
-  target: { forwardScheme: ForwardScheme, forwardHost: string, forwardPort: number },
-  event: ClipboardEvent,
-) {
-  const text = event.clipboardData?.getData('text') ?? ''
-  if (!parseForwardTargetInput(text)) {
-    return
-  }
-  event.preventDefault()
-  applyForwardTargetInput(target, text)
-}
-
-function onHostForwardBlur() {
-  applyForwardTargetInput(draft.value, draft.value.forwardHost)
-}
-
-function onLocationForwardBlur(location: ProxyLocation) {
-  applyForwardTargetInput(location, location.forwardHost)
-}
 
 function onSave() {
   formError.value = null
@@ -366,26 +162,11 @@ watch(open, (value) => {
 <template>
   <UiModal v-model:open="open" :title="modalTitle" size="lg">
     <div class="flex min-h-[20rem] flex-col gap-4">
-      <div
-        class="sticky top-0 z-[1] -mx-1 flex flex-wrap gap-1 border-b border-rule bg-panel pb-2"
-        role="tablist"
+      <ProxyModalTabs
+        v-model="tab"
+        :tabs="tabs"
         aria-label="Proxy host sections"
-      >
-        <button
-          v-for="item in tabs"
-          :key="item.id"
-          type="button"
-          role="tab"
-          class="rounded-[6px] px-3 py-1.5 text-sm"
-          :class="tab === item.id
-            ? 'bg-signal text-signal-ink'
-            : 'text-muted hover:bg-panel hover:text-ink'"
-          :aria-selected="tab === item.id"
-          @click.stop="tab = item.id"
-        >
-          {{ item.label }}
-        </button>
-      </div>
+      />
 
       <p
         v-if="formError"
@@ -402,404 +183,37 @@ watch(open, (value) => {
         {{ duplicateWarning }}
       </p>
 
-      <div
+      <ProxyHostModalDetails
         v-show="tab === 'details'"
-        class="flex min-h-[14rem] flex-col gap-4"
-        role="tabpanel"
-      >
-        <UiField
-          v-model:info-open="detailsInfoOpen.domains"
-          label="Domain Names"
-          info="One per line or comma-separated. Wildcards like *.example.com match one label. Each domain can only belong to one proxy host."
-        >
-          <template #default="{ id }">
-            <textarea
-              :id
-              v-model="domainsText"
-              rows="3"
-              class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
-              style="border-radius: var(--radius-input)"
-              :aria-invalid="Boolean(duplicateWarning)"
-            />
-          </template>
-        </UiField>
+        ref="detailsPanel"
+        v-model:domains-text="domainsText"
+        :draft="draft"
+        :port-placeholder="portPlaceholder"
+        :duplicate-warning="duplicateWarning"
+        :access-lists="accessLists"
+        :bearer-lists="bearerLists"
+        :paste-forward-target="pasteForwardTarget"
+        :blur-host-forward="onHostForwardBlur"
+      />
 
-        <div class="grid gap-3 sm:grid-cols-3">
-          <UiField label="Scheme">
-            <template #default="{ id }">
-              <select
-                :id
-                v-model="draft.forwardScheme"
-                class="ui-input w-full border border-rule bg-paper px-3 py-2 text-sm"
-                style="border-radius: var(--radius-input)"
-              >
-                <option value="http">
-                  http
-                </option>
-                <option value="https">
-                  https
-                </option>
-              </select>
-            </template>
-          </UiField>
-          <UiField label="Forward Hostname / IP">
-            <template #default="{ id }">
-              <UiInput
-                :id
-                v-model="draft.forwardHost"
-                mono
-                @paste="pasteForwardTarget(draft, $event)"
-                @blur="onHostForwardBlur"
-              />
-            </template>
-          </UiField>
-          <UiField label="Forward Port" :hint="`empty → ${portPlaceholder}`">
-            <template #default="{ id }">
-              <input
-                :id
-                v-model.number="draft.forwardPort"
-                type="number"
-                min="1"
-                max="65535"
-                :placeholder="portPlaceholder"
-                class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
-                style="border-radius: var(--radius-input)"
-                @paste="pasteForwardTarget(draft, $event)"
-              >
-            </template>
-          </UiField>
-        </div>
-
-        <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
-          <UiInfoDrawer
-            v-model="detailsInfoOpen.enabled"
-            label="About Enabled"
-          >
-            <template #title>
-              <span>Enabled</span>
-            </template>
-            <template #action>
-              <input
-                v-model="draft.enabled"
-                type="checkbox"
-                class="size-4"
-                aria-label="Enabled"
-              >
-            </template>
-            <template #info>
-              When off, the edge proxy ignores this host — no routing until you turn it back on.
-            </template>
-          </UiInfoDrawer>
-          <UiInfoDrawer
-            v-model="detailsInfoOpen.websockets"
-            label="About Websockets Support"
-          >
-            <template #title>
-              <span>Websockets Support</span>
-            </template>
-            <template #action>
-              <input
-                v-model="draft.allowWebsocketUpgrade"
-                type="checkbox"
-                class="size-4"
-                aria-label="Websockets Support"
-              >
-            </template>
-            <template #info>
-              Allow WebSocket upgrades through to the upstream (Upgrade / Connection headers). Leave off for plain HTTP only.
-            </template>
-          </UiInfoDrawer>
-        </div>
-
-        <UiField
-          label="Access List"
-          hint="Gate by IP / Basic Auth — manage lists under Access Lists"
-        >
-          <template #default="{ id }">
-            <select
-              :id
-              class="ui-input w-full border border-rule bg-paper px-3 py-2 text-sm"
-              style="border-radius: var(--radius-input)"
-              :value="draft.accessListId || ''"
-              @change="draft.accessListId = ($event.target as HTMLSelectElement).value || null"
-            >
-              <option value="">
-                Publicly Accessible
-              </option>
-              <option
-                v-for="list in accessLists"
-                :key="list.id"
-                :value="list.id"
-              >
-                {{ list.name }}
-              </option>
-            </select>
-          </template>
-        </UiField>
-
-        <UiField
-          label="Bearer List"
-          hint="Require Authorization: Bearer matching any key in the list — manage under Bearer Lists. Unauthenticated GET / shows upstream live status."
-        >
-          <template #default="{ id }">
-            <select
-              :id
-              class="ui-input w-full border border-rule bg-paper px-3 py-2 text-sm"
-              style="border-radius: var(--radius-input)"
-              :value="draft.bearerListId || ''"
-              @change="draft.bearerListId = ($event.target as HTMLSelectElement).value || null"
-            >
-              <option value="">
-                None
-              </option>
-              <option
-                v-for="list in bearerLists"
-                :key="list.id"
-                :value="list.id"
-              >
-                {{ list.name }}
-              </option>
-            </select>
-          </template>
-        </UiField>
-      </div>
-
-      <div
+      <ProxyHostModalLocations
         v-show="tab === 'locations'"
-        class="flex min-h-[14rem] flex-col gap-3"
-        role="tabpanel"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <p class="text-sm text-muted">
-            Path-specific forward targets
-          </p>
-          <UiButton
-            variant="ghost"
-            size="sm"
-            @click="addLocation"
-          >
-            <Plus :size="14" weight="bold" aria-hidden="true" />
-            Add Location
-          </UiButton>
-        </div>
+        :draft="draft"
+        :paste-forward-target="pasteForwardTarget"
+        :blur-location-forward="onLocationForwardBlur"
+      />
 
-        <p
-          v-if="!draft.locations.length"
-          class="text-sm text-muted"
-        >
-          No custom locations yet.
-        </p>
-
-        <div
-          v-for="(location, index) in draft.locations"
-          :key="index"
-          class="flex flex-col gap-3 rounded-[var(--radius-panel)] border border-rule p-3"
-        >
-          <div class="flex items-start justify-between gap-2">
-            <p class="text-sm font-medium">
-              Location {{ index + 1 }}
-            </p>
-            <UiButton
-              variant="icon"
-              size="sm"
-              aria-label="Remove location"
-              @click="removeLocation(index)"
-            >
-              <Trash :size="14" weight="regular" aria-hidden="true" />
-            </UiButton>
-          </div>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <UiField label="Path">
-              <UiInput
-                v-model="location.path"
-                mono
-              />
-            </UiField>
-            <UiField label="Scheme">
-              <select
-                v-model="location.forwardScheme"
-                class="ui-input w-full border border-rule bg-paper px-3 py-2 text-sm"
-                style="border-radius: var(--radius-input)"
-              >
-                <option value="http">
-                  http
-                </option>
-                <option value="https">
-                  https
-                </option>
-              </select>
-            </UiField>
-            <UiField label="Forward Host">
-              <UiInput
-                v-model="location.forwardHost"
-                mono
-                @paste="pasteForwardTarget(location, $event)"
-                @blur="onLocationForwardBlur(location)"
-              />
-            </UiField>
-            <UiField label="Port" :hint="`empty → ${defaultForwardPort(location.forwardScheme)}`">
-              <input
-                v-model.number="location.forwardPort"
-                type="number"
-                min="1"
-                max="65535"
-                :placeholder="String(defaultForwardPort(location.forwardScheme))"
-                class="ui-input w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
-                style="border-radius: var(--radius-input)"
-                @paste="pasteForwardTarget(location, $event)"
-              >
-            </UiField>
-          </div>
-        </div>
-      </div>
-
-      <div
+      <ProxyHostModalSsl
         v-show="tab === 'ssl'"
-        class="flex min-h-[14rem] flex-col gap-4"
-        role="tabpanel"
-      >
-        <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
-          <UiInfoDrawer
-            v-model="sslInfoOpen.cert"
-            label="About SSL certificates"
-          >
-            <template #title>
-              <span>SSL Certificate</span>
-            </template>
-            <template #action>
-              <input
-                type="checkbox"
-                class="size-4"
-                :checked="sslEnabled"
-                :disabled="!draftDomains.length && !sslEnabled"
-                aria-label="SSL Certificate"
-                @change="setSslEnabled(($event.target as HTMLInputElement).checked)"
-              >
-            </template>
-            <p
-              class="text-xs"
-              :class="sslEnabled ? proxySslAvailabilityClass(boundAvailability) : 'text-muted'"
-            >
-              <template
-                v-for="(part, index) in sslStatusParts"
-                :key="index"
-              >
-                <span :class="part.live ? 'text-live' : undefined">{{ part.text }}</span>
-              </template>
-            </p>
-            <template #info>
-              <p>
-                Opts this host into SSL features (Force SSL, HSTS, HTTP/2) and binds live/ certs per domain automatically — no manual pick.
-              </p>
-              <p class="mt-2">
-                Unlike Nginx Proxy Manager, Off does not mean HTTP-only. When Off, the status line names the leaf already on :443 from other SSL hosts (zone/parent SNI), or says none is bound yet. :80 keeps working either way.
-              </p>
-            </template>
-          </UiInfoDrawer>
-        </div>
-
-        <div class="flex flex-col gap-2 rounded-[var(--radius-panel)] border border-rule p-3">
-          <UiInfoDrawer
-            v-model="sslInfoOpen.force"
-            label="About Force SSL"
-          >
-            <template #title>
-              <span>Force SSL</span>
-            </template>
-            <template #action>
-              <input
-                type="checkbox"
-                class="size-4"
-                :checked="draft.sslForced"
-                aria-label="Force SSL"
-                @change="enableSslFeature('sslForced', ($event.target as HTMLInputElement).checked)"
-              >
-            </template>
-            <template #info>
-              Redirect HTTP to HTTPS for this host. Requires SSL Certificate on. Skips the redirect when the request already looks like HTTPS (e.g. X-Forwarded-Proto).
-            </template>
-          </UiInfoDrawer>
-          <UiInfoDrawer
-            v-model="sslInfoOpen.http2"
-            label="About HTTP/2 support"
-          >
-            <template #title>
-              <span>HTTP/2 Support</span>
-            </template>
-            <template #action>
-              <input
-                type="checkbox"
-                class="size-4"
-                :checked="sslEnabled && draft.http2Support"
-                aria-label="HTTP/2 Support"
-                @change="enableSslFeature('http2Support', ($event.target as HTMLInputElement).checked)"
-              >
-            </template>
-            <template #info>
-              Also serve HTTP/2 beside HTTP/1.1 on the edge HTTPS listener (ALPN). Requires SSL Certificate on. Not a replacement for h1.
-            </template>
-          </UiInfoDrawer>
-          <UiInfoDrawer
-            v-model="sslInfoOpen.hsts"
-            label="About HSTS"
-          >
-            <template #title>
-              <span>HSTS Enable</span>
-            </template>
-            <template #action>
-              <input
-                type="checkbox"
-                class="size-4"
-                :checked="draft.hstsEnabled"
-                aria-label="HSTS Enable"
-                @change="enableSslFeature('hstsEnabled', ($event.target as HTMLInputElement).checked)"
-              >
-            </template>
-            <template #info>
-              Send Strict-Transport-Security (max-age one year) on HTTPS responses. Turning this on also enables Force SSL.
-            </template>
-          </UiInfoDrawer>
-          <UiInfoDrawer
-            v-model="sslInfoOpen.hstsSubdomains"
-            label="About HSTS Subdomains"
-          >
-            <template #title>
-              <span>HSTS Subdomains</span>
-            </template>
-            <template #action>
-              <input
-                v-model="draft.hstsSubdomains"
-                type="checkbox"
-                class="size-4"
-                aria-label="HSTS Subdomains"
-                :disabled="!draft.hstsEnabled"
-              >
-            </template>
-            <template #info>
-              Add includeSubDomains to the HSTS header so browsers apply it to every subdomain of this host.
-            </template>
-          </UiInfoDrawer>
-          <UiInfoDrawer
-            v-model="sslInfoOpen.trustForwardedProto"
-            label="About Trust Forwarded Proto"
-          >
-            <template #title>
-              <span>Trust Forwarded Proto</span>
-            </template>
-            <template #action>
-              <input
-                v-model="draft.trustForwardedProto"
-                type="checkbox"
-                class="size-4"
-                aria-label="Trust Forwarded Proto"
-              >
-            </template>
-            <template #info>
-              Honour inbound X-Forwarded-Proto (Cloudflare Flexible, Synology TLS termination, and similar) when deciding the client scheme and avoiding redirect loops.
-            </template>
-          </UiInfoDrawer>
-        </div>
-      </div>
+        :draft="draft"
+        :draft-domains="draftDomains"
+        :ssl-enabled="sslEnabled"
+        :bound-availability="boundAvailability"
+        :ssl-status-parts="sslStatusParts"
+        :ssl-info-open="sslInfoOpen"
+        :set-ssl-enabled="setSslEnabled"
+        :enable-ssl-feature="enableSslFeature"
+      />
 
       <div class="flex justify-end gap-2 border-t border-rule pt-3">
         <UiButton
