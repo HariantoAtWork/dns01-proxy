@@ -300,6 +300,13 @@ function onEnabledChange(host: ProxyHost, event: Event) {
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
               >WS</span>
               <span
+                v-if="host.idleTimeout != null"
+                class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
+                :title="host.idleTimeout === 0
+                  ? 'Idle timeout disabled (streaming-safe)'
+                  : `Idle timeout override: ${host.idleTimeout}s`"
+              >{{ host.idleTimeout === 0 ? 'idle 0' : `idle ${host.idleTimeout}s` }}</span>
+              <span
                 v-if="host.accessListId"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
                 title="Bound Access List (IP / Basic Auth)"

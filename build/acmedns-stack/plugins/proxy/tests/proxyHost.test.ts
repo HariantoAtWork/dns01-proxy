@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   asForwardPort,
+  asIdleTimeoutSeconds,
   defaultForwardPort,
   domainPatternMatchesHostname,
   findDuplicateDomainConflicts,
@@ -24,9 +25,49 @@ describe('proxyHost normalize', () => {
     expect(host.forwardScheme).toBe('http')
     expect(host.forwardPort).toBe(8123)
     expect(host.allowWebsocketUpgrade).toBe(true)
+    expect(host.idleTimeout).toBeNull()
     // No SSL opt-in → HTTP/2 stays off (avoids a misleading checked box).
     expect(host.http2Support).toBe(false)
     expect(validateProxyHost(host)).toBeNull()
+  })
+
+  test('normalises idleTimeout seconds (0 disables; invalid → null)', () => {
+    expect(asIdleTimeoutSeconds(0)).toBe(0)
+    expect(asIdleTimeoutSeconds('120')).toBe(120)
+    expect(asIdleTimeoutSeconds('')).toBeNull()
+    expect(asIdleTimeoutSeconds(-1)).toBeNull()
+    expect(asIdleTimeoutSeconds(1.5)).toBeNull()
+    expect(asIdleTimeoutSeconds('nope')).toBeNull()
+
+    const disabled = normalizeProxyHost({
+      domainNames: ['stream.example.com'],
+      forwardHost: 'app',
+      idleTimeout: 0,
+    })
+    expect(disabled.idleTimeout).toBe(0)
+    expect(validateProxyHost(disabled)).toBeNull()
+
+    const custom = normalizeProxyHost({
+      domainNames: ['ai.example.com'],
+      forwardHost: 'app',
+      idleTimeout: '60',
+    })
+    expect(custom.idleTimeout).toBe(60)
+    expect(validateProxyHost(custom)).toBeNull()
+
+    const invalid = normalizeProxyHost({
+      domainNames: ['x.example.com'],
+      forwardHost: 'app',
+      idleTimeout: -5,
+    })
+    expect(invalid.idleTimeout).toBeNull()
+
+    const badHost = normalizeProxyHost({
+      domainNames: ['x.example.com'],
+      forwardHost: 'app',
+    })
+    badHost.idleTimeout = -1 as number
+    expect(validateProxyHost(badHost)).toMatch(/idle timeout/i)
   })
 
   test('defaults HTTP/2 on when SSL is opted in and the field is missing', () => {
