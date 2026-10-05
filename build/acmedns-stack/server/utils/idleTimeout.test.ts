@@ -17,10 +17,10 @@ describe('resolveIdleTimeoutSeconds', () => {
     expect(DEFAULT_CONTROL_IDLE_TIMEOUT_SECONDS).toBe(255)
   })
 
-  test('0 means Bun default; clamps to 255', () => {
+  test('0 disables idle timeout; clamps above 255', () => {
     process.env.NITRO_BUN_IDLE_TIMEOUT = '0'
-    expect(resolveIdleTimeoutSeconds('edge')).toBeUndefined()
-    expect(resolveIdleTimeoutSeconds('control')).toBeUndefined()
+    expect(resolveIdleTimeoutSeconds('edge')).toBe(0)
+    expect(resolveIdleTimeoutSeconds('control')).toBe(0)
     process.env.NITRO_BUN_IDLE_TIMEOUT = '999'
     expect(resolveIdleTimeoutSeconds('edge')).toBe(255)
     expect(resolveIdleTimeoutSeconds('control')).toBe(255)
