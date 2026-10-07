@@ -8,7 +8,7 @@ export interface DataRootOptions {
   runtimeLetsencryptDir?: string
 }
 
-/** Folder that contains `nuxt.config.ts` / `seed/` when you `cd build/dns01-proxy && bun run dev`. */
+/** Folder that contains `nuxt.config.ts` / `seed/` when you `cd src/dns01-proxy && bun run dev`. */
 export function findPackageRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url))
   for (const dir of [process.cwd(), resolve(here, '..'), resolve(here, '../..')]) {

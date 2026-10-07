@@ -9,15 +9,15 @@ At home the usual path is different: router **DMZ** (or forward UDP/TCP 53) to t
 [`vps.yml`](../vps.yml) publishes `${PUBLIC_IP}:53` (UDP+TCP). Detect and start:
 
 ```bash
-bun run docker:vps
-# bun run docker:vps:down
-# bun run docker:vps:restart
+./dc.sh vps
+# ./dc.sh vps-down
+# ./dc.sh vps-restart
 ```
 
 Or pin the address:
 
 ```bash
-PUBLIC_IP=203.0.113.10 bun run docker:vps
+PUBLIC_IP=203.0.113.10 ./dc.sh vps
 ```
 
 (`203.0.113.10` is documentation-only — use your real VPS IPv4.)

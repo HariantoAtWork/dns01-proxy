@@ -1,5 +1,5 @@
 services:
-  # Hot-reload Nuxt: bun run docker:dev  (or: docker compose -f _dev.yml up -d --build)
+  # Hot-reload Nuxt: ./dc.sh dev  (or: docker compose -f _dev.yml up -d --build)
   # Does not start with plain `docker compose up`.
   dns01-proxy-dev:
     image: oven/bun:canary-alpine
@@ -11,7 +11,7 @@ services:
       - "15353:15353"
       - "15353:15353/udp"
     volumes:
-      - ./build/dns01-proxy:/app
+      - ./src/dns01-proxy:/app
       - dns01-proxy-dev-modules:/app/node_modules  # Linux modules inside the container
     environment:
       # ── Paths (package-local .data on the bind mount) ───────────────────────────

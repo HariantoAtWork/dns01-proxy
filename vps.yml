@@ -2,11 +2,11 @@
 # Use when 0.0.0.0:53 fails because systemd-resolved (or similar) owns 127.0.0.1:53.
 # Glue stays on the same IP. For home Synology, use DMZ/port-forward + normal 53:53 instead.
 #
-#   bun run docker:vps
+#   ./dc.sh vps
 #   (or: PUBLIC_IP=x.x.x.x docker compose -f docker-compose.yml -f vps.yml up -d)
-#   bun run docker:vps adds -f docker-compose.override.yml only when that file exists.
+#   ./dc.sh vps adds -f docker-compose.override.yml only when that file exists.
 #
-# bun run docker:vps sets PUBLIC_IP from the default IPv4 route (override with PUBLIC_IP=…).
+# ./dc.sh vps sets PUBLIC_IP from the default IPv4 route (override with PUBLIC_IP=…).
 # Compose merges ports by appending; !override replaces the base list.
 
 services:

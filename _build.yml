@@ -1,13 +1,13 @@
 services:
   dns01-proxy:
     build:
-      context: build/dns01-proxy
+      context: src/dns01-proxy
       dockerfile: Dockerfile
     image: harianto/dns01-proxy:latest
 
   # Optional Go image for rollback only.
   # acmedns-server:
   #   build:
-  #     context: build/acmedns-server
+  #     context: src/acmedns-server
   #     dockerfile: Dockerfile
   #   image: harianto/acmedns-server:latest

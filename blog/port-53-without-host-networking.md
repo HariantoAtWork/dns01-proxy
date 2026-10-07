@@ -69,7 +69,7 @@ flowchart TB
 
 ---
 
-## What we added: `vps.yml` + `docker:vps`
+## What we added: `vps.yml` + `./dc.sh vps`
 
 Optional Compose file — opt-in with `-f`, `ports: !override` so base `53:53` is replaced instead of appended:
 
@@ -85,12 +85,12 @@ services:
       - "1443:1443"
 ```
 
-`package.json` detects the default IPv4 route `src` (override with `PUBLIC_IP=…`):
+`./dc.sh` detects the default IPv4 route `src` (override with `PUBLIC_IP=…`):
 
 ```bash
-bun run docker:vps
-# bun run docker:vps:down
-# bun run docker:vps:restart
+./dc.sh vps
+# ./dc.sh vps-down
+# ./dc.sh vps-restart
 ```
 
 Under the hood that is roughly:
@@ -113,7 +113,7 @@ Operator notes: [`.wiki/VPS-port-53.md`](../.wiki/VPS-port-53.md).
 | Situation | Use |
 | --- | --- |
 | Home Synology, DMZ / forward 53 to the NAS | Normal `docker compose up` (`53:53`) |
-| VPS, one public IP, resolved on localhost:53 | `bun run docker:vps` |
+| VPS, one public IP, resolved on localhost:53 | `./dc.sh vps` |
 | You already use host networking and like it | Keep it — not wrong, just not required |
 
 ---

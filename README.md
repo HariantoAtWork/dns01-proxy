@@ -6,7 +6,7 @@ One container. DNS-01 certificates without giving Let's Encrypt (or anyone) writ
 | --- | --- |
 | `dns01-proxy` | Nuxt/Node [acme-dns](https://github.com/acme-dns/acme-dns) on `:53` **plus** operator UI, clientstorage, and ACME issue/renew (`plugins/client`) |
 
-`build/acmedns-server` (Go) and `build/acmedns-client` stay in the tree as reference/rollback. Runtime compose is a single service.
+`src/acmedns-server` (Go) and `src/acmedns-client` stay in the tree as reference/rollback. Runtime compose is a single service.
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,7 @@ flowchart LR
 | JSON backups | `/var/lib/dns01-proxy/backup/` | `.data/backup/` |
 | Let's Encrypt PEMs | `/etc/letsencrypt/` (`ACMEDNS_LETSENCRYPT_DIR`) | `.data/letsencrypt/` |
 
-First start copies missing files from [`build/dns01-proxy/seed/`](build/dns01-proxy/seed/README.md). Live files are never overwritten. Edit `seed/` to change defaults for **new** installs.
+First start copies missing files from [`src/dns01-proxy/seed/`](src/dns01-proxy/seed/README.md). Live files are never overwritten. Edit `seed/` to change defaults for **new** installs.
 
 Compose example binds:
 
@@ -81,18 +81,18 @@ This house’s router DMZ is the Synology, so public `:53` never reaches a Mac. 
 cp .env.example .env
 cp docker-compose.yml.example docker-compose.yml
 cp docker-compose.override.yml.example docker-compose.override.yml
-bun run docker:up
+./dc.sh up
 # or: docker compose up -d --build
 ```
 
-Useful root scripts (`package.json`): `docker:build`, `docker:push`, `docker:up` / `docker:restart` / `docker:dev` / `docker:down` / `docker:logs`.
+Useful `./dc.sh` commands: `build`, `push`, `up` / `restart` / `dev` / `down` / `logs`.
 
-Local Nuxt dev (no Docker): `bun install --cwd build/dns01-proxy` then `bun run --cwd build/dns01-proxy dev` (UI on `:3000`).
+Local Nuxt dev (no Docker): `bun install --cwd src/dns01-proxy` then `bun run --cwd src/dns01-proxy dev` (UI on `:3000`).
 
 Docker Nuxt hot-reload (`_dev.yml`, UI on `:3000`, DNS on `:15353`):
 
 ```bash
-bun run docker:dev
+./dc.sh dev
 # or: docker compose -f _dev.yml up -d --build
 ```
 
@@ -147,7 +147,7 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 
 Single `dns01-proxy` service. Edge HTTP on `:80` and control on `:1080` are always on; edge/control HTTPS bind when TLS PEMs are available. Production compose publishes `80:80`, `443:443`, `1080:1080`, `1443:1443`.
 
-`cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel. On a single-IP VPS where `0.0.0.0:53` collides with systemd-resolved, use [`vps.yml`](vps.yml) via `bun run docker:vps` (see [`.wiki/VPS-port-53.md`](.wiki/VPS-port-53.md)). At home, router DMZ (or port-forward 53) to the Synology is enough — see [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md).
+`cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel. On a single-IP VPS where `0.0.0.0:53` collides with systemd-resolved, use [`vps.yml`](vps.yml) via `./dc.sh vps` (see [`.wiki/VPS-port-53.md`](.wiki/VPS-port-53.md)). At home, router DMZ (or port-forward 53) to the Synology is enough — see [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md).
 
 More on DNS-01, DMZ, and Bun Proxy SSL: [`.wiki/Home.md`](.wiki/Home.md).
 
@@ -161,9 +161,9 @@ _dev.yml                      # Nuxt hot-reload (UI :3000, DNS :15353)
 vps.yml                       # optional :53 bound to PUBLIC_IP (single-IP VPS)
 .env.example
 .wiki/
-build/dns01-proxy/           # DNS + API + UI plugin + seed/
-build/acmedns-server/         # Go reference / rollback
-build/acmedns-client/         # legacy standalone client (reference)
+src/dns01-proxy/           # DNS + API + UI plugin + seed/
+src/acmedns-server/         # Go reference / rollback
+src/acmedns-client/         # legacy standalone client (reference)
 ```
 
 ## License

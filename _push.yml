@@ -1,10 +1,10 @@
 # Overlay for Hub multi-arch publishes (self-contained; not merged with build.yml).
 # Multi-arch cannot be loaded into the local Docker engine, so local
-# `docker:build` stays on _build.yml only.
+# `./dc.sh build` stays on _build.yml only.
 services:
   dns01-proxy:
     build:
-      context: build/dns01-proxy
+      context: src/dns01-proxy
       dockerfile: Dockerfile.platform
       platforms:
         - linux/amd64
