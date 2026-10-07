@@ -26,8 +26,8 @@ modules: ['./plugins/client']
 From the repo root:
 
 ```bash
-bun install --cwd build/acmedns-stack
-bun run --cwd build/acmedns-stack dev
+bun install --cwd build/dns01-proxy
+bun run --cwd build/dns01-proxy dev
 ```
 
 Or inside this package: `bun install && bun run dev`.
@@ -59,12 +59,12 @@ Path ENV (only these for storage — no legacy aliases):
 
 | ENV | Default |
 | --- | --- |
-| `ACMEDNS_DATA_ROOT` | `/var/lib/acmedns-stack` → `server/`, `client/`, `backup/` |
+| `ACMEDNS_DATA_ROOT` | `/var/lib/dns01-proxy` → `server/`, `client/`, `backup/` |
 | `ACMEDNS_LETSENCRYPT_DIR` | `/etc/letsencrypt` |
 
 Mounts (see repo `docker-compose.yml.example`):
 
-- `./data/acmedns-stack` (or host `/var/lib/acmedns-stack`) → `/var/lib/acmedns-stack`
+- `./data/dns01-proxy` (or host `/var/lib/dns01-proxy`) → `/var/lib/dns01-proxy`
 - `./data/letsencrypt` or named `letsencrypt` → `/etc/letsencrypt`
 
 `Dockerfile` is for local/native builds; `Dockerfile.platform` keeps `--platform=$BUILDPLATFORM` for multi-arch Hub pushes (`docker compose -f _push.yml`).

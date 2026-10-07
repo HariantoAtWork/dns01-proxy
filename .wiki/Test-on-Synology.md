@@ -7,7 +7,7 @@ Internet → 84.86.220.240:53 → router DMZ → Synology:53
                                          ↳ Mac never sees it
 ```
 
-Full DNS-01 (hook **and** Let’s Encrypt seeing the TXT) only works when Compose runs **on the Synology**, or when UDP+TCP 53 is forwarded to whichever host actually runs `acmedns-stack`. With DMZ as it is, that host is the NAS.
+Full DNS-01 (hook **and** Let’s Encrypt seeing the TXT) only works when Compose runs **on the Synology**, or when UDP+TCP 53 is forwarded to whichever host actually runs `dns01-proxy`. With DMZ as it is, that host is the NAS.
 
 For glue / “NS has no port”: [Public DNS and port 53](Public-DNS-and-port-53.md). For the Bun edge vs DSM reverse proxy: [Bun proxy and SSL](Proxy-SSL.md).
 
@@ -48,7 +48,7 @@ See [Certificate checklist](Certificate-checklist.md).
 
 ## Synology certificates vs this stack
 
-Certificates issued **on the Synology** can succeed without this Compose stack (HTTP-01, Cloudflare DNS API, or another process owning public 53). That does **not** prove `auth.uti.email` is serving acme-dns from `acmedns-stack`.
+Certificates issued **on the Synology** can succeed without this Compose stack (HTTP-01, Cloudflare DNS API, or another process owning public 53). That does **not** prove `auth.uti.email` is serving acme-dns from `dns01-proxy`.
 
 ## What not to do
 

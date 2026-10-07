@@ -7,7 +7,7 @@
  *   bun script/generate-password.ts 40
  *   bun run script:generate-password
  */
-import { generatePassword } from '../build/acmedns-stack/server/utils/validation.ts'
+import { generatePassword } from '../build/dns01-proxy/server/utils/validation.ts'
 
 const raw = process.argv[2]
 const length = raw ? Number(raw) : 40

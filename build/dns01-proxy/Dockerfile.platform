@@ -15,7 +15,7 @@ FROM oven/bun:canary-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NITRO_HOST=0.0.0.0
-ENV ACMEDNS_DATA_ROOT=/var/lib/acmedns-stack
+ENV ACMEDNS_DATA_ROOT=/var/lib/dns01-proxy
 ENV ACMEDNS_LETSENCRYPT_DIR=/etc/letsencrypt
 COPY --from=build /app/.output .output
 COPY --from=build /app/seed ./seed

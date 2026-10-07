@@ -5,9 +5,9 @@ networks:
     driver: bridge
 
 services:
-  acmedns-stack:
-    image: harianto/acmedns-stack:latest
-    container_name: acmedns-stack
+  dns01-proxy:
+    image: harianto/dns01-proxy:latest
+    container_name: dns01-proxy
     restart: unless-stopped
     ports:
       - "53:53"       # DNS TCP — ACME DNS-01 / authoritative
@@ -17,12 +17,12 @@ services:
       - "1080:1080"   # control HTTP — operator UI + /register /update /health /api
       - "1443:1443"   # control HTTPS — same when tls=cert
     volumes:
-      - ./data/acmedns-stack:/var/lib/acmedns-stack  # server/, client/, backup/ (or host /var/lib/acmedns-stack:…)
+      - ./data/dns01-proxy:/var/lib/dns01-proxy  # server/, client/, backup/ (or host /var/lib/dns01-proxy:…)
       - ./data/letsencrypt:/etc/letsencrypt  # live/, staging/, trash/, accounts/
       # - letsencrypt:/etc/letsencrypt  # named-volume alternative
     environment:
       # ── Paths (must match volumes) ──────────────────────────────────────────────
-      - ACMEDNS_DATA_ROOT=/var/lib/acmedns-stack
+      - ACMEDNS_DATA_ROOT=/var/lib/dns01-proxy
       - ACMEDNS_LETSENCRYPT_DIR=/etc/letsencrypt
       # ── System ──────────────────────────────────────────────────────────────────
       - TZ=${TZ:-UTC}

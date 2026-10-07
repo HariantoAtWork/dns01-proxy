@@ -182,4 +182,4 @@ Two services. One compose file. Certificates without giving Let's Encrypt write 
 ---
 
 *Next: [From two containers to one](./from-two-services-to-one.md).*  
-*Stack: [HariantoAtWork/acmedns-stack](https://github.com/HariantoAtWork/acmedns-stack) — branch `feat/node-letsencrypt-client`.*
+*Stack: [HariantoAtWork/dns01-proxy](https://github.com/HariantoAtWork/dns01-proxy) — branch `feat/node-letsencrypt-client`.*

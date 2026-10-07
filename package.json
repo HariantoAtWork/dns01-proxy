@@ -1,5 +1,5 @@
 {
-  "name": "acmedns-stack",
+  "name": "dns01-proxy",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:restart": "bun run docker:down && bun run docker:up",
-    "docker:logs": "docker compose logs -f acmedns-stack",
+    "docker:logs": "docker compose logs -f dns01-proxy",
     "docker:dev": "docker compose -f _dev.yml up -d --build",
     "docker:dev:down": "docker compose -f _dev.yml down",
     "docker:dev:restart": "bun run docker:dev:down && bun run docker:dev",

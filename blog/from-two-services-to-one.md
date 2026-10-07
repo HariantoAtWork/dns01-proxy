@@ -27,7 +27,7 @@ None of that forced a rewrite. It made “what if DNS and UI were the same proce
 
 ## Step one: clone the server into Nuxt
 
-Before merging the client, I replaced the Go container with a wire-compatible Nuxt/Node port: **`acmedns-stack`**.
+Before merging the client, I replaced the Go container with a wire-compatible Nuxt/Node port: **`dns01-proxy`**.
 
 Goals for that port:
 
@@ -48,7 +48,7 @@ At that point compose was still two services — but both were Node/Bun/Nuxt-sha
 The operator app did not dissolve into `server/`. It moved under:
 
 ```
-build/acmedns-stack/
+build/dns01-proxy/
   server/                 ← acme-dns only (DNS + register/update/health)
   plugins/client/
     index.ts              ← defineNuxtModule
@@ -82,13 +82,13 @@ One service:
 
 | Service | Role |
 | --- | --- |
-| `acmedns-stack` | DNS `:53`, acme-dns HTTP (and optional HTTPS), UI, `/api/*`, ACME, clientstorage |
+| `dns01-proxy` | DNS `:53`, acme-dns HTTP (and optional HTTPS), UI, `/api/*`, ACME, clientstorage |
 
 Ports and volumes are the union of what used to be split: DNS, API, config, SQLite, `clientstorage`, `letsencrypt`, host `domains.txt`. Cap `NET_BIND_SERVICE` stays — something still has to bind `:53`.
 
 ```mermaid
 flowchart LR
-  subgraph nuxt["acmedns-stack"]
+  subgraph nuxt["dns01-proxy"]
     direction TB
     dns[":53 DNS"]
     api["/register /update /health"]
@@ -135,7 +135,7 @@ If you already consumed the `letsencrypt` volume read-only from another stack, y
 
 ```mermaid
 flowchart LR
-  subgraph server["acmedns-server / acmedns-stack host"]
+  subgraph server["acmedns-server / dns01-proxy host"]
     direction TB
     dns[":53 DNS"]
     api[":80 API"]
@@ -158,7 +158,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  subgraph one["acmedns-stack"]
+  subgraph one["dns01-proxy"]
     direction TB
     dns[":53 DNS"]
     api["register / update / health"]
@@ -184,4 +184,4 @@ One Nuxt process. Host DNS API, plugin for the operator. Same `domains.txt`, sam
 ---
 
 *Previously: [From three containers to two](./from-three-services-to-two.md).*  
-*Stack: [HariantoAtWork/acmedns-stack](https://github.com/HariantoAtWork/acmedns-stack) — branch `feat/acmedns-stack`.*
+*Stack: [HariantoAtWork/dns01-proxy](https://github.com/HariantoAtWork/dns01-proxy) — branch `feat/dns01-proxy`.*

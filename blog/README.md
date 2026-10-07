@@ -1,6 +1,6 @@
 # Blog
 
-Posts about the acmedns-stack project.
+Posts about the dns01-proxy project.
 
 | Date | Title |
 | --- | --- |

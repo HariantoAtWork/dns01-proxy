@@ -33,7 +33,7 @@ And because Apply and Lab both call `/update` on the same shared auth zone, they
 Same pattern as `plugins/client`:
 
 ```
-build/acmedns-stack/
+build/dns01-proxy/
   plugins/dns01-lab/
     index.ts              ← defineNuxtModule, /lab route
     runtime/
@@ -215,4 +215,4 @@ That is the point.
 ---
 
 *Previously: [From two containers to one](./from-two-services-to-one.md).*  
-*Stack: [HariantoAtWork/acmedns-stack](https://github.com/HariantoAtWork/acmedns-stack) — branch `feat/dns01-lab`.*
+*Stack: [HariantoAtWork/dns01-proxy](https://github.com/HariantoAtWork/dns01-proxy) — branch `feat/dns01-lab`.*

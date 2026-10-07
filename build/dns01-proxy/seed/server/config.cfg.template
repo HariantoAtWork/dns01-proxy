@@ -36,7 +36,7 @@ engine = "sqlite"
 # connection — optional; empty value throws.
 # Absolute path under ACMEDNS_DATA_ROOT/server/ for Docker/production.
 # Relative paths are resolved from the package root; absolute paths are used as-is.
-connection = "/var/lib/acmedns-stack/server/acme-dns.db"
+connection = "/var/lib/dns01-proxy/server/acme-dns.db"
 # connection = "postgres://user:password@localhost/acmedns_db"
 
 [api]

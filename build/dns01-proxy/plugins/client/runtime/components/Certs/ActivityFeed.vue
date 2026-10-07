@@ -94,7 +94,7 @@ function toggleLogOrder() {
     </div>
     <p v-if="!filteredActivity.length" class="text-sm text-muted">
       ACME communication with Let's Encrypt appears here during Apply or renewal — HTTP requests,
-      dns-01 challenges, and validation. Also in <span class="font-mono">docker logs acmedns-stack</span>
+      dns-01 challenges, and validation. Also in <span class="font-mono">docker logs dns01-proxy</span>
       (lines prefixed <span class="font-mono">[live/acme]</span> or <span class="font-mono">[staging/acme]</span>).
     </p>
     <ul v-else class="max-h-[420px] space-y-1 overflow-y-auto font-mono text-xs">

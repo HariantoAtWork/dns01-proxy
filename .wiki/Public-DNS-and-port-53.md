@@ -71,4 +71,4 @@ The A record for the nameserver must be **DNS-only** (grey cloud). Orange-cloud 
 
 ## One IP, one owner of 53
 
-On one public IPv4, only one process can own 53. Unbound, Pi-hole, Synology DNS Server, or systemd-resolved on that same public 53 will steal the queries. Let's Encrypt then never talks to `acmedns-stack`.
+On one public IPv4, only one process can own 53. Unbound, Pi-hole, Synology DNS Server, or systemd-resolved on that same public 53 will steal the queries. Let's Encrypt then never talks to `dns01-proxy`.

@@ -1,5 +1,5 @@
 {
-  "name": "acmedns-stack",
+  "name": "dns01-proxy",
   "type": "module",
   "private": true,
   "scripts": {

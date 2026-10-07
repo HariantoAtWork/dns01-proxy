@@ -28,7 +28,7 @@ const DEFAULTS: AcmeDnsConfig = {
   },
   database: {
     engine: 'sqlite',
-    connection: '/var/lib/acmedns-stack/server/acme-dns.db',
+    connection: '/var/lib/dns01-proxy/server/acme-dns.db',
   },
   api: {
     ip: '0.0.0.0',
@@ -104,7 +104,7 @@ function prepareConfig(raw: Record<string, unknown>): AcmeDnsConfig {
 
   const normalisedEngine = engine === 'sqlite3' ? 'sqlite' : engine
   if (normalisedEngine !== 'sqlite') {
-    throw new Error(`unsupported database engine "${engine}" (sqlite only in acmedns-stack v1)`)
+    throw new Error(`unsupported database engine "${engine}" (sqlite only in dns01-proxy v1)`)
   }
 
   return {

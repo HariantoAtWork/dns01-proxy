@@ -2,14 +2,14 @@
 # Multi-arch cannot be loaded into the local Docker engine, so local
 # `docker:build` stays on _build.yml only.
 services:
-  acmedns-stack:
+  dns01-proxy:
     build:
-      context: build/acmedns-stack
+      context: build/dns01-proxy
       dockerfile: Dockerfile.platform
       platforms:
         - linux/amd64
         - linux/arm64
-    image: harianto/acmedns-stack:latest
+    image: harianto/dns01-proxy:latest
 
   # acmedns-server:
   #   build:
