@@ -69,7 +69,7 @@ flowchart TB
 
 ---
 
-## What we added: `vps.yml` + `./dc.sh vps`
+## What we added: `_vps.yml` + `./dc.sh vps`
 
 Optional Compose file — opt-in with `-f`, `ports: !override` so base `53:53` is replaced instead of appended:
 
@@ -99,7 +99,7 @@ Under the hood that is roughly:
 PUBLIC_IP=${PUBLIC_IP:-$(ip -4 route get 1.1.1.1 | sed -n 's/.* src \([0-9.]*\).*/\1/p')} \
   docker compose -f docker-compose.yml \
     $([ -f docker-compose.override.yml ] && echo -f docker-compose.override.yml) \
-    -f vps.yml up -d
+    -f _vps.yml up -d
 ```
 
 Use the **local** address from the route table for the bind — on a 1:1 VPS it matches the public IP, and Docker will refuse an address that is not on the host. Echo services (`icanhazip`, ipify) are fine for glue detection inside the app (`ACMEDNS_PUBLIC_IP`); they are the wrong primary source for **which socket to open**.

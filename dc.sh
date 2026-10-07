@@ -20,7 +20,7 @@ Usage: ./dc.sh <command>
   dev-down           Stop _dev.yml
   dev-restart        dev-down + dev
 
-  vps                Bind :53 to PUBLIC_IP (vps.yml)
+  vps                Bind :53 to PUBLIC_IP (_vps.yml)
   vps-down           Stop vps compose
   vps-restart        vps-down + vps
 
@@ -50,7 +50,7 @@ vps_compose() {
   if [[ -f docker-compose.override.yml ]]; then
     args+=(-f docker-compose.override.yml)
   fi
-  args+=(-f vps.yml)
+  args+=(-f _vps.yml)
   PUBLIC_IP="$ip" docker compose "${args[@]}" "$@"
 }
 

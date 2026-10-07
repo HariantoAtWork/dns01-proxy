@@ -6,7 +6,7 @@ At home the usual path is different: router **DMZ** (or forward UDP/TCP 53) to t
 
 ## Compose
 
-[`vps.yml`](../vps.yml) publishes `${PUBLIC_IP}:53` (UDP+TCP). Detect and start:
+[`_vps.yml`](../_vps.yml) publishes `${PUBLIC_IP}:53` (UDP+TCP). Detect and start:
 
 ```bash
 ./dc.sh vps
