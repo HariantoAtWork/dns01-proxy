@@ -57,6 +57,7 @@ LETSENCRYPT_EMAIL=you@example.org
 Optional first-start seed:
 
 ```bash
+# Path is relative to the app package (src/dns01-proxy/ on the host; /app in the image)
 NUXT_ACME_DNS_DEFAULT_CONFIG=seed/server/config.tiny.cfg
 ```
 
@@ -74,7 +75,7 @@ When `ACMEDNS_TINY_DOMAIN` is set and `ACMEDNS_URL` is omitted, the public URL d
 | `ACMEDNS_TINY_MODE` | No | Force Tiny/shared mode without `ACMEDNS_TINY_DOMAIN` (uses `domain` from `config.cfg`). |
 | `ACMEDNS_PUBLIC_IP` | No | Pin glue **A** record. Auto-detected when omitted. |
 | `ACMEDNS_PUBLIC_IPV6` | No | Pin glue **AAAA** record. Added when detected or set. |
-| `NUXT_ACME_DNS_DEFAULT_CONFIG` | No | Use `seed/server/config.tiny.cfg` on first boot. |
+| `NUXT_ACME_DNS_DEFAULT_CONFIG` | No | Tiny seed on first boot — path relative to the app package (`seed/server/config.tiny.cfg`; file under `src/dns01-proxy/seed/`). |
 
 Everything else (`ACMEDNS_DATA_ROOT`, `RENEW_INTERVAL`, `ADMINISTRATOR_PASSWORD`, …) is the same as the full stack. See root [README](../README.md).
 

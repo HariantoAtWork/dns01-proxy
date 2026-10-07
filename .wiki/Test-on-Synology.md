@@ -28,10 +28,10 @@ Website hostnames can share one IP (HTTP `Host` / TLS SNI). DNS cannot: every na
 | Check | On the Mac |
 | --- | --- |
 | Nuxt UI, register a hostname, `clientstorage.json` | Yes |
-| Certbot hook `Successfully updated TXT record` via control HTTP / cloudflared | Yes — that is HTTP |
+| Certs UI / in-process `/update` (or control HTTP via cloudflared) | Yes — that is HTTP |
 | Let’s Encrypt `NXDOMAIN` / failed DNS-01 | Expected — public 53 is not this container |
 
-Do not treat a green hook plus a red Certbot log as an app bug. The update path and the validator path are different.
+Do not treat a green Apply plus a red Let's Encrypt error as an app bug. The update path and the validator path are different.
 
 ## What you must run on the Synology
 
@@ -58,7 +58,7 @@ Certificates issued **on the Synology** can succeed without this Compose stack (
 
 ## Copy the project to the NAS
 
-Same git checkout (or copy) of this repo. Same `.env`, `config.cfg`, `domains.txt`, and `clientstorage.json`. Publish 53 on the Synology host, not only inside Docker’s user-defined network. If Container Manager uses a different network driver, still map `53:53/tcp` and `53:53/udp` to the NAS.
+Same git checkout (or copy) of this repo. App sources live under `src/dns01-proxy/`; compose helpers are `./dc.sh`. Same `.env`, and live data under `data/dns01-proxy/` (`server/config.cfg`, `client/domains.txt`, `client/clientstorage.json` — or `/var/lib/dns01-proxy/…` on the host). Start with `./dc.sh up` after copying `docker-compose.yml` from the example. Publish 53 on the Synology host, not only inside Docker’s user-defined network. If Container Manager uses a different network driver, still map `53:53/tcp` and `53:53/udp` to the NAS.
 
 After it is up, from **outside** the LAN (cellular):
 

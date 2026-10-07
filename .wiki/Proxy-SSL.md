@@ -2,7 +2,7 @@
 
 The stack’s built-in reverse proxy is a **shared Bun edge** on `:80` / `:443`, not one nginx `server` block per host like Nginx Proxy Manager. Control plane (operator UI, `/register`, `/update`, `/health`, `/api`) stays on `:1080` / `:1443`.
 
-Point **public app hostnames** at edge `80`/`443`. Point **auth UI / Certbot / DSM reverse proxy** at control `1080` (or `1443`).
+Point **public app hostnames** at edge `80`/`443`. Point **auth UI / ACME tooling / DSM reverse proxy** at control `1080` (or `1443`).
 
 ## SSL Certificate (per Proxy Host)
 
