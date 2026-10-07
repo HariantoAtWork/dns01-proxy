@@ -33,7 +33,7 @@ And because Apply and Lab both call `/update` on the same shared auth zone, they
 Same pattern as `plugins/client`:
 
 ```
-build/dns01-proxy/
+src/dns01-proxy/
   plugins/dns01-lab/
     index.ts              ← defineNuxtModule, /lab route
     runtime/

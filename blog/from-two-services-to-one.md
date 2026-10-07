@@ -37,7 +37,7 @@ Goals for that port:
 - Same `config.cfg` and data directories (`/etc/acme-dns`, `/var/lib/acme-dns`) so Synology volumes did not need a migration
 - Compose network alias **`acmedns-server`** so the still-separate client could keep its URL
 
-That mattered: the client merge could wait until DNS behaviour matched. Rollback stayed on the Go tree under `build/acmedns-server`.
+That mattered: the client merge could wait until DNS behaviour matched. Rollback stayed on the Go tree under `src/acmedns-server`.
 
 At that point compose was still two services — but both were Node/Bun/Nuxt-shaped, and the server no longer lived in a different language.
 
@@ -48,7 +48,7 @@ At that point compose was still two services — but both were Node/Bun/Nuxt-sha
 The operator app did not dissolve into `server/`. It moved under:
 
 ```
-build/dns01-proxy/
+src/dns01-proxy/
   server/                 ← acme-dns only (DNS + register/update/health)
   plugins/client/
     index.ts              ← defineNuxtModule
