@@ -197,6 +197,33 @@ function remoteLedTitle(host: ProxyHost, domain: string): string {
   return `Offline — ${err}`
 }
 
+function forwardLedClass(host: ProxyHost): string {
+  if (!host.enabled) {
+    return 'text-muted'
+  }
+  const health = healthById[host.id]
+  if (!health) {
+    return 'text-muted animate-pulse'
+  }
+  return health.online ? 'text-live' : 'text-danger'
+}
+
+function forwardLedTitle(host: ProxyHost): string {
+  if (!host.enabled) {
+    return 'Off'
+  }
+  const health = healthById[host.id]
+  if (!health) {
+    return 'Checking…'
+  }
+  if (health.online) {
+    const ms = health.latencyMs != null ? ` (${health.latencyMs}ms)` : ''
+    return `Online${ms}`
+  }
+  const detail = statusDetail(host)
+  return detail ? `Offline — ${detail}` : 'Offline'
+}
+
 function isVisitFlashing(hostId: string, entryName: string): boolean {
   return visitFlashes.some(
     item => item.hostId === hostId && visitMatchesDomainEntry(item.domain, entryName),
@@ -263,8 +290,20 @@ function onEnabledChange(host: ProxyHost, event: Event) {
               </div>
             </div>
           </td>
-          <td class="px-3 py-2 font-mono text-xs text-muted">
-            {{ forwardTarget(host) }}
+          <td class="px-3 py-2">
+            <div class="flex items-center gap-1.5 font-mono text-xs text-muted">
+              <span class="relative inline-flex size-2 shrink-0 items-center justify-center">
+                <Circle
+                  :size="8"
+                  weight="fill"
+                  aria-hidden="true"
+                  class="relative z-[1]"
+                  :class="forwardLedClass(host)"
+                  :title="forwardLedTitle(host)"
+                />
+              </span>
+              <span>{{ forwardTarget(host) }}</span>
+            </div>
           </td>
           <td class="px-3 py-2">
             <div class="flex flex-col gap-0.5">
