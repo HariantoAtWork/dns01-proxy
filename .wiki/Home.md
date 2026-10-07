@@ -9,7 +9,7 @@ How public DNS, port 53, and the Bun edge proxy fit this stack. The [README](../
 | `src/dns01-proxy/` | Nuxt app: DNS `:53`, acme-dns API, operator UI, Certs, Proxy Hosts, `seed/` |
 | `./dc.sh` | Root helpers — `up`, `down`, `build`, `dev`, `vps`, … (no root `package.json`) |
 | `docker-compose.yml.example` | Production service `dns01-proxy` → image `harianto/dns01-proxy` |
-| `_build.yml` / `_push.yml` / `_dev.yml` / `vps.yml` | Build, Hub push, hot-reload, VPS `:53` bind |
+| `_build.yml` / `_push.yml` / `_dev.yml` / `_vps.yml` | Build, Hub push, hot-reload, VPS `:53` bind |
 | `./data/dns01-proxy` → `/var/lib/dns01-proxy` | Live data: `server/`, `client/`, `backup/` |
 | `./data/letsencrypt` → `/etc/letsencrypt` | PEMs (`live/`, `staging/`, …) |
 

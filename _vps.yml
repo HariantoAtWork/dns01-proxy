@@ -3,7 +3,7 @@
 # Glue stays on the same IP. For home Synology, use DMZ/port-forward + normal 53:53 instead.
 #
 #   ./dc.sh vps
-#   (or: PUBLIC_IP=x.x.x.x docker compose -f docker-compose.yml -f vps.yml up -d)
+#   (or: PUBLIC_IP=x.x.x.x docker compose -f docker-compose.yml -f _vps.yml up -d)
 #   ./dc.sh vps adds -f docker-compose.override.yml only when that file exists.
 #
 # ./dc.sh vps sets PUBLIC_IP from the default IPv4 route (override with PUBLIC_IP=…).
