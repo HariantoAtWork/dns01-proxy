@@ -1,6 +1,6 @@
 # Working Synology setup
 
-This is the config that got DNS-01 certificates issuing on the Synology NAS — not on a Mac. For why the Mac cannot prove DNS-01, see [Test this stack on the Synology](Test-on-Synology.md). The router DMZ points at the NAS, so public port 53 lands here. If you run Compose on a laptop, the UI and the Certbot hook can look fine while Let's Encrypt still fails. Put this stack on the machine that actually owns `:53`.
+This is the config that got DNS-01 certificates issuing on the Synology NAS — not on a Mac. For why the Mac cannot prove DNS-01, see [Test this stack on the Synology](Test-on-Synology.md). The router DMZ points at the NAS, so public port 53 lands here. If you run Compose on a laptop, the UI and in-process `/update` can look fine while Let's Encrypt still fails. Put this stack on the machine that actually owns `:53`.
 
 What is proven so far: apex + one wildcard (`uti.email *.uti.email`), and a grouped SAN line for `mdstn.com` with nested wildcards. Nested challenge names CNAME to `_acme-challenge.mdstn.com`; that name CNAME to the acme-dns `fulldomain`. See the records below.
 
@@ -13,7 +13,7 @@ Three jobs, three paths:
 | Path | What talks | How it reaches the NAS |
 | --- | --- | --- |
 | DNS-01 | Let's Encrypt → `_acme-challenge` → your acme-dns zone | Public **UDP/TCP 53** on `84.86.220.240` (grey-cloud A, not the tunnel) |
-| Control HTTP | Certbot hook, Nuxt register/update, operator UI | Synology Reverse Proxy / cloudflared → host **`1080`** (control), not edge `:80` |
+| Control HTTP | Certs UI, register/update, operator APIs | Synology Reverse Proxy / cloudflared → host **`1080`** (control), not edge `:80` |
 | Edge HTTP(S) | Public Proxy Hosts / apps | Shared Bun **`80` / `443`** — [Bun proxy and SSL](Proxy-SSL.md) |
 | Tunnel (optional) | Browser UI / control hostnames | cloudflared — **HTTP only**. It does not carry port 53 |
 
@@ -228,11 +228,14 @@ After register, copy the `fulldomain` into the `_acme-challenge.<apex>` CNAME at
 
 ## 5. Docker Compose ports on the NAS
 
-`dns01-proxy` needs DNS on the host, control for auth/UI, and (optionally) edge for Proxy Hosts:
+Service `dns01-proxy` (image `harianto/dns01-proxy`, build context `src/dns01-proxy/`). From a checkout: copy `docker-compose.yml.example` → `docker-compose.yml`, then `./dc.sh up`. Volume `./data/dns01-proxy` → `/var/lib/dns01-proxy`.
+
+Needs DNS on the host, control for auth/UI, and (optionally) edge for Proxy Hosts:
 
 ```yml
 services:
   dns01-proxy:
+    image: harianto/dns01-proxy:latest
     ports:
       - "53:53"
       - "53:53/udp"
@@ -240,10 +243,13 @@ services:
       - "443:443"     # edge HTTPS — Bun reverse proxy (SNI)
       - "1080:1080"   # control HTTP — operator UI + /register /update /health /api
       - "1443:1443"   # control HTTPS when tls=cert
+    volumes:
+      - ./data/dns01-proxy:/var/lib/dns01-proxy
+      - ./data/letsencrypt:/etc/letsencrypt
 ```
 
 - `53` — Let's Encrypt. Nothing else on the NAS should bind it (Synology DNS Server package, another DNS container, …).
-- `1080` / `1443` — what DSM reverse proxy / Certbot should target for the **auth** hostname.
+- `1080` / `1443` — what DSM reverse proxy / ACME tooling should target for the **auth** hostname.
 - `80` / `443` — shared Bun edge for Proxy Hosts ([Bun proxy and SSL](Proxy-SSL.md)). Do not send auth UI here if you also proxy public apps on the same ports.
 
 Certificate issuance runs in the same process (nothing published for ACME). Prefer loopback / reverse-proxy `http://auth.uti.email` for `ACMEDNS_URL` / `server_url` when that is what works on Synology.
@@ -340,7 +346,7 @@ This NAS client can mix `ACMEDNS_URL` for your server (`https://auth.uti.email`)
 
 ## Quick checklist
 
-1. Compose runs on the Synology (DMZ host).
+1. Compose runs on the Synology (DMZ host) — `./dc.sh up` from this repo (or Container Manager with the same ports/volumes).
 2. `53/tcp` and `53/udp` published; nothing else owns 53.
 3. Cloudflare: grey-cloud A/NS glue for `auth` / `ns`; apex `_acme-challenge` CNAME → `fulldomain`; nested zones chain to that apex name.
 4. Reverse proxy: `auth.uti.email` → `localhost:1080` (control, not edge).

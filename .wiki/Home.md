@@ -2,6 +2,19 @@
 
 How public DNS, port 53, and the Bun edge proxy fit this stack. The [README](../README.md) is the operator guide; these pages are the networking and SSL story behind DNS-01 and Proxy Hosts.
 
+## Repo layout
+
+| Path | Role |
+| --- | --- |
+| `src/dns01-proxy/` | Nuxt app: DNS `:53`, acme-dns API, operator UI, Certs, Proxy Hosts, `seed/` |
+| `./dc.sh` | Root helpers — `up`, `down`, `build`, `dev`, `vps`, … (no root `package.json`) |
+| `docker-compose.yml.example` | Production service `dns01-proxy` → image `harianto/dns01-proxy` |
+| `_build.yml` / `_push.yml` / `_dev.yml` / `vps.yml` | Build, Hub push, hot-reload, VPS `:53` bind |
+| `./data/dns01-proxy` → `/var/lib/dns01-proxy` | Live data: `server/`, `client/`, `backup/` |
+| `./data/letsencrypt` → `/etc/letsencrypt` | PEMs (`live/`, `staging/`, …) |
+
+Local Nuxt (no Docker): `bun install --cwd src/dns01-proxy` then `bun run --cwd src/dns01-proxy dev`. Compose: copy the example files, then `./dc.sh up` (or `./dc.sh dev` for hot-reload).
+
 ## Pages
 
 - [Bun proxy and SSL](Proxy-SSL.md) — shared `:80`/`:443`, SSL Certificate vs Inherited SSL, nested admin SNI

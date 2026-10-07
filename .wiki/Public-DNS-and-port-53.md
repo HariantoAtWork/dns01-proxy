@@ -46,7 +46,7 @@ If the public IP changes, you update that **one** A (and the glue at Cloudflare)
 | Control HTTP API (`:1080` register/update) | No — Compose name, DSM reverse proxy, or cloudflared |
 | Operator UI (`:1080` / `:1443`) | No |
 | Edge apps (`:80` / `:443`) | Only if you terminate public websites on this host — see [Bun proxy and SSL](Proxy-SSL.md) |
-| Certbot | No — outbound only |
+| ACME issuer (Certs UI, in-process) | No — outbound only |
 
 One acme-dns on one `:53` serves every registered hostname. You do not open a port per domain.
 
