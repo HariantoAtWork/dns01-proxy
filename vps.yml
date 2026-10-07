@@ -10,7 +10,7 @@
 # Compose merges ports by appending; !override replaces the base list.
 
 services:
-  acmedns-stack:
+  dns01-proxy:
     ports: !override
       - "${PUBLIC_IP}:53:53"
       - "${PUBLIC_IP}:53:53/udp"

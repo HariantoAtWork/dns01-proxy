@@ -1,9 +1,9 @@
 services:
   # Hot-reload Nuxt: bun run docker:dev  (or: docker compose -f _dev.yml up -d --build)
   # Does not start with plain `docker compose up`.
-  acmedns-stack-dev:
+  dns01-proxy-dev:
     image: oven/bun:canary-alpine
-    container_name: acmedns-stack-dev
+    container_name: dns01-proxy-dev
     working_dir: /app
     command: ["sh", "-c", "bun install --frozen-lockfile && exec bun run dev"]
     ports:
@@ -11,8 +11,8 @@ services:
       - "15353:15353"
       - "15353:15353/udp"
     volumes:
-      - ./build/acmedns-stack:/app
-      - acmedns-stack-dev-modules:/app/node_modules  # Linux modules inside the container
+      - ./build/dns01-proxy:/app
+      - dns01-proxy-dev-modules:/app/node_modules  # Linux modules inside the container
     environment:
       # ── Paths (package-local .data on the bind mount) ───────────────────────────
       - ACMEDNS_DATA_ROOT=.data
@@ -44,6 +44,6 @@ services:
       - NUXT_PUBLIC_DEFAULT_ACMEDNS_URL=${NUXT_PUBLIC_DEFAULT_ACMEDNS_URL:-${ACMEDNS_URL:-}}
 
 volumes:
-  acmedns-stack-dev-modules:
+  dns01-proxy-dev-modules:
 #   letsencrypt:
 #     name: letsencrypt

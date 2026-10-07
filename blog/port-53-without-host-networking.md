@@ -18,7 +18,7 @@ So something on the public address must own `:53`. Everything else — UI on 108
 flowchart LR
   LE[Let's Encrypt] -->|UDP/TCP 53| Glue[A / NS glue IP]
   Tunnel[cloudflared] -->|HTTPS only| UI[operator UI]
-  Glue --> Stack[acmedns-stack]
+  Glue --> Stack[dns01-proxy]
   Tunnel --> Stack
 ```
 
@@ -75,7 +75,7 @@ Optional Compose file — opt-in with `-f`, `ports: !override` so base `53:53` i
 
 ```yaml
 services:
-  acmedns-stack:
+  dns01-proxy:
     ports: !override
       - "${PUBLIC_IP}:53:53"
       - "${PUBLIC_IP}:53:53/udp"
@@ -136,4 +136,4 @@ At home, honesty is DMZ to the box that runs acme-dns. Same glue story, differen
 
 *Previously: [After the merge: a DNS-01 lab…](./dns01-lab-and-txt-probe.md).*  
 *Wiki: [VPS port 53](../.wiki/VPS-port-53.md) · [Test this stack on the Synology](../.wiki/Test-on-Synology.md).*
-*Stack: [HariantoAtWork/acmedns-stack](https://github.com/HariantoAtWork/acmedns-stack).*
+*Stack: [HariantoAtWork/dns01-proxy](https://github.com/HariantoAtWork/dns01-proxy).*

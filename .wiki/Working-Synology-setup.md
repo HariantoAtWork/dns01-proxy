@@ -23,7 +23,7 @@ Cloudflare orange-cloud on `auth.uti.email` is fine for a website. It is wrong f
 
 ## 1. `config.cfg` (acme-dns)
 
-File: `data/acmedns-stack/server/config.cfg` (bind-mounted at `/var/lib/acmedns-stack/server/config.cfg`)
+File: `data/dns01-proxy/server/config.cfg` (bind-mounted at `/var/lib/dns01-proxy/server/config.cfg`)
 
 The important bits: listen on all interfaces for DNS, serve the `auth.uti.email` zone, expose the API on HTTP port 80 inside the container (TLS off — Synology terminates HTTPS), and publish A/NS glue that matches Cloudflare.
 
@@ -57,8 +57,8 @@ debug = false
 # Database engine to use, sqlite or postgres (sqlite3 is still accepted)
 engine = "sqlite"
 # Connection string, filename for sqlite and postgres://$username:$password@$host/$db_name for postgres
-# Please note that the Docker stack uses path /var/lib/acmedns-stack/server/acme-dns.db for sqlite
-connection = "/var/lib/acmedns-stack/server/acme-dns.db"
+# Please note that the Docker stack uses path /var/lib/dns01-proxy/server/acme-dns.db for sqlite
+connection = "/var/lib/dns01-proxy/server/acme-dns.db"
 # connection = "postgres://user:password@localhost/acmedns_db"
 
 [api]
@@ -206,8 +206,8 @@ Point **auth / operator** hostnames at the **control** port. Leave edge `:80`/`:
 
 | Description | Source | Destination |
 | --- | --- | --- |
-| `acmedns-stack control http` | `http://auth.uti.email:80` | `http://localhost:1080` |
-| `acmedns-stack control https` | `https://auth.uti.email:443` | `http://localhost:1080` |
+| `dns01-proxy control http` | `http://auth.uti.email:80` | `http://localhost:1080` |
+| `dns01-proxy control https` | `https://auth.uti.email:443` | `http://localhost:1080` |
 
 Compose publishes control as `1080:1080` (see below). Hostname in, localhost out. Public app names belong on Bun edge `80`/`443` — see [Bun proxy and SSL](Proxy-SSL.md).
 
@@ -228,11 +228,11 @@ After register, copy the `fulldomain` into the `_acme-challenge.<apex>` CNAME at
 
 ## 5. Docker Compose ports on the NAS
 
-`acmedns-stack` needs DNS on the host, control for auth/UI, and (optionally) edge for Proxy Hosts:
+`dns01-proxy` needs DNS on the host, control for auth/UI, and (optionally) edge for Proxy Hosts:
 
 ```yml
 services:
-  acmedns-stack:
+  dns01-proxy:
     ports:
       - "53:53"
       - "53:53/udp"
@@ -252,7 +252,7 @@ Certificate issuance runs in the same process (nothing published for ACME). Pref
 
 ## 6. `domains.txt`
 
-File: `data/acmedns-stack/client/domains.txt` (or `/var/lib/acmedns-stack/client/domains.txt` inside the container)
+File: `data/dns01-proxy/client/domains.txt` (or `/var/lib/dns01-proxy/client/domains.txt` inside the container)
 
 One certificate per line. Edit in the Certs UI or on disk, Save, then Apply — no restart.
 
@@ -326,7 +326,7 @@ Both should follow into `87eb4f67-….auth.uti.email` (then TXT from acme-dns). 
 
 ### Multi-wildcard status
 
-This tree’s `acmedns-stack` keeps **100** TXT records per account. The `mdstn.com` grouped line above issued on the NAS with those CNAMEs. Do not re-register `mdstn.com` to “fix” slots — that would mint a new UUID and you would have to edit `_acme-challenge.mdstn.com` only (the nested chains stay).
+This tree’s `dns01-proxy` keeps **100** TXT records per account. The `mdstn.com` grouped line above issued on the NAS with those CNAMEs. Do not re-register `mdstn.com` to “fix” slots — that would mint a new UUID and you would have to edit `_acme-challenge.mdstn.com` only (the nested chains stay).
 
 ### Public `auth.acme-dns.io`
 

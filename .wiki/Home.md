@@ -15,12 +15,12 @@ How public DNS, port 53, and the Bun edge proxy fit this stack. The [README](../
 
 ## Two paths (DNS-01)
 
-The UI talks to acme-dns **in-process** inside `acmedns-stack` (or over HTTP for an external server). Let's Encrypt does **not**. Validators only do a public DNS lookup. Those two paths are easy to mix up.
+The UI talks to acme-dns **in-process** inside `dns01-proxy` (or over HTTP for an external server). Let's Encrypt does **not**. Validators only do a public DNS lookup. Those two paths are easy to mix up.
 
 ```mermaid
 flowchart LR
-  UI[acmedns-stack UI] -->|in-process /update| API[acmedns-stack]
-  LE[Lets Encrypt] -->|DNS-01 UDP/TCP 53| DNS[acmedns-stack :53]
+  UI[dns01-proxy UI] -->|in-process /update| API[dns01-proxy]
+  LE[Lets Encrypt] -->|DNS-01 UDP/TCP 53| DNS[dns01-proxy :53]
   Tunnel[cloudflared] -->|HTTPS hostname| UI
 ```
 

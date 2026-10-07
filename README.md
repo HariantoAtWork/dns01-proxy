@@ -4,13 +4,13 @@ One container. DNS-01 certificates without giving Let's Encrypt (or anyone) writ
 
 | Service | What it does |
 | --- | --- |
-| `acmedns-stack` | Nuxt/Node [acme-dns](https://github.com/acme-dns/acme-dns) on `:53` **plus** operator UI, clientstorage, and ACME issue/renew (`plugins/client`) |
+| `dns01-proxy` | Nuxt/Node [acme-dns](https://github.com/acme-dns/acme-dns) on `:53` **plus** operator UI, clientstorage, and ACME issue/renew (`plugins/client`) |
 
 `build/acmedns-server` (Go) and `build/acmedns-client` stay in the tree as reference/rollback. Runtime compose is a single service.
 
 ```mermaid
 flowchart LR
-  UI[acmedns-stack UI] -->|in-process /update| API[acmedns-stack API]
+  UI[dns01-proxy UI] -->|in-process /update| API[dns01-proxy API]
   UI -->|reads/writes| CS[clientstorage.json]
   UI -->|reads/writes| Domains[domains.txt]
   UI -->|writes PEMs| Certs["/etc/letsencrypt live/"]
@@ -21,18 +21,18 @@ flowchart LR
 
 | Role | Production (`ACMEDNS_DATA_ROOT`) | Local `bun run dev` |
 | --- | --- | --- |
-| Server config + SQLite | `/var/lib/acmedns-stack/server/` | `.data/server/` |
-| clientstorage, domains, cert settings | `/var/lib/acmedns-stack/client/` | `.data/client/` |
-| JSON backups | `/var/lib/acmedns-stack/backup/` | `.data/backup/` |
+| Server config + SQLite | `/var/lib/dns01-proxy/server/` | `.data/server/` |
+| clientstorage, domains, cert settings | `/var/lib/dns01-proxy/client/` | `.data/client/` |
+| JSON backups | `/var/lib/dns01-proxy/backup/` | `.data/backup/` |
 | Let's Encrypt PEMs | `/etc/letsencrypt/` (`ACMEDNS_LETSENCRYPT_DIR`) | `.data/letsencrypt/` |
 
-First start copies missing files from [`build/acmedns-stack/seed/`](build/acmedns-stack/seed/README.md). Live files are never overwritten. Edit `seed/` to change defaults for **new** installs.
+First start copies missing files from [`build/dns01-proxy/seed/`](build/dns01-proxy/seed/README.md). Live files are never overwritten. Edit `seed/` to change defaults for **new** installs.
 
 Compose example binds:
 
 ```yaml
 volumes:
-  - ./data/acmedns-stack:/var/lib/acmedns-stack   # or /var/lib/acmedns-stack:/var/lib/acmedns-stack
+  - ./data/dns01-proxy:/var/lib/dns01-proxy   # or /var/lib/dns01-proxy:/var/lib/dns01-proxy
   - ./data/letsencrypt:/etc/letsencrypt            # or named volume letsencrypt
 ```
 
@@ -52,7 +52,7 @@ volumes:
   - ./data/letsencrypt:/etc/letsencrypt:ro
 ```
 
-Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt server keeps **100 rolling TXT slots**. Rebuild `acmedns-stack` when issuing many SANs on one account.
+Upstream acme-dns only keeps two TXT records per account. This stack’s Nuxt server keeps **100 rolling TXT slots**. Rebuild `dns01-proxy` when issuing many SANs on one account.
 
 `domains.txt` expands nested wildcards (implied parent wildcards). Line order does not matter — shortest apex is the cert-name. Register the line apex in the UI; the issuer walks parent keys in `clientstorage.json`.
 
@@ -87,7 +87,7 @@ bun run docker:up
 
 Useful root scripts (`package.json`): `docker:build`, `docker:push`, `docker:up` / `docker:restart` / `docker:dev` / `docker:down` / `docker:logs`.
 
-Local Nuxt dev (no Docker): `bun install --cwd build/acmedns-stack` then `bun run --cwd build/acmedns-stack dev` (UI on `:3000`).
+Local Nuxt dev (no Docker): `bun install --cwd build/dns01-proxy` then `bun run --cwd build/dns01-proxy dev` (UI on `:3000`).
 
 Docker Nuxt hot-reload (`_dev.yml`, UI on `:3000`, DNS on `:15353`):
 
@@ -96,7 +96,7 @@ bun run docker:dev
 # or: docker compose -f _dev.yml up -d --build
 ```
 
-Does not start the production `acmedns-stack` image.
+Does not start the production `dns01-proxy` image.
 
 On first start the image seeds under `$ACMEDNS_DATA_ROOT` (`server/`, `client/`, `backup/`) and uses `$ACMEDNS_LETSENCRYPT_DIR` for PEMs.
 
@@ -123,7 +123,7 @@ Manual migrate from older layouts: move server config/DB into `…/server/`, cli
 
 | Variable | Production | Development |
 | --- | --- | --- |
-| `ACMEDNS_DATA_ROOT` | `/var/lib/acmedns-stack` | `.data` |
+| `ACMEDNS_DATA_ROOT` | `/var/lib/dns01-proxy` | `.data` |
 | `ACMEDNS_LETSENCRYPT_DIR` | `/etc/letsencrypt` | `.data/letsencrypt` |
 
 No other path ENV names. Everything else is derived (`server/`, `client/`, `backup/`).
@@ -145,7 +145,7 @@ No other path ENV names. Everything else is derived (`server/`, `client/`, `back
 
 ## Networks
 
-Single `acmedns-stack` service. Edge HTTP on `:80` and control on `:1080` are always on; edge/control HTTPS bind when TLS PEMs are available. Production compose publishes `80:80`, `443:443`, `1080:1080`, `1443:1443`.
+Single `dns01-proxy` service. Edge HTTP on `:80` and control on `:1080` are always on; edge/control HTTPS bind when TLS PEMs are available. Production compose publishes `80:80`, `443:443`, `1080:1080`, `1443:1443`.
 
 `cloudflared` (external): attach the same service. Port 53 stays on the host, not the tunnel. On a single-IP VPS where `0.0.0.0:53` collides with systemd-resolved, use [`vps.yml`](vps.yml) via `bun run docker:vps` (see [`.wiki/VPS-port-53.md`](.wiki/VPS-port-53.md)). At home, router DMZ (or port-forward 53) to the Synology is enough — see [`.wiki/Test-on-Synology.md`](.wiki/Test-on-Synology.md).
 
@@ -161,7 +161,7 @@ _dev.yml                      # Nuxt hot-reload (UI :3000, DNS :15353)
 vps.yml                       # optional :53 bound to PUBLIC_IP (single-IP VPS)
 .env.example
 .wiki/
-build/acmedns-stack/           # DNS + API + UI plugin + seed/
+build/dns01-proxy/           # DNS + API + UI plugin + seed/
 build/acmedns-server/         # Go reference / rollback
 build/acmedns-client/         # legacy standalone client (reference)
 ```

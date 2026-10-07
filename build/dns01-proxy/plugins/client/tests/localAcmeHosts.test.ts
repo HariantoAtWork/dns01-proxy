@@ -22,7 +22,7 @@ describe('localAcmeHosts', () => {
   })
 
   test('arbitrary compose service names are not internal', () => {
-    expect(isInternalAcmeDnsHost('acmedns-stack')).toBe(false)
-    expect(internalAcmeDnsHosts().has('acmedns-stack')).toBe(false)
+    expect(isInternalAcmeDnsHost('dns01-proxy')).toBe(false)
+    expect(internalAcmeDnsHosts().has('dns01-proxy')).toBe(false)
   })
 })
