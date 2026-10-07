@@ -2,13 +2,17 @@ import { describe, expect, test } from 'bun:test'
 import {
   asForwardPort,
   asIdleTimeoutSeconds,
+  buildProxyHostImportRows,
   defaultForwardPort,
+  defaultProxyHostImportSelection,
   domainPatternMatchesHostname,
   findDuplicateDomainConflicts,
   formatDuplicateDomainWarning,
   hstsHeaderValue,
+  looksLikeProxyHostsFile,
   normalizeProxyHost,
   parseForwardTargetInput,
+  resolveProxyHostImportTargetId,
   validateDomainName,
   validateProxyHost,
 } from '../runtime/shared/utils/proxyHost'
@@ -157,6 +161,43 @@ describe('proxyHost normalize', () => {
     expect(formatDuplicateDomainWarning([
       { domain: 'app.example.com', hostId: 'host-a', hostLabel: 'app.example.com' },
     ])).toMatch(/already used/i)
+  })
+
+  test('import preview selects new sources; existing sources stay unchecked', () => {
+    const existing = [
+      {
+        id: 'live-1',
+        domainNames: ['app.example.com'],
+        forwardScheme: 'http' as const,
+        forwardHost: 'old-backend',
+        forwardPort: 80,
+      },
+    ]
+    const parsed = {
+      version: 1,
+      hosts: [
+        {
+          domainNames: ['app.example.com'],
+          forwardHost: 'new-backend',
+          forwardPort: 8080,
+        },
+        {
+          domainNames: ['fresh.example.com'],
+          forwardHost: 'old-backend',
+          forwardPort: 80,
+        },
+      ],
+    }
+    expect(looksLikeProxyHostsFile(parsed)).toBe(true)
+    const rows = buildProxyHostImportRows(parsed, existing)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]?.existingSource).toBe(true)
+    expect(rows[1]?.existingSource).toBe(false)
+    // Same forward as live host must not count as “existing”.
+    expect(rows[1]?.host.forwardHost).toBe('old-backend')
+    expect(defaultProxyHostImportSelection(rows)).toEqual(['import-1'])
+    expect(resolveProxyHostImportTargetId(rows[0]!)).toBe('live-1')
+    expect(resolveProxyHostImportTargetId(rows[1]!)).toBeNull()
   })
 
   test('parseForwardTargetInput splits URLs and host:port', () => {

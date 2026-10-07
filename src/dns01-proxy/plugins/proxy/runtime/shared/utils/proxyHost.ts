@@ -430,3 +430,69 @@ export function hstsHeaderValue(host: Pick<ProxyHost, 'hstsEnabled' | 'hstsSubdo
     ? 'max-age=31536000; includeSubDomains'
     : 'max-age=31536000'
 }
+
+/** True when JSON looks like a proxy-hosts export (`{ hosts: [...] }`). */
+export function looksLikeProxyHostsFile(value: unknown): value is { hosts: unknown[] } {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Array.isArray((value as { hosts?: unknown }).hosts),
+  )
+}
+
+export type ProxyHostImportRow = {
+  /** Stable checkbox key (import index). */
+  key: string
+  host: ProxyHost
+  /** Source domain(s) already claimed by a live host — unchecked by default. */
+  existingSource: boolean
+  /** Live host ids that own conflicting source domains. */
+  conflictHostIds: string[]
+  conflictLabels: string[]
+}
+
+/**
+ * Build import rows from a parsed export. New sources are selected by default;
+ * rows that collide on source domains are not. Matching forward targets alone
+ * do not count as “existing”.
+ */
+export function buildProxyHostImportRows(
+  parsed: unknown,
+  existingHosts: Array<Pick<ProxyHost, 'id' | 'domainNames'>>,
+): ProxyHostImportRow[] {
+  const file = looksLikeProxyHostsFile(parsed)
+    ? normalizeProxyHostsFile(parsed)
+    : { version: 1 as const, hosts: [] }
+  return file.hosts.map((host, index) => {
+    const conflicts = findDuplicateDomainConflicts(host.domainNames, existingHosts)
+    const conflictHostIds = [...new Set(conflicts.map(item => item.hostId))]
+    const conflictLabels = [...new Set(conflicts.map(item => item.hostLabel))]
+    return {
+      key: `import-${index}`,
+      host,
+      existingSource: conflictHostIds.length > 0,
+      conflictHostIds,
+      conflictLabels,
+    }
+  })
+}
+
+/** Default checkbox set: every row except those with an existing source. */
+export function defaultProxyHostImportSelection(rows: ProxyHostImportRow[]): string[] {
+  return rows.filter(row => !row.existingSource).map(row => row.key)
+}
+
+/**
+ * Resolve the live host id to overwrite, or null to create a new host.
+ * Multi-host source conflicts return undefined (caller should skip / error).
+ */
+export function resolveProxyHostImportTargetId(row: ProxyHostImportRow): string | null | undefined {
+  if (!row.existingSource) {
+    return null
+  }
+  if (row.conflictHostIds.length === 1) {
+    return row.conflictHostIds[0] ?? null
+  }
+  return undefined
+}

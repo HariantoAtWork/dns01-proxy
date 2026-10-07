@@ -1,11 +1,23 @@
 <script setup lang="ts">
 import type { ProxyHost, ProxyHostInput } from '#proxy-shared/types/proxyHost'
 import {
+  buildProxyHostImportRows,
+  looksLikeProxyHostsFile,
+  resolveProxyHostImportTargetId,
+  type ProxyHostImportRow,
+} from '#proxy-shared/utils/proxyHost'
+import { triggerDownload } from '#client/utils/download'
+import {
   PhArrowsClockwise as ArrowsClockwise,
+  PhDownload as Download,
+  PhGear as Gear,
   PhPlus as Plus,
+  PhUpload as Upload,
 } from '@phosphor-icons/vue'
 
 useHead({ title: 'Hosts · Proxy' })
+
+const MAX_IMPORT_BYTES = 2 * 1024 * 1024
 
 const toasts = useToasts()
 const {
@@ -35,6 +47,12 @@ const togglingId = ref<string | null>(null)
 const deleteOpen = ref(false)
 const deleteTarget = ref<ProxyHost | null>(null)
 const modalRef = useTemplateRef<{ load: (host?: ProxyHost | null) => void }>('modal')
+
+const transferMenuOpen = ref(false)
+const importFileInput = useTemplateRef<HTMLInputElement>('import-file')
+const importOpen = ref(false)
+const importRows = ref<ProxyHostImportRow[]>([])
+const importing = ref(false)
 
 async function refresh() {
   try {
@@ -121,6 +139,122 @@ async function onToggleEnabled(host: ProxyHost, enabled: boolean) {
   }
 }
 
+function exportHosts() {
+  const payload = {
+    version: 1 as const,
+    hosts: hosts.value,
+  }
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
+    type: 'application/json',
+  })
+  triggerDownload(blob, 'proxy-hosts.json')
+  toasts.ok(`Exported ${hosts.value.length} host${hosts.value.length === 1 ? '' : 's'}`, 'Proxy')
+}
+
+function openImportPicker() {
+  importFileInput.value?.click()
+}
+
+async function onImportFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) {
+    return
+  }
+
+  if (file.size > MAX_IMPORT_BYTES) {
+    toasts.error('File is larger than 2 MiB', 'Proxy')
+    return
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(await file.text())
+  }
+  catch {
+    toasts.error('File is not valid JSON', 'Proxy')
+    return
+  }
+
+  if (!looksLikeProxyHostsFile(parsed)) {
+    toasts.error('File does not look like proxy-hosts.json', 'Proxy')
+    return
+  }
+
+  importRows.value = buildProxyHostImportRows(parsed, hosts.value)
+  if (!importRows.value.length) {
+    toasts.error('No proxy hosts found in this file', 'Proxy')
+    return
+  }
+  importOpen.value = true
+}
+
+async function confirmImport(keys: string[]) {
+  const selected = new Set(keys)
+  const rows = importRows.value.filter(row => selected.has(row.key))
+  if (!rows.length) {
+    return
+  }
+
+  importing.value = true
+  let created = 0
+  let replaced = 0
+  let failed = 0
+
+  try {
+    for (const row of rows) {
+      const targetId = resolveProxyHostImportTargetId(row)
+      if (targetId === undefined) {
+        failed += 1
+        toasts.error(
+          `Skipped ${row.host.domainNames[0] || row.host.id}: source domains span multiple hosts`,
+          'Proxy',
+        )
+        continue
+      }
+      try {
+        const fields = { ...row.host }
+        delete (fields as { id?: string }).id
+        const payload: ProxyHostInput = targetId
+          ? { ...fields, id: targetId }
+          : fields
+        await saveHost(payload)
+        if (targetId) {
+          replaced += 1
+        }
+        else {
+          created += 1
+        }
+      }
+      catch (err) {
+        failed += 1
+        const message = err instanceof Error ? err.message : 'Import failed'
+        toasts.error(message, 'Proxy')
+      }
+    }
+
+    importOpen.value = false
+    importRows.value = []
+    await Promise.all([loadAllHealth(), loadAllRemoteHealth()])
+
+    const parts = [
+      created ? `${created} imported` : '',
+      replaced ? `${replaced} replaced` : '',
+      failed ? `${failed} failed` : '',
+    ].filter(Boolean)
+    if (created || replaced) {
+      toasts.ok(parts.join(', ') || 'Import complete', 'Proxy')
+    }
+    else if (failed) {
+      toasts.error(parts.join(', ') || 'Import failed', 'Proxy')
+    }
+  }
+  finally {
+    importing.value = false
+  }
+}
+
 const HEALTH_REPROBE_MS = 30_000
 let healthTimer: ReturnType<typeof setInterval> | undefined
 
@@ -163,6 +297,54 @@ onUnmounted(() => {
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        <UiMenu v-model:open="transferMenuOpen" align="right">
+          <template #trigger="{ open, toggle, panelId }">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-[6px] border border-rule p-1.5 text-muted transition-colors hover:bg-paper hover:text-ink"
+              :class="open && 'bg-paper text-ink'"
+              :aria-expanded="open"
+              aria-haspopup="menu"
+              :aria-controls="panelId"
+              aria-label="Import or export proxy hosts"
+              title="Import / export"
+              :disabled="pending || importing"
+              @click="toggle()"
+            >
+              <Gear :size="16" weight="regular" aria-hidden="true" />
+            </button>
+          </template>
+          <template #default="{ close }">
+            <button
+              type="button"
+              role="menuitem"
+              class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+              :disabled="pending || importing || !hosts.length"
+              @click="close(); exportHosts()"
+            >
+              <Download :size="16" weight="regular" aria-hidden="true" />
+              Export JSON
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink hover:bg-paper disabled:opacity-50"
+              :disabled="pending || importing"
+              @click="close(); openImportPicker()"
+            >
+              <Upload :size="16" weight="regular" aria-hidden="true" />
+              Import JSON
+            </button>
+          </template>
+        </UiMenu>
+        <input
+          ref="import-file"
+          type="file"
+          accept="application/json,.json"
+          class="sr-only"
+          aria-label="Import proxy-hosts.json"
+          @change="onImportFileChange"
+        >
         <UiButton
           variant="ghost"
           size="sm"
@@ -232,6 +414,14 @@ onUnmounted(() => {
       :bearer-lists="bearerLists"
       :saving
       @save="onSave"
+    />
+
+    <ProxyHostsImportModal
+      v-model:open="importOpen"
+      :rows="importRows"
+      :pending="importing"
+      @confirm="confirmImport"
+      @cancel="importRows = []"
     />
 
     <UiConfirmDialog
