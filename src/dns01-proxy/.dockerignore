@@ -1,0 +1,23 @@
+# Dependencies & Nuxt build outputs (rebuilt in the image)
+node_modules
+.output
+.nuxt
+.nitro
+.cache
+.data
+dist
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# VCS, docs, IDE, logs
+.git
+.changelog
+README.md
+.fleet
+.idea
+.DS_Store
+logs
+*.log
