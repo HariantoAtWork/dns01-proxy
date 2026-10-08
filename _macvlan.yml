@@ -1,0 +1,33 @@
+# Optional Compose file: dedicated LAN IP for UDP+TCP 53 when the host already
+# owns :53. Point NS/A glue at 192.168.2.2 — not the host IP.
+# Edge/control stay published on the host for reverse proxy / cloudflared / tsdproxy.
+#
+#   ./dc.sh macvlan
+#   (or: docker compose -f docker-compose.yml -f _macvlan.yml up -d)
+#   ./dc.sh macvlan adds -f docker-compose.override.yml only when that file exists.
+#
+# Compose merges ports by appending; !override replaces the base list so 53:53 is dropped.
+# Edit parent (and subnet/gateway if your LAN differs) before use.
+
+networks:
+  dns53:
+    name: dns01-proxy-dns53
+    driver: macvlan
+    driver_opts:
+      parent: ovs_eth0 # CHANGE ME — host NIC (Synology often ovs_eth0 / eth0)
+    ipam:
+      config:
+        - subnet: 192.168.2.0/24
+          gateway: 192.168.2.1
+
+services:
+  dns01-proxy:
+    networks:
+      dns53:
+        ipv4_address: 192.168.2.2
+    ports: !override
+      # DNS is on the macvlan IP (udp+tcp 53). Do not publish 53 on the host.
+      - "80:80"
+      - "443:443"
+      - "1080:1080"
+      - "1443:1443"

@@ -24,6 +24,10 @@ Usage: ./dc.sh <command>
   vps-down           Stop vps compose
   vps-restart        vps-down + vps
 
+  macvlan            Dedicated LAN IP for :53 (_macvlan.yml → 192.168.2.2)
+  macvlan-down       Stop macvlan compose
+  macvlan-restart    macvlan-down + macvlan
+
   list-txt           bun script/list-txt.ts
   generate-password  bun script/generate-password.ts [length]
 
@@ -39,6 +43,17 @@ public_ip() {
   ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p'
 }
 
+compose_with_override() {
+  local overlay="$1"
+  shift
+  local -a args=(-f docker-compose.yml)
+  if [[ -f docker-compose.override.yml ]]; then
+    args+=(-f docker-compose.override.yml)
+  fi
+  args+=(-f "$overlay")
+  docker compose "${args[@]}" "$@"
+}
+
 vps_compose() {
   local ip
   ip="$(public_ip)"
@@ -46,12 +61,11 @@ vps_compose() {
     echo "dc.sh: could not detect PUBLIC_IP; set PUBLIC_IP=…" >&2
     exit 1
   fi
-  local -a args=(-f docker-compose.yml)
-  if [[ -f docker-compose.override.yml ]]; then
-    args+=(-f docker-compose.override.yml)
-  fi
-  args+=(-f _vps.yml)
-  PUBLIC_IP="$ip" docker compose "${args[@]}" "$@"
+  PUBLIC_IP="$ip" compose_with_override _vps.yml "$@"
+}
+
+macvlan_compose() {
+  compose_with_override _macvlan.yml "$@"
 }
 
 cmd="${1:-}"
@@ -100,6 +114,16 @@ case "$cmd" in
   vps-restart)
     vps_compose down "$@"
     vps_compose up -d "$@"
+    ;;
+  macvlan)
+    macvlan_compose up -d "$@"
+    ;;
+  macvlan-down)
+    macvlan_compose down "$@"
+    ;;
+  macvlan-restart)
+    macvlan_compose down "$@"
+    macvlan_compose up -d "$@"
     ;;
   list-txt)
     bun script/list-txt.ts "$@"
