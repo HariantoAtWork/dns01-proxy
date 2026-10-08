@@ -25,9 +25,4 @@ services:
     networks:
       dns53:
         ipv4_address: 192.168.2.2
-    ports: !override
-      # DNS is on the macvlan IP (udp+tcp 53). Do not publish 53 on the host.
-      - "80:80"
-      - "443:443"
-      - "1080:1080"
-      - "1443:1443"
+    ports: !reset []
