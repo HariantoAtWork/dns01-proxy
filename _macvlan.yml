@@ -8,6 +8,7 @@
 #
 # Compose merges ports by appending; !override replaces the base list so 53:53 is dropped.
 # Edit parent (and subnet/gateway if your LAN differs) before use.
+# EXPERIMENTAL: !reset removes all ports, !override appends to the list.
 
 networks:
   dns53:
@@ -22,7 +23,11 @@ networks:
 
 services:
   dns01-proxy:
+    ports: !reset
+    hostname: auth.uti.email
+    container_name: dns01-proxy
     networks:
+      default:
+      tsdproxy:
       dns53:
         ipv4_address: 192.168.2.2
-    ports: !reset []
