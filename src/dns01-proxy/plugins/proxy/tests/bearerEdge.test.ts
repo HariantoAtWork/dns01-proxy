@@ -111,6 +111,73 @@ describe('edge bearer list + live status', () => {
     expect(res.headers.get('www-authenticate') || '').toMatch(/Bearer/i)
   })
 
+  test('bearerPaths gates only matching prefixes', async () => {
+    const token = generateBearerToken()
+    const { list } = normalizeBearerListInput({
+      name: 'tunnel-register',
+      keys: [{ token }],
+    }, null)
+    reloadBearerLists([list])
+    const host = normalizeProxyHost({
+      id: 'tunnel-host',
+      domainNames: ['tunnel.example.com'],
+      forwardHost: '127.0.0.1',
+      forwardPort: 9,
+      forwardScheme: 'http',
+      bearerListId: list.id,
+      bearerPaths: ['/tunnel'],
+      allowWebsocketUpgrade: true,
+      enabled: true,
+    })
+    expect(host.bearerPaths).toEqual(['/tunnel'])
+    reloadRouteTable([host])
+
+    const openFetch = new Request('http://tunnel.example.com/t/session-1/print/cv', {
+      headers: { host: 'tunnel.example.com' },
+    })
+    const openRes = await tryHandleProxy(
+      openFetch,
+      edgeBinding(),
+      {} as never,
+      new URL(openFetch.url),
+    )
+    expect(openRes).toBeInstanceOf(Response)
+    if (openRes instanceof Response) {
+      // Not gated — may be upstream failure, but never dns01 401 Bearer.
+      expect(openRes.status).not.toBe(401)
+      expect(openRes.headers.get('www-authenticate') || '').not.toMatch(/Bearer/i)
+    }
+
+    const gated = new Request('http://tunnel.example.com/tunnel', {
+      headers: { host: 'tunnel.example.com' },
+    })
+    const gatedRes = await tryHandleProxy(
+      gated,
+      edgeBinding(),
+      {} as never,
+      new URL(gated.url),
+    )
+    expect(gatedRes).toBeInstanceOf(Response)
+    if (gatedRes instanceof Response) {
+      expect(gatedRes.status).toBe(401)
+      expect(gatedRes.headers.get('www-authenticate') || '').toMatch(/Bearer/i)
+    }
+
+    const health = new Request('http://tunnel.example.com/health', {
+      headers: { host: 'tunnel.example.com' },
+    })
+    const healthRes = await tryHandleProxy(
+      health,
+      edgeBinding(),
+      {} as never,
+      new URL(health.url),
+    )
+    expect(healthRes).toBeInstanceOf(Response)
+    if (healthRes instanceof Response) {
+      expect(healthRes.status).not.toBe(401)
+    }
+  })
+
   test('legacy bearerKeyId on host still gates', async () => {
     const token = generateBearerToken()
     const { list } = normalizeBearerListInput({

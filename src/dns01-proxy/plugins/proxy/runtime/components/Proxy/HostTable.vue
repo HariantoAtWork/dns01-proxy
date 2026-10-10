@@ -353,8 +353,10 @@ function onEnabledChange(host: ProxyHost, event: Event) {
               <span
                 v-if="host.bearerListId"
                 class="rounded border border-rule px-1.5 py-0.5 text-[11px] text-muted"
-                title="Requires Authorization: Bearer"
-              >Bearer</span>
+                :title="host.bearerPaths?.length
+                  ? `Bearer required on: ${host.bearerPaths.join(', ')}`
+                  : 'Requires Authorization: Bearer on all paths (except GET /)'"
+              >Bearer{{ host.bearerPaths?.length ? ` ${host.bearerPaths.join(' ')}` : '' }}</span>
             </div>
           </td>
           <td class="px-3 py-2">

@@ -122,7 +122,8 @@ onMounted(() => {
         <p class="max-w-[65ch] text-sm text-muted">
           Named groups of inbound gateway tokens. Bind a list on a Proxy Host so clients must send
           <span class="font-mono">Authorization: Bearer …</span>
-          matching any key in the list. Without auth,
+          matching any key in the list. Optionally restrict to path prefixes (e.g.
+          <span class="font-mono">/tunnel</span>) so other paths stay public. Without auth,
           <span class="font-mono">GET /</span> only shows upstream live status.
         </p>
       </div>

@@ -18,6 +18,13 @@ export interface ProxyHost {
   /** When set, clients must send Authorization: Bearer matching any key in this list. */
   bearerListId?: string | null
   /**
+   * Path prefixes that require the bearer list (e.g. `/tunnel`).
+   * Empty / omitted → require bearer on all paths except unauthenticated GET `/`
+   * (live status). Use this so fetch paths like `/t/:id` stay public while
+   * register stays gated.
+   */
+  bearerPaths?: string[]
+  /**
    * @deprecated Prefer bearerListId. Still read for older proxy-hosts.json rows.
    */
   bearerKeyId?: string | null

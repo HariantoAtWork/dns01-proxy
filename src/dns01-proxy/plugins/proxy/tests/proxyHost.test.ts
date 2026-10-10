@@ -104,9 +104,11 @@ describe('proxyHost normalize', () => {
       forwardHost: 'app',
       forwardScheme: 'https',
       bearerListId: 'list-1',
+      bearerPaths: ['tunnel', '/tunnel/'],
     })
     expect(httpsHost.forwardPort).toBe(443)
     expect(httpsHost.bearerListId).toBe('list-1')
+    expect(httpsHost.bearerPaths).toEqual(['/tunnel'])
     expect(defaultForwardPort('https')).toBe(443)
     expect(asForwardPort(0, 'http')).toBe(80)
   })
