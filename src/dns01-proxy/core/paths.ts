@@ -104,6 +104,14 @@ export function getProxySettingsFilePath(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'client', 'proxy-settings.json')
 }
 
+export function getRouterTargetsFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'router-targets.json')
+}
+
+export function getRouterSourcesFilePath(options?: DataRootOptions): string {
+  return dataPathWithOptions(options ?? {}, 'client', 'router-sources.json')
+}
+
 export function getBackupDir(options?: DataRootOptions): string {
   return dataPathWithOptions(options ?? {}, 'backup')
 }

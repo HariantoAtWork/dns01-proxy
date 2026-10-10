@@ -18,6 +18,7 @@ Local Nuxt (no Docker): `bun install --cwd src/dns01-proxy` then `bun run --cwd 
 ## Pages
 
 - [Bun proxy and SSL](Proxy-SSL.md) — shared `:80`/`:443`, SSL Certificate vs Inherited SSL, nested admin SNI
+- [Router and Sunshine](Router-and-Sunshine.md) — L4 TCP/UDP port forward, Moonlight ports, Compose publish
 - [Tiny stack (shared mode)](Tiny-stack.md) — slim auth zone without Register UI
 - [Working Synology setup](Working-Synology-setup.md) — runbook that issued certs on the NAS
 - [Test this stack on the Synology](Test-on-Synology.md) — DMZ owns public 53; Mac Compose cannot prove DNS-01

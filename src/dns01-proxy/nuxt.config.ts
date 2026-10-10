@@ -34,6 +34,7 @@ export default defineNuxtConfig({
     './plugins/client',
     './plugins/dns01-lab',
     './plugins/proxy',
+    './plugins/router',
   ],
   nitro: {
     preset: 'bun',

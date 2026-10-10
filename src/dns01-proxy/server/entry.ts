@@ -18,12 +18,16 @@ import { reloadRouteTable } from './proxy/routeTable'
 import { buildEdgeTlsOptions, shouldBindEdgeHttps } from './proxy/tls'
 import { registerEdgeHttpsRuntime } from './proxy/edgeHttps'
 import { proxyWebsocketHandlers } from './proxy/websocket'
+import { reloadRouterRuntime } from './router/runtime'
 
 loadAcmeConfigSync()
 reloadRouteTable()
 reloadAccessLists()
 reloadProxySettings()
 reloadBearerLists()
+void reloadRouterRuntime().catch((error) => {
+  console.warn('[router] failed to load binds at boot:', error)
+})
 
 const nitroApp = useNitroApp()
 const websocketEnabled = Boolean((import.meta as ImportMeta & { _websocket?: boolean })._websocket)

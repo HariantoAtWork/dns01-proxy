@@ -16,6 +16,8 @@ services:
       - "443:443"     # edge HTTPS — Bun reverse proxy (SNI)
       - "1080:1080"   # control HTTP — operator UI + /register /update /health /api
       - "1443:1443"   # control HTTPS — same when tls=cert
+      # Router (L4 TCP/UDP) — publish mapped ports in your override, or use host networking.
+      # See .wiki/Router-and-Sunshine.md (Sunshine/Moonlight preset).
     volumes:
       - ./data/dns01-proxy:/var/lib/dns01-proxy  # server/, client/, backup/ (or host /var/lib/dns01-proxy:…)
       - ./data/letsencrypt:/etc/letsencrypt  # live/, staging/, trash/, accounts/

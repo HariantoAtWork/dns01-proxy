@@ -14,6 +14,8 @@ import {
   PhListChecks as ListChecks,
   PhKey as Key,
   PhSquaresFour as SquaresFour,
+  PhGitFork as GitFork,
+  PhDesktopTower as DesktopTower,
 } from '@phosphor-icons/vue'
 
 type NavChild = {
@@ -64,6 +66,18 @@ const links = computed<NavLink[]>(() => {
         { to: '/proxy/hosts', label: 'Hosts', icon: Swap, exact: true },
         { to: '/proxy/access-lists', label: 'Access Lists', icon: ListChecks, exact: true },
         { to: '/proxy/bearer-lists', label: 'Bearer Lists', icon: Key, exact: true },
+      ],
+    },
+    {
+      to: '/router',
+      label: 'Router',
+      icon: GitFork,
+      exact: false,
+      registerAction: false,
+      children: [
+        { to: '/router', label: 'Overview', icon: SquaresFour, exact: true },
+        { to: '/router/sources', label: 'Sources', icon: GitFork, exact: true },
+        { to: '/router/targets', label: 'Targets', icon: DesktopTower, exact: true },
       ],
     },
     { to: '/settings', label: 'Settings', icon: Gear, exact: true, registerAction: false },
