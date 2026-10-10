@@ -1,5 +1,6 @@
 - [Home](Home)
 - [Bun proxy and SSL](Proxy-SSL)
+- [Proxy bearer lists](Proxy-Bearer)
 - [Tiny stack (shared mode)](Tiny-stack)
 - [Working Synology setup](Working-Synology-setup)
 - [Test this stack on the Synology](Test-on-Synology)

@@ -6,6 +6,7 @@ import type {
   ProxyHostsFile,
   ProxyLocation,
 } from '../types/proxyHost'
+import { normalizeBearerPaths } from './bearerPaths'
 
 /** Default upstream port for a forward scheme (empty/invalid port → this). */
 export function defaultForwardPort(scheme: ForwardScheme): number {
@@ -33,6 +34,7 @@ export function emptyProxyHost(): ProxyHostInput {
     allowWebsocketUpgrade: false,
     accessListId: null,
     bearerListId: null,
+    bearerPaths: [],
     locations: [],
     certificateName: null,
     sslForced: false,
@@ -362,6 +364,7 @@ export function normalizeProxyHost(raw: unknown, idFallback?: string): ProxyHost
       }
       return null
     })(),
+    bearerPaths: normalizeBearerPaths(row.bearerPaths),
     locations,
     certificateName: row.certificateName == null || row.certificateName === ''
       ? null

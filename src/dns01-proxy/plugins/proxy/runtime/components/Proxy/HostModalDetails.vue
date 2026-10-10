@@ -238,5 +238,23 @@ defineExpose({ resetDetailsInfoOpen })
         </select>
       </template>
     </UiField>
+
+    <UiField
+      v-if="draft.bearerListId"
+      label="Bearer paths"
+      hint="Optional. One path prefix per line (e.g. /tunnel). Empty = require bearer on all paths except GET /. Use /tunnel for headless-tunnel so /t/:id stays public for Chromium."
+    >
+      <textarea
+        class="ui-input min-h-[4.5rem] w-full border border-rule bg-paper px-3 py-2 font-mono text-sm"
+        style="border-radius: var(--radius-input)"
+        :value="(draft.bearerPaths || []).join('\n')"
+        placeholder="/tunnel"
+        spellcheck="false"
+        @input="draft.bearerPaths = ($event.target as HTMLTextAreaElement).value
+          .split(/\n/)
+          .map(line => line.trim())
+          .filter(Boolean)"
+      />
+    </UiField>
   </div>
 </template>

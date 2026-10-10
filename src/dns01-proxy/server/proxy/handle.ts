@@ -3,6 +3,7 @@ import type { ListenBinding } from '../utils/listen'
 import { isControlBinding, isEdgeBinding } from '../utils/listen'
 import { recordAccessDeny } from './accessDenies'
 import { getAccessListById, getProxySettingsCached } from './accessListState'
+import { pathnameRequiresBearer } from '../../plugins/proxy/runtime/shared/utils/bearerPaths'
 import { verifyInboundBearer } from './bearerKeyState'
 import { logProxyAccess } from './accessLog'
 import { resolveProxyClientIp } from './clientIp'
@@ -41,6 +42,10 @@ async function enforceBearerKey(
 ): Promise<Response | null> {
   const listId = match.host.bearerListId || match.host.bearerKeyId
   if (!listId) {
+    return null
+  }
+
+  if (!pathnameRequiresBearer(pathname, match.host.bearerPaths)) {
     return null
   }
 
