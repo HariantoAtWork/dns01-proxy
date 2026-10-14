@@ -17,6 +17,17 @@ flowchart LR
   PubDNS[Lets Encrypt] -->|DNS-01 query :53| API
 ```
 
+## Screenshots
+
+Operator UI at 1280px — dark / light. Full set under [`.wiki/assets/`](.wiki/assets/).
+
+| Dark | Light |
+| --- | --- |
+| ![Home dark](.wiki/assets/dark-home.png) | ![Home light](.wiki/assets/light-home.png) |
+| ![Certificates dark](.wiki/assets/dark-certificates.png) | ![Certificates light](.wiki/assets/light-certificates.png) |
+| ![Proxy hosts dark](.wiki/assets/dark-proxy-hosts.png) | ![Proxy hosts light](.wiki/assets/light-proxy-hosts.png) |
+| ![DNS setup dark](.wiki/assets/dark-dns-setup.png) | ![DNS setup light](.wiki/assets/light-dns-setup.png) |
+
 ## Storage layout
 
 | Role | Production (`ACMEDNS_DATA_ROOT`) | Local `bun run dev` |
