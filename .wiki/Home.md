@@ -25,6 +25,7 @@ Local Nuxt (no Docker): `bun install --cwd src/dns01-proxy` then `bun run --cwd 
 - [VPS port 53](VPS-port-53.md) — bind `:53` to the public/NIC IPv4 when `0.0.0.0:53` collides with resolved
 - [Cloudflared and DNS](Cloudflared-and-DNS.md) — tunnel is HTTPS only; it cannot carry DNS-01
 - [Certificate checklist](Certificate-checklist.md) — CNAME, glue, forward, then Apply in the Certs UI
+- [SemVer releases](SemVer-releases.md) — `v*` tags → Docker Hub (`harianto/dns01-proxy`)
 
 ## Two paths (DNS-01)
 

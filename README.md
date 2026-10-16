@@ -98,6 +98,17 @@ cp docker-compose.override.yml.example docker-compose.override.yml
 
 Useful `./dc.sh` commands: `build`, `push`, `up` / `restart` / `dev` / `down` / `logs`.
 
+### Publish (SemVer → Docker Hub)
+
+Prefer CI over a laptop push. Cut an annotated git tag; Actions builds **amd64 + arm64** and pushes `harianto/dns01-proxy`:
+
+```bash
+git tag -a v1.0.1 -m v1.0.1
+git push origin v1.0.1
+```
+
+Hub gets `1.0.1`, `1.0`, and `latest`. Habit + checklist: [`.wiki/SemVer-releases.md`](.wiki/SemVer-releases.md). Local multi-arch remains `./dc.sh push`.
+
 Local Nuxt dev (no Docker): `bun install --cwd src/dns01-proxy` then `bun run --cwd src/dns01-proxy dev` (UI on `:3000`).
 
 Docker Nuxt hot-reload (`_dev.yml`, UI on `:3000`, DNS on `:15353`):
